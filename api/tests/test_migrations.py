@@ -48,3 +48,26 @@ def test_audit_is_append_only(conn):
         conn.execute("DELETE FROM tokens_auditoria")
 
     assert conn.execute("SELECT resultado FROM tokens_auditoria").fetchall() == [("ok",)]
+
+
+def insert_report(conn, diagnostico_id, confianca="ALTA"):
+    conn.execute(
+        "INSERT INTO relatorios (diagnostico_id, modelo, duracao_ms, maior_confianca, relatorio_md,"
+        " chamado_titulo, chamado_descricao) VALUES (?, 'm', 1, ?, 'r', 't', 'd')",
+        (diagnostico_id, confianca),
+    )
+
+
+def test_one_report_per_diagnostico_with_known_confidence(conn):
+    conn.execute(
+        "INSERT INTO diagnosticos (carreta, token_id, hostname, sessao_id, versao_schema, dados, resumo)"
+        " VALUES ('UM-03', 1, 'H', 'S', '1.1', '{}', '{}')"
+    )
+    insert_report(conn, 1)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        insert_report(conn, 1)
+    conn.execute("DELETE FROM relatorios")
+    with pytest.raises(sqlite3.IntegrityError):
+        insert_report(conn, 1, "alta")
+    assert conn.execute("SELECT espelho_status FROM relatorios").fetchall() == []

@@ -5,9 +5,12 @@
     python -m app.tokens revoke --carreta UM-03 --motivo "..." --operador matheus
     python -m app.tokens rotate --carreta UM-03 --operador matheus
     python -m app.tokens auditoria [--carreta UM-03] --operador matheus
+    python -m app.tokens uso [--carreta UM-03] --operador matheus
 
-Every run, refused or failed ones included, leaves a row in tokens_auditoria.
-Exit codes: 0 ok, 1 refused, 2 failed.
+Every run that gets past argparse, refused or failed ones included, leaves a row in
+tokens_auditoria. An argparse error (unknown subcommand, missing --operador) exits 2
+before the database is opened and leaves no row.
+Exit codes: 0 ok, 1 refused, 2 argparse usage error, 3 database failure.
 """
 
 import argparse
@@ -115,6 +118,18 @@ def show_audit(conn, args):
     return table(["id", "em", "operacao", "operador", "carreta", "token_id", "resultado", "detalhe"], rows)
 
 
+def show_usage(conn, args):
+    # Scenario 5 of docs/TOKENS.md: diagnosticos per carreta, token and UTC day.
+    rows = conn.execute(
+        "SELECT carreta, token_id, date(recebido_em) AS dia, count(*), count(DISTINCT hostname),"
+        " sum(falha IS NOT NULL), min(time(recebido_em)), max(time(recebido_em)) FROM diagnosticos"
+        " WHERE ? IS NULL OR carreta = ? GROUP BY carreta, token_id, dia ORDER BY carreta, dia, token_id",
+        (args.carreta, args.carreta),
+    ).fetchall()
+    audit(conn, "uso", args.operador, args.carreta, "ok")
+    return table(["carreta", "token_id", "dia", "diagnosticos", "hostnames", "falhas_ia", "primeiro", "ultimo"], rows)
+
+
 def token_text(carreta, token_id, token):
     return (
         f"Token da carreta {carreta} (id {token_id}):\n\n{token}\n\n"
@@ -142,6 +157,7 @@ def parser():
         "revoke": (revoke, ["carreta", "motivo"]),
         "rotate": (rotate, ["carreta"]),
         "auditoria": (show_audit, []),
+        "uso": (show_usage, []),
     }
     for name, (handler, required) in specs.items():
         sub = commands.add_parser(name)
@@ -149,7 +165,7 @@ def parser():
         sub.add_argument("--operador", required=True, help="quem executa, gravado na auditoria")
         if "carreta" in required:
             sub.add_argument("--carreta", required=True, type=carreta)
-        if name == "auditoria":
+        if name in ("auditoria", "uso"):
             sub.add_argument("--carreta", type=carreta)
         for field in ("descricao", "motivo"):
             if field in required:
@@ -179,7 +195,7 @@ def main(argv=None, settings: Settings | None = None) -> int:
             result, detail, code = "recusado", str(refusal), 1
         except sqlite3.Error as error:
             # SQLite messages name tables and constraints, never values.
-            result, detail, code = "falha", f"{type(error).__name__}: {error}", 2
+            result, detail, code = "falha", f"{type(error).__name__}: {error}", 3
         # After the rollback, in autocommit: the operation is undone, its audit row stays.
         audit(conn, args.command, args.operador, carreta_arg, result, detalhe=detail)
         print(f"{result}: {detail}", file=sys.stderr)

@@ -70,6 +70,9 @@ def exigir_token(request: Request) -> str:
     finally:
         conn.close()
 
+    # The row id of the token, for diagnosticos.token_id: the carreta alone could match a
+    # token rotated after this check.
+    request.state.token_id = token_id
     if count > settings.rate_limit_per_token_per_hour:
         retry_after = 3600 - (now.minute * 60 + now.second)
         raise Refusal(429, "limite_excedido", {"Retry-After": str(retry_after)})
