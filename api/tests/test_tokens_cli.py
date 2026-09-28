@@ -195,3 +195,27 @@ def test_writer_waits_for_a_busy_database(settings):
 
     assert code == 0
     assert time.monotonic() - start >= 0.4
+
+
+def test_uso_counts_diagnosticos_per_carreta_and_day(cli, rows, settings):
+    create(cli)
+    conn = db.connect(settings.database_path)
+    with db.immediate(conn):
+        for hostname, falha, em in [("A", None, "2026-09-28 10:00:00"), ("B", "ia_timeout", "2026-09-28 23:10:00"),
+                                     ("A", None, "2026-09-29 08:00:00")]:
+            conn.execute(
+                "INSERT INTO diagnosticos (carreta, token_id, hostname, sessao_id, versao_schema, dados, resumo,"
+                " falha, recebido_em) VALUES ('UM-03', 1, ?, 's', '1.1', '{}', '{}', ?, ?)",
+                (hostname, falha, em),
+            )
+    conn.close()
+
+    code, out, _ = cli("uso", "--carreta", "um-03")
+
+    assert code == 0
+    assert out.splitlines() == [
+        "carreta\ttoken_id\tdia\tdiagnosticos\thostnames\tfalhas_ia\tprimeiro\tultimo",
+        "UM-03\t1\t2026-09-28\t2\t2\t1\t10:00:00\t23:10:00",
+        "UM-03\t1\t2026-09-29\t1\t1\t0\t08:00:00\t08:00:00",
+    ]
+    assert rows("SELECT operacao, carreta FROM tokens_auditoria ORDER BY id DESC LIMIT 1") == [("uso", "UM-03")]
