@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app import db
 from app.config import Settings
+from app.routes import saude
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -24,4 +25,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.include_router(saude.router)
     return app
