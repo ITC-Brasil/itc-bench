@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import db
+from app.auth import Refusal, refusal_handler
 from app.body_limit import BodyLimit
 from app.config import Settings
 from app.routes import saude
@@ -27,5 +28,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.add_middleware(BodyLimit, max_bytes=settings.max_body_bytes)
+    app.add_exception_handler(Refusal, refusal_handler)
     app.include_router(saude.router)
     return app
