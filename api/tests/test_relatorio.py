@@ -58,7 +58,7 @@ def settings(tmp_path):
 
 @pytest.fixture
 def client(settings, go):
-    with TestClient(create_app(settings, httpx.MockTransport(go.handler))) as client:
+    with TestClient(create_app(settings, {"ia": httpx.MockTransport(go.handler)}, lambda funcao: funcao())) as client:
         yield client
 
 

@@ -1,14 +1,19 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app import db
+from app import db, tarefas
 from app.auth import Refusal, refusal_handler
 from app.body_limit import BodyLimit
 from app.config import Settings
 from app.routes import relatorio, saude
+from app.services import nocodb
+
+log = logging.getLogger("tecnico")
 
 
 async def invalid_request(request, exc) -> JSONResponse:
@@ -16,15 +21,19 @@ async def invalid_request(request, exc) -> JSONResponse:
     return JSONResponse({"erro": "requisicao_invalida"}, 422)
 
 
-def create_app(settings: Settings | None = None, ia_transport=None) -> FastAPI:
-    """ia_transport: httpx transport for the OpenCode Go client; tests pass a mock, production None."""
+def create_app(settings: Settings | None = None, transports: dict | None = None, em_segundo_plano=tarefas.em_thread) -> FastAPI:
+    """transports: httpx transports by service ("ia", "nocodb", "ntfy"); tests pass mocks,
+    production none. em_segundo_plano: how off-request work runs; tests run it inline."""
     # Settings are loaded here, so a forbidden model (ADR-011) stops the container at startup.
     settings = settings or Settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db.migrate(settings.database_path)
+        repetir = asyncio.create_task(repetir_espelho(app)) if nocodb.configurado(settings) else None
         yield
+        if repetir:
+            repetir.cancel()
 
     docs = settings.app_enable_docs
     app = FastAPI(
@@ -35,10 +44,22 @@ def create_app(settings: Settings | None = None, ia_transport=None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
-    app.state.ia_transport = ia_transport
+    app.state.transports = transports or {}
+    app.state.em_segundo_plano = em_segundo_plano
     app.add_middleware(BodyLimit, max_bytes=settings.max_body_bytes)
     app.add_exception_handler(Refusal, refusal_handler)
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.include_router(saude.router)
     app.include_router(relatorio.router)
     return app
+
+
+async def repetir_espelho(app: FastAPI) -> None:
+    """Resend pending mirrors every NOCODB_RETRY_SECONDS, also when no new report arrives."""
+    settings = app.state.settings
+    while True:
+        await asyncio.sleep(settings.nocodb_retry_seconds)
+        try:
+            await asyncio.to_thread(nocodb.espelhar_pendentes, settings, app.state.transports.get("nocodb"))
+        except Exception:
+            log.exception("reenvio do espelho falhou")
