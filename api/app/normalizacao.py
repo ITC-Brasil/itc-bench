@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-VERSOES = ("1.0", "1.1")
+VERSOES = ("1.0", "1.1", "1.2")
 MODULOS = ("disco", "eventlog", "rede", "processos", "bateria")
 
 # Copy of pendrive/config/eventlog-conhecidos.json (ADR-022); CI fails if they differ.
@@ -45,7 +45,8 @@ def normalizar(entrada: dict) -> tuple[dict, list[str]]:
         de_1_0(sessao, modulos, avisos)
 
     # 1.0 and 1.1: usuarioLogado is $env:USERNAME, the account that elevated the tool, not
-    # the user of the machine. Kept under its real meaning and never prompted.
+    # the user of the machine. Kept under its 1.2 name (usuarioExecucao), never prompted;
+    # 1.2 already sends usuarioExecucao and usuarioSessao.
     if "usuarioLogado" in sessao:
         sessao["usuarioExecucao"] = sessao.pop("usuarioLogado")
     sessao.setdefault("usuarioSessao", None)

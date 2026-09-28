@@ -36,3 +36,13 @@ def test_identifiers_stay_out_of_the_prompt():
     for secret in ("aluno01", "XXXXXXXX", "00-00-00-00-00-00", "usuarioExecucao", "numeroSerie", "macAddress"):
         assert secret not in user
     assert "TESTE-NB-10" in user
+
+
+def test_session_user_of_1_2_reaches_the_prompt_and_the_executing_account_does_not():
+    from test_normalizacao import v12
+
+    normalized, avisos = normalizacao.normalizar(v12())
+    user = prompt.montar(normalized, avisos, [])[1]["content"]
+    # JSON escapes the backslash of DOMAIN\user.
+    assert '"usuarioSessao":"TESTE-NB-11\\\\aluno01"' in user
+    assert "tecnico.admin" not in user
