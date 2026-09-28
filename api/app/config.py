@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     app_enable_docs: bool = False
     database_path: str = "/data/tecnico.db"
+    max_body_bytes: int = 512 * 1024
     opencode_go_model: str = "mimo-v2.6-flash"
 
     @field_validator("opencode_go_model")
