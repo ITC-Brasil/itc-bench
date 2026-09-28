@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ADR-011: these models use customer data for training.
@@ -13,7 +13,11 @@ class Settings(BaseSettings):
     database_path: str = "/data/tecnico.db"
     max_body_bytes: int = 512 * 1024
     rate_limit_per_token_per_hour: int = 60
+    # SecretStr: repr, str and model_dump show "**********", never the key (§7).
+    opencode_go_api_key: SecretStr = SecretStr("")
     opencode_go_model: str = "mimo-v2.6-flash"
+    # ADR-010: answer before the 100 s cut of the Cloudflare Tunnel; 90 leaves room for the rest.
+    opencode_go_timeout_seconds: float = Field(60.0, gt=0, le=90)
 
     @field_validator("opencode_go_model")
     @classmethod
