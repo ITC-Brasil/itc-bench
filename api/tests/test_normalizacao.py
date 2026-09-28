@@ -144,16 +144,19 @@ def test_api_base_has_the_pendrive_entries():
     assert len(normalizacao.BASE_EVENTOS) == 17
 
 
+USUARIO_SESSAO = r"TESTE-NB-11\aluno01"
+
+
 def v12():
     body = load("1.1")
     sessao = body["sessao"]
     sessao["versaoSchema"] = "1.2"
     sessao["usuarioExecucao"] = sessao.pop("usuarioLogado")
-    sessao["usuarioSessao"] = "TESTE-NB-11\aluno01"
+    sessao["usuarioSessao"] = USUARIO_SESSAO
     return body
 
 
 def test_1_2_keeps_both_user_fields():
     sessao = normalizacao.normalizar(v12())[0]["sessao"]
-    assert (sessao["usuarioExecucao"], sessao["usuarioSessao"]) == ("tecnico.admin", "TESTE-NB-11\aluno01")
+    assert (sessao["usuarioExecucao"], sessao["usuarioSessao"]) == ("tecnico.admin", USUARIO_SESSAO)
     assert "usuarioLogado" not in sessao

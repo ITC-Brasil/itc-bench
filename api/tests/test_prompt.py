@@ -44,5 +44,5 @@ def test_session_user_of_1_2_reaches_the_prompt_and_the_executing_account_does_n
     normalized, avisos = normalizacao.normalizar(v12())
     user = prompt.montar(normalized, avisos, [])[1]["content"]
     # JSON escapes the backslash of DOMAIN\user.
-    assert '"usuarioSessao":"TESTE-NB-11\\\\aluno01"' in user
+    assert r'"usuarioSessao":"TESTE-NB-11\\aluno01"' in user
     assert "tecnico.admin" not in user
