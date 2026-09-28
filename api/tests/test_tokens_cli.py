@@ -2,6 +2,7 @@ import re
 import sqlite3
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
@@ -95,6 +96,14 @@ def test_empty_operator_is_refused_and_audited(settings, rows, capsys):
     assert rows("SELECT operacao, operador, resultado FROM tokens_auditoria") == [("list", "", "recusado")]
 
 
+def test_usage_error_exits_2_before_the_database(settings, capsys):
+    with pytest.raises(SystemExit) as exit_:
+        tokens.main(["list"], settings)
+
+    assert exit_.value.code == 2
+    assert not Path(settings.database_path).exists()
+
+
 def test_revoke_deactivates_the_token(cli, rows):
     create(cli)
     code, _, _ = cli("revoke", "--carreta", "UM-03", "--motivo", "pendrive perdido")
@@ -130,7 +139,7 @@ def test_failure_in_the_middle_of_rotate_keeps_the_old_token(cli, rows, monkeypa
 
     code, out, err = cli("rotate", "--carreta", "UM-03")
 
-    assert code == 2
+    assert code == 3
     assert old not in out
     assert rows("SELECT * FROM carretas_tokens") == before
     assert rows("SELECT operacao, resultado FROM tokens_auditoria WHERE resultado = 'falha'") == [("rotate", "falha")]
