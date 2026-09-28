@@ -23,7 +23,7 @@ def client(settings):
 
 @pytest.fixture
 def protected_client(settings):
-    """App with a test-only protected route; production has none until Module 03."""
+    """App with a test-only protected route, to test exigir_token apart from the real routes."""
     app = create_app(settings)
 
     @app.post("/teste/protegida")
