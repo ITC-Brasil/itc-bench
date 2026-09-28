@@ -215,3 +215,10 @@ def test_modules_are_optional(client, auth):
 def test_invalid_hostname_in_history_is_422(client, auth):
     assert client.get("/v1/historico/" + "A" * 64, headers=auth).status_code == 422
     assert client.get("/v1/historico/-X", headers=auth).status_code == 422
+
+
+def test_1_2_session_is_accepted(client, auth, rows):
+    from test_normalizacao import v12
+
+    assert client.post("/v1/relatorio", json=v12(), headers=auth).status_code == 200
+    assert rows("SELECT versao_schema FROM diagnosticos") == [("1.2",)]
