@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from app import db
+from app import db, tarefas
 from app.tokens import PREFIX, hash_token
 
 # PREFIX + secrets.token_urlsafe(32): 43 URL-safe characters.
@@ -53,6 +53,7 @@ def exigir_token(request: Request) -> str:
     settings = request.app.state.settings
     digest = hash_token(token)
     now = utcnow()
+    revogado = None
     conn = db.connect(settings.database_path)
     try:
         with db.immediate(conn):
@@ -63,12 +64,19 @@ def exigir_token(request: Request) -> str:
                 (digest,),
             ).fetchone()
             if row is None or not hmac.compare_digest(row[2], digest):
+                # Same 401 either way; a revoked token only adds an ntfy alert (§6.7).
+                revogado = conn.execute(
+                    "SELECT carreta FROM carretas_tokens WHERE token_hash = ? AND ativo = 0", (digest,)
+                ).fetchone()
                 raise unauthorized()
             token_id, carreta, _ = row
             count = conn.execute(COUNT_USE, (token_id, now.strftime("%Y-%m-%dT%H"))).fetchone()[0]
             conn.execute("UPDATE carretas_tokens SET ultimo_uso = CURRENT_TIMESTAMP WHERE id = ?", (token_id,))
     finally:
         conn.close()
+        # After the rollback: the alert writes to alertas and must not wait for this lock.
+        if revogado is not None:
+            tarefas.token_revogado(request.app, revogado[0])
 
     # The row id of the token, for diagnosticos.token_id: the carreta alone could match a
     # token rotated after this check.

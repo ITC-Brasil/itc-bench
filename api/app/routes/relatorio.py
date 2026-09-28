@@ -4,7 +4,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, Path, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from app import db, normalizacao, prompt
+from app import db, normalizacao, prompt, tarefas
 from app.auth import Refusal, exigir_token
 from app.services import opencode_go
 
@@ -96,11 +96,12 @@ def relatorio(entrada: Entrada, request: Request, carreta: str = Depends(exigir_
         # Outside any transaction: the call can take up to the timeout (ADR-010).
         try:
             gerado = opencode_go.gerar(
-                settings, prompt.montar(normalizada, avisos, anteriores), sessao["id"], request.app.state.ia_transport
+                settings, prompt.montar(normalizada, avisos, anteriores), sessao["id"], request.app.state.transports.get("ia")
             )
         except opencode_go.IAFalha as falha:
             with db.immediate(conn):
                 conn.execute("UPDATE diagnosticos SET falha = ? WHERE id = ?", (falha.code, diagnostico_id))
+            tarefas.falha_ia(request.app, falha.code)
             raise Refusal(falha.status, falha.code) from None
 
         relatorio_md = com_avisos(gerado.relatorio_md, avisos)
@@ -116,6 +117,7 @@ def relatorio(entrada: Entrada, request: Request, carreta: str = Depends(exigir_
     finally:
         conn.close()
 
+    tarefas.espelhar(request.app)
     return {
         "relatorio_md": relatorio_md,
         "chamado_titulo": gerado.chamado_titulo,
