@@ -4,6 +4,27 @@ from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 MIGRATION_NAME = re.compile(r"^(\d{4})_\d{8}_[a-z0-9_]+\.sql$")
+LEADING_COMMENTS = re.compile(r"^\s*(?:(?:--[^\n]*(?:\n|$)|/\*.*?\*/)\s*)*", re.S)
+TRANSACTION_CONTROL = re.compile(r"(BEGIN|COMMIT|END|ROLLBACK|SAVEPOINT|RELEASE)\b", re.I)
+
+
+def statements(sql: str):
+    """Split a script into statements; complete_statement keeps quoted ';' and triggers whole."""
+    buffer = ""
+    for piece in sql.split(";"):
+        buffer += piece + ";"
+        if sqlite3.complete_statement(buffer):
+            yield buffer
+            buffer = ""
+    if buffer.strip(" \t\r\n;"):
+        yield buffer
+
+
+def reject_transaction_control(name: str, sql: str) -> None:
+    # The runner owns the transaction: a COMMIT inside the file would make it non-atomic.
+    for statement in statements(sql):
+        if TRANSACTION_CONTROL.match(LEADING_COMMENTS.sub("", statement, count=1)):
+            raise ValueError(f"transaction control is not allowed in migrations: {name}")
 
 
 def migrate(database_path: str, migrations_dir: Path = MIGRATIONS_DIR) -> None:
@@ -26,10 +47,12 @@ def migrate(database_path: str, migrations_dir: Path = MIGRATIONS_DIR) -> None:
             version = int(match.group(1))
             if version in applied:
                 continue
+            sql = file.read_text(encoding="utf-8")
+            reject_transaction_control(file.name, sql)
             # version and name are safe to inline: both are constrained by MIGRATION_NAME.
             script = (
                 "BEGIN;\n"
-                f"{file.read_text(encoding='utf-8')}\n;\n"
+                f"{sql}\n;\n"
                 f"INSERT INTO schema_migrations (version, name) VALUES ({version}, '{file.name}');\n"
                 "COMMIT;"
             )
