@@ -38,3 +38,13 @@ def test_api_key_is_secret_and_timeout_defaults_to_60(monkeypatch):
 def test_timeout_outside_the_tunnel_budget_is_rejected(seconds):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, opencode_go_timeout_seconds=seconds)
+
+
+def test_mirror_and_alerts_are_off_by_default_and_tokens_are_secret(monkeypatch):
+    monkeypatch.setenv("NOCODB_TOKEN", "nc-real")
+    monkeypatch.setenv("NTFY_TOKEN", "tk-real")
+    settings = Settings(_env_file=None)
+
+    assert (settings.nocodb_enabled, settings.ntfy_enabled) == (False, False)
+    assert "nc-real" not in repr(settings) and "tk-real" not in repr(settings)
+    assert (settings.nocodb_retry_seconds, settings.ntfy_repeat_minutes, settings.ntfy_failure_threshold_per_hour) == (300, 60, 5)

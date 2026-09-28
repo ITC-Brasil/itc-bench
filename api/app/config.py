@@ -18,6 +18,19 @@ class Settings(BaseSettings):
     opencode_go_model: str = "mimo-v2.6-flash"
     # ADR-010: answer before the 100 s cut of the Cloudflare Tunnel; 90 leaves room for the rest.
     opencode_go_timeout_seconds: float = Field(60.0, gt=0, le=90)
+    # Mirror of relatorios in NocoDB (ADR-005): one way, off the request path.
+    nocodb_enabled: bool = False
+    nocodb_url: str = ""
+    nocodb_token: SecretStr = SecretStr("")
+    nocodb_table_id: str = ""
+    nocodb_retry_seconds: int = Field(300, ge=10)
+    # ntfy alerts (§6.7); the same key is sent at most once per ntfy_repeat_minutes.
+    ntfy_enabled: bool = False
+    ntfy_url: str = ""
+    ntfy_topic: str = ""
+    ntfy_token: SecretStr = SecretStr("")
+    ntfy_repeat_minutes: int = Field(60, ge=1)
+    ntfy_failure_threshold_per_hour: int = Field(5, ge=1)
 
     @field_validator("opencode_go_model")
     @classmethod
