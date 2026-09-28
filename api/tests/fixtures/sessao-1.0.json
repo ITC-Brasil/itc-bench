@@ -1,0 +1,66 @@
+{
+  "sessao": {
+    "versaoSchema": "1.0",
+    "tipo": "sessao",
+    "id": "2026-09-05_1432_TESTE-NB-10",
+    "hostname": " teste-nb-10 ",
+    "usuarioLogado": "aluno01",
+    "projeto": "QDFM",
+    "subPerfil": "professor",
+    "politicaLimpeza": "conservadora",
+    "inicio": "2026-09-05T14:32:00.1234567-03:00",
+    "fim": "2026-09-05T14:51:00-03:00",
+    "duracaoSegundos": 1140,
+    "encerradaNormalmente": true,
+    "executadoElevado": true,
+    "ferramentaVersao": "1.0 (Fase 1)",
+    "maquina": { "fabricante": "LENOVO", "modelo": "82C6", "familia": "V14 G4 AMN", "numeroSerie": "XXXXXXXX", "memoriaTotalGB": 8 }
+  },
+  "modulos": {
+    "disco": {
+      "versaoSchema": "1.0", "modulo": "disco", "status": "ok",
+      "dados": {
+        "volumes": [
+          { "letra": "C", "percentualLivre": 35.0 },
+          { "letra": "E", "percentualLivre": 90.0 }
+        ],
+        "discosFisicos": [
+          { "numero": 0, "modelo": "NVMe X", "smartDisponivel": true, "errosLeituraNaoCorrigidos": null, "errosEscritaNaoCorrigidos": null, "errosLeituraCorrigidos": null, "errosEscritaCorrigidos": null, "temperaturaC": 38, "temperaturaMaximaC": 80, "horasLigado": 1200, "percentualVidaRestante": 3, "observacao": null },
+          { "numero": 2, "modelo": "USB Flash", "smartDisponivel": true, "errosLeituraNaoCorrigidos": null, "errosEscritaNaoCorrigidos": null, "errosLeituraCorrigidos": null, "errosEscritaCorrigidos": null, "temperaturaC": 0, "temperaturaMaximaC": 0, "horasLigado": null, "percentualVidaRestante": null, "observacao": null }
+        ],
+        "itensLimpeza": [
+          { "id": "a", "tier": "seguro", "bytes": 100 },
+          { "id": "b", "tier": "revisar", "bytes": 700 },
+          { "id": "c", "tier": "seguro", "bytes": 300 },
+          { "id": "d", "tier": "seguro", "bytes": null },
+          { "id": "e", "tier": "bloqueado", "bytes": 9000 }
+        ],
+        "maioresPastasPerfil": [ { "caminho": "p1", "bytes": 5 }, { "caminho": "p2", "bytes": 50 } ],
+        "resumo": { "recuperavelSeguroBytes": 0, "itensSeguroComConteudo": 0, "revisarBytes": 0, "itensRevisar": 0 }
+      }
+    },
+    "eventlog": {
+      "versaoSchema": "1.0", "modulo": "eventlog", "status": "ok",
+      "dados": {
+        "niveisAnalisados": ["critico", "erro"], "totalGrupos": 4, "gruposDesconhecidos": 0,
+        "grupos": [
+          { "provedor": "Microsoft-Windows-Perflib", "id": 1000, "nivel": "erro", "ocorrencias": 40, "conhecido": true, "apelido": "Application Error 1000", "descricao": "Um aplicativo travou.", "exemploMensagem": null },
+          { "provedor": "volmgr", "id": 162, "nivel": "erro", "ocorrencias": 2, "conhecido": true, "apelido": "volmgr 162", "descricao": "descricao antiga da Fase 1", "acaoSugerida": "acao antiga", "exemploMensagem": null },
+          { "provedor": "Microsoft-Windows-Kernel-Power", "id": 41, "nivel": "critico", "ocorrencias": 3, "conhecido": false, "descricao": null, "exemploMensagem": "The system has rebooted" },
+          { "provedor": "Application Error", "id": 1000, "nivel": "erro", "ocorrencias": 70, "conhecido": true, "descricao": "Um aplicativo travou.", "exemploMensagem": null }
+        ]
+      }
+    },
+    "rede": {
+      "versaoSchema": "1.0", "modulo": "rede", "status": "ok",
+      "dados": {
+        "adaptadores": [
+          { "nome": "Ethernet", "status": "Disconnected", "macAddress": "00-00-00-00-00-00", "enderecosIPv4": ["169.254.10.2"], "apipa": true },
+          { "nome": "Wi-Fi", "status": "Up", "macAddress": "00-00-00-00-00-01", "enderecosIPv4": ["169.254.3.4"], "apipa": true },
+          { "nome": "VPN", "status": "Up", "enderecosIPv4": ["10.0.0.5"], "apipa": false }
+        ]
+      }
+    },
+    "bateria": { "versaoSchema": "1.0", "modulo": "bateria", "status": "erro", "erro": "falha simulada", "dados": null }
+  }
+}
