@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     opencode_go_model: str = "mimo-v2.6-flash"
     # ADR-010: answer before the 100 s cut of the Cloudflare Tunnel; 90 leaves room for the rest.
     opencode_go_timeout_seconds: float = Field(60.0, gt=0, le=90)
+    # ADR-026: sent as reasoning_effort; "low" keeps the report under the timeout. Empty = not sent.
+    opencode_go_reasoning_effort: str = "low"
     # Mirror of relatorios in NocoDB (ADR-005): one way, off the request path.
     nocodb_enabled: bool = False
     nocodb_url: str = ""
