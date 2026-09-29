@@ -46,3 +46,9 @@ def test_session_user_of_1_2_reaches_the_prompt_and_the_executing_account_does_n
     # JSON escapes the backslash of DOMAIN\user.
     assert r'"usuarioSessao":"TESTE-NB-11\\aluno01"' in user
     assert "tecnico.admin" not in user
+
+
+def test_system_prompt_limits_the_report_size():
+    system = messages([])[0]["content"]
+    for limit in ("No máximo 4 hipóteses", "uma ou duas linhas", "cerca de 700 palavras", "não\nrepetem o que já está no Resumo"):
+        assert limit in system
