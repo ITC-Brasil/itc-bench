@@ -47,7 +47,7 @@ def test_success_sends_headers_model_and_timeout(settings):
     assert request.headers["user-agent"] == "itc-tecnico-assistente/1.0"
     assert request.headers["x-opencode-session"] == "2026-09-28_1510_TESTE-NB-11"
     assert request.extensions["timeout"] == {"connect": 60.0, "read": 60.0, "write": 60.0, "pool": 60.0}
-    assert json.loads(request.content) == {"model": "mimo-v2.6-flash", "messages": MESSAGES}
+    assert json.loads(request.content) == {"model": "mimo-v2.6-flash", "messages": MESSAGES, "reasoning_effort": "low"}
     assert (result.chamado_titulo, result.maior_confianca, result.tokens_entrada, result.tokens_saida) == (
         "Disco quase cheio", "ALTA", 9800, 950,
     )
@@ -111,3 +111,29 @@ def test_placeholder_key_is_never_sent(tmp_path, key):
     with pytest.raises(IAFalha) as failure:
         call(settings, handler)
     assert (failure.value.status, failure.value.code) == (503, "ia_nao_configurada")
+
+
+@pytest.mark.parametrize("effort", ["", "  "])
+def test_empty_reasoning_effort_is_not_sent(settings, effort):
+    settings.opencode_go_reasoning_effort = effort
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=completion(json.dumps(CONTENT)))
+
+    call(settings, handler)
+    assert "reasoning_effort" not in seen["body"]
+
+
+def test_reasoning_effort_comes_from_the_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENCODE_GO_REASONING_EFFORT", "medium")
+    settings = Settings(_env_file=None, database_path=str(tmp_path / "t.db"), opencode_go_api_key=KEY)
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=completion(json.dumps(CONTENT)))
+
+    call(settings, handler)
+    assert seen["body"]["reasoning_effort"] == "medium"

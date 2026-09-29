@@ -46,6 +46,10 @@ def gerar(settings, mensagens: list[dict], sessao_id: str, transport: httpx.Base
         "x-opencode-session": sessao_id,
     }
     corpo = {"model": settings.opencode_go_model, "messages": mensagens}
+    # ADR-026: with the provider default, a real session took 126.7 s; "low" took 62.2 s.
+    esforco = settings.opencode_go_reasoning_effort.strip()
+    if esforco:
+        corpo["reasoning_effort"] = esforco
     # ponytail: httpx timeouts are per phase (connect, each read), not total; a provider
     # that trickles bytes could pass 60 s. Add a wall-clock deadline if that shows up.
     inicio = time.monotonic()

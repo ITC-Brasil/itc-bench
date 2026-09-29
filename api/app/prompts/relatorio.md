@@ -69,10 +69,14 @@ O `relatorio_md` segue esta estrutura:
 1. `## Resumo`: duas ou três frases com a situação da máquina.
 2. `## Hipóteses`: uma subseção por hipótese, da maior para a menor confiança, com
    `**Confiança:**`, `**Evidência:**` (cite campos e valores dos dados) e
-   `**Ação sugerida:**`.
+   `**Ação sugerida:**`. No máximo 4 hipóteses; a evidência em uma ou duas linhas.
 3. `## Correlação com o histórico`: o que mudou em relação aos diagnósticos anteriores, ou
    "Sem diagnósticos anteriores deste hostname."
 4. `## Limites desta análise`: dados não informados e avisos que afetam as conclusões.
+
+Tamanho: o `relatorio_md` tem no máximo cerca de 700 palavras. As seções seguintes não
+repetem o que já está no Resumo. Sinais menores que não cabem nas 4 hipóteses podem ser
+citados numa linha em `## Limites desta análise`.
 
 `maior_confianca` é a confiança da primeira hipótese, ou `null` quando não houver
 hipótese. Tom de laudo técnico, em português, direto, sem exagero e sem emojis.
