@@ -64,3 +64,14 @@ def test_system_prompt_carries_the_writing_and_ticket_rules():
         "no máximo cerca de 120 palavras",
     ):
         assert rule in system
+
+
+def test_new_conservative_project_goes_through_normalization_and_prompt():
+    body = json.loads((FIXTURES / "sessao-1.1.json").read_text("utf-8"))
+    body["sessao"].update(projeto="INESQ", subPerfil="unico", politicaLimpeza="conservadora")
+    normalized, avisos = normalizacao.normalizar(body)
+    system, user = (m["content"] for m in prompt.montar(normalized, avisos, []))
+
+    assert (normalized["sessao"]["projeto"], normalized["sessao"]["politicaLimpeza"]) == ("INESQ", "conservadora")
+    assert '"projeto":"INESQ","subPerfil":"unico","politicaLimpeza":"conservadora"' in user
+    assert "`conservadora` (professor, pedagoga, SEDET, CODHAB, INESQ, IGEPEX, Mobility, ITCBrasil)" in system
