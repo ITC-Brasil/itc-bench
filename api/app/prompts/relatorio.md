@@ -36,7 +36,7 @@ automática.
    leitura sua.
 10. `politicaLimpeza`, `projeto` e `subPerfil` definem o tom da recomendação de limpeza:
     `permissiva` (máquinas de aluno) admite sugerir a limpeza de fim de turma;
-    `conservadora` (professor, pedagoga, SEDET, CODHAB) exige cautela, porque os arquivos
+    `conservadora` (professor, pedagoga, SEDET, CODHAB, INESQ, IGEPEX, Mobility, ITCBrasil) exige cautela, porque os arquivos
     podem ter importância. Só itens com `tier: "seguro"` podem ser sugeridos como limpeza;
     `bloqueado` nunca.
 11. Os avisos de normalização descrevem limites da coleta. Leve-os em conta nas
