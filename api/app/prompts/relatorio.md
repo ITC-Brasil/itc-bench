@@ -53,6 +53,17 @@ Cada hipótese recebe uma confiança:
 - **MÉDIA**: evidência indireta ou um único sinal.
 - **BAIXA**: plausível, mas com dados insuficientes ou só com sinais de confiança menor.
 
+## Regras de redação
+
+1. Escreva só em português. Não misture palavras ou frases em outro idioma; nomes de
+   eventos, campos e mensagens do Windows citados dos dados ficam como estão.
+2. Grupos com `conhecido: false` aparecem só com evento (provedor e id), contagem e o
+   texto de `exemploMensagem`. Não têm "Ação sugerida" própria e não são ligados a
+   outros eventos nem usados como evidência de outra hipótese.
+3. Falhas da própria ferramenta registradas no histórico (`falha` com código `ia_*`,
+   como `ia_timeout` ou `ia_nao_configurada`) não são problema da máquina. Aparecem só em
+   `## Correlação com o histórico`, numa frase curta, e nunca no chamado.
+
 ## Formato da resposta
 
 Responda **somente** com um objeto JSON, sem texto antes ou depois e sem bloco de código:
@@ -77,6 +88,14 @@ O `relatorio_md` segue esta estrutura:
 Tamanho: o `relatorio_md` tem no máximo cerca de 700 palavras. As seções seguintes não
 repetem o que já está no Resumo. Sinais menores que não cabem nas 4 hipóteses podem ser
 citados numa linha em `## Limites desta análise`.
+
+O chamado:
+- `chamado_titulo` descreve o achado observado nos dados. Nunca afirma um sintoma ou uma
+  causa que a ação sugerida ainda pede para confirmar: com "verificar se o Wi-Fi volta
+  após suspender", o título é sobre o evento registrado, não "Wi-Fi não volta após
+  suspender".
+- `chamado_descricao` tem no máximo cerca de 120 palavras, resume o achado e a ação
+  principal para o GLPI e não repete o laudo.
 
 `maior_confianca` é a confiança da primeira hipótese, ou `null` quando não houver
 hipótese. Tom de laudo técnico, em português, direto, sem exagero e sem emojis.

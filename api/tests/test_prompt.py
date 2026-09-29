@@ -52,3 +52,15 @@ def test_system_prompt_limits_the_report_size():
     system = messages([])[0]["content"]
     for limit in ("No máximo 4 hipóteses", "uma ou duas linhas", "cerca de 700 palavras", "não\nrepetem o que já está no Resumo"):
         assert limit in system
+
+
+def test_system_prompt_carries_the_writing_and_ticket_rules():
+    system = messages([])[0]["content"]
+    for rule in (
+        "Escreva só em português",
+        'Não têm "Ação sugerida" própria e não são ligados a\n   outros eventos',
+        "Aparecem só em\n   `## Correlação com o histórico`, numa frase curta, e nunca no chamado",
+        "Nunca afirma um sintoma ou uma\n  causa que a ação sugerida ainda pede para confirmar",
+        "no máximo cerca de 120 palavras",
+    ):
+        assert rule in system
