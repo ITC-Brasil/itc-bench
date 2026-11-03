@@ -26,6 +26,12 @@
   - mesmo usuário, elevado antes e sem elevação agora: continua escrevendo no mesmo `bench.log`;
   - outro usuário sem admin: `PermissionError` → o log vai para
     `%LOCALAPPDATA%\ITC\Bench\logs\bench.log` e a primeira linha avisa onde ficou.
+- **`--teste` não executa ações:** só abre a janela, escreve no log e fecha em 800 ms. Nenhuma
+  ação de máquina (conta, Wi-Fi, programa) roda nesse modo, nem nos módulos seguintes.
+- **Exceção não tratada** (`sys.excepthook`, instalado no início de `main()`, antes de
+  `caminhos.inicializar()`): traceback no log com nível CRITICAL e mensagem na tela. Se a falha
+  for no próprio `inicializar()`, o arquivo de log ainda não existe e o traceback vai para o
+  stderr; a mensagem na tela aparece igual. Testes em `tests/test_excecao.py`.
 - **Ícones:** o HTML de design tem 20 ícones (um por item), não 18; extraídos todos, com
   `stroke="currentColor"` trocado pela cor na hora de desenhar.
 - **Barra lateral rola:** 20 itens não cabem em 720 px; em telas de 768p a barra rola em vez de

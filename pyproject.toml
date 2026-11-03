@@ -40,10 +40,33 @@ allowed-confusables = ["›"]  # trilha "Grupo › Tela" do design
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "PySide6".msg = "Qt só em itc_bench/ui, no ponto de entrada e nos testes (ADR-010)."
+"subprocess".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.system".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.popen".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.startfile".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"asyncio.create_subprocess_exec".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"asyncio.create_subprocess_shell".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnl".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnle".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnlp".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnlpe".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnv".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnve".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnvp".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.spawnvpe".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execl".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execle".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execlp".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execlpe".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execv".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execve".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execvp".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
+"os.execvpe".msg = "Processo externo só por itc_bench.servicos.executor (ADR-011)."
 
 [tool.ruff.lint.per-file-ignores]
 "src/itc_bench/ui/**" = ["TID251"]
 "src/itc_bench/__main__.py" = ["TID251"]
+"src/itc_bench/servicos/executor.py" = ["TID251"]
 "tests/**" = ["TID251", "S101", "S603"]
 
 [tool.mypy]
