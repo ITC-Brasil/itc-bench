@@ -42,7 +42,7 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "BLE", "SIM", "PTH", "TID", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "src/itc_bench/ui/**" = ["TID251"]
 "src/itc_bench/__main__.py" = ["TID251"]
-"tests/**" = ["TID251", "S101"]
+"tests/**" = ["TID251", "S101", "S603"]
 
 [tool.mypy]
 strict = true
