@@ -22,18 +22,19 @@ Um módulo por sessão. Branch saindo de `develop`, PR para `develop`, merge pel
 - [x] DECISIONS (ADR-001 a ADR-008), PROGRESS, AUDIT-PROMPT, auditoria baseline
 
 ### 01 — Esqueleto do app · `feat/modulo-01-esqueleto`
-- [ ] Manifesto com versões fixadas (Python, PySide6), ambiente, lint e testes escolhidos
-- [ ] Estrutura de pastas; ponto de entrada com elevação UAC e modo `--dev`
-- [ ] Caminhos `ProgramData` / `LOCALAPPDATA` sem efeito colateral no import
-- [ ] Log rotativo em `%ProgramData%\ITC\Bench\logs`
-- [ ] Tema (tokens de `docs/UI-UX-BRIEF.md`), fontes embutidas, ícones extraídos
-- [ ] Barra lateral com os 7 grupos e telas vazias com "?"; `__version__` central
+- [x] Manifesto com versões fixadas (Python, PySide6), ambiente, lint e testes escolhidos
+- [x] Estrutura de pastas; ponto de entrada com elevação UAC e modo `--dev`
+- [x] Caminhos `ProgramData` / `LOCALAPPDATA` sem efeito colateral no import
+- [x] Log rotativo em `%ProgramData%\ITC\Bench\logs`
+- [x] Tema (tokens de `docs/UI-UX-BRIEF.md`), fontes embutidas, ícones extraídos
+- [x] Barra lateral com os 7 grupos e telas vazias com "?"; `__version__` central
 - Sem funcionalidades.
 
 ### 02 — Execução segura de comandos · `feat/modulo-02-executor`
 - [ ] Executor único: lista de argumentos, dados por ambiente, timeout, código de saída, log
 - [ ] Testes com entradas hostis (aspas, `&`, `|`, `;`, quebra de linha)
 - [ ] Proibir `shell=True` por lint/teste
+- [ ] ACL explícito em `%ProgramData%\ITC\Bench` na execução elevada (SYSTEM e `S-1-5-32-544` total, Usuários leitura), antes do cache do 04 (achado médio da auditoria do 01)
 
 ### 03 — Login e sessão · `feat/modulo-03-login` · **[TA]**
 - [ ] [TA] Rotas de login na API, integração GLPI isolada em um arquivo, grupo de técnicos, limite de tentativas; ADR lá

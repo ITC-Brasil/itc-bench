@@ -234,3 +234,53 @@ Aceitar o risco: manter o histórico como está e não reescrever `develop` nem 
 Os nomes de host podem ser lidos no histórico de qualquer clone. Não há senha, chave completa
 nem token. A partir daqui, achados da categoria 4 em histórico git são tratados antes do merge
 do PR. A auditoria do Módulo 00 (`docs/security/2026-11-03-modulo-00.md`) aponta para este ADR.
+
+---
+
+## ADR-010 — Stack do app: Python 3.13, PySide6 6.12, uv, ruff, mypy e pytest-qt
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** 01
+
+**Context**
+O ADR-002 fixou Python + PySide6 + PyInstaller, mas deixou versões, ferramentas e layout para o
+Módulo 01. O Configurador roda em Python 3.11, sem manifesto nem lock, com efeitos colaterais no
+import de `config.py`. Proposta e ajustes aprovados em `.conversa/` em 03/11/2026.
+
+**Decision**
+- **Python 3.13 x64** (`requires-python = "==3.13.*"`, `.python-version` = `3.13`), **PySide6
+  6.12.0**, PyInstaller 6.22.3 no módulo 14.
+- **uv** com `pyproject.toml` (PEP 621, build hatchling, layout `src/`) e `uv.lock` versionado;
+  `[tool.uv] required-version = ">=0.12.17,<0.13"` (versão instalada na bancada de
+  desenvolvimento: 0.12.17; a 0.13 entra com ADR próprio ou ajuste deste).
+- **ruff** (lint e format), `select = ["E", "W", "F", "I", "B", "UP", "S", "BLE", "SIM", "PTH",
+  "TID", "RUF"]`. `S602`/`S604` barram `shell=True`; `S110`, `BLE001` e `E722` barram `except: pass`
+  e captura genérica muda. `TID251` (`banned-api`) proíbe `PySide6` fora de `ui/`, do ponto de
+  entrada e dos testes: `nucleo/` e `servicos/` não importam Qt.
+- **mypy** `strict` em `src/`, usando os stubs que o próprio PySide6 distribui.
+- **pytest + pytest-qt** (`qtbot`), com `QT_QPA_PLATFORM=offscreen`.
+- **Fontes** Archivo (400/600/800) e Inter (400/500/600) em TTF estáticos, SIL OFL 1.1, com
+  `OFL.txt` e README de origem (URL, commit, SHA-256) em `src/itc_bench/recursos/fontes/`.
+- **Layout:** `src/itc_bench/{nucleo,servicos,ui,recursos}`; recursos lidos por
+  `importlib.resources`. Elevação em `nucleo/elevacao.py`, com a decisão separada da chamada a
+  `ShellExecuteW`.
+- **Identificadores em português** (módulos, funções, variáveis, testes), como no Configurador.
+  Exceções: nomes de API externa e de bibliotecas, e mensagens de commit (inglês, `AGENTS.md`).
+
+**Alternatives considered**
+- Python 3.14 — há pouco tempo no PyInstaller e nas bibliotecas Windows; 3.11 — suporte termina
+  em 2027.
+- pip-tools (`requirements.in`/`.txt`) — dois arquivos e sem gerência de Python; Poetry — lock
+  próprio, mais lento, nada que o uv não cubra.
+- black + flake8 + isort — três ferramentas para o que o ruff faz.
+- pyright — exige Node; o mypy usa os mesmos stubs do PySide6 (não há plugin de mypy para ele;
+  a escolha é pelo ecossistema Python puro, não por plugin).
+- Fontes variáveis — o `QFontDatabase` aplica pesos de forma inconsistente em TTF variável no
+  Windows; estáticos dão o peso exato do design.
+- Pastas planas como no Configurador — misturam Qt e lógica e tornam difícil testar sem janela.
+
+**Consequences**
+`uv sync --frozen` reproduz o ambiente. Atualizar Python ou PySide6 exige rodar lint, testes e
+`--teste` e registrar a troca aqui ou em ADR novo. Código novo em `nucleo/` e `servicos/` pode
+ser testado sem Qt.
