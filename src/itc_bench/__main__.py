@@ -1,8 +1,8 @@
 """Ponto de entrada.
 
-    itc-bench            pede elevação de administrador (UAC)
-    itc-bench --dev      sem administrador, para desenvolver
-    itc-bench --teste    abre, escreve no log e fecha sozinho
+itc-bench            pede elevação de administrador (UAC)
+itc-bench --dev      sem administrador, para desenvolver
+itc-bench --teste    abre, escreve no log e fecha sozinho
 """
 
 import sys
@@ -10,7 +10,11 @@ import sys
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from itc_bench.nucleo import elevacao
+from itc_bench import __version__
+from itc_bench.nucleo import caminhos, elevacao
+from itc_bench.nucleo.log import configurar as configurar_log
+from itc_bench.nucleo.log import log
+from itc_bench.ui.log_qt import HandlerTela
 
 
 def main() -> int:
@@ -27,10 +31,25 @@ def main() -> int:
         )
         return 1
 
+    caminhos.inicializar()
+    tela = HandlerTela()
+    log.addHandler(tela)
+    arquivo = configurar_log()
+    log.info(
+        "ITC Bench %s iniciado (admin=%s, args=%s). Log: %s",
+        __version__,
+        elevacao.eh_admin(),
+        argv[1:],
+        arquivo,
+    )
+
     app = QApplication(argv)
     if "--teste" in argv:
+        log.info("Modo teste: janela aberta; fechando.")
         QTimer.singleShot(800, app.quit)
-    return app.exec()
+    codigo = app.exec()
+    log.info("Encerrado com código %s.", codigo)
+    return codigo
 
 
 if __name__ == "__main__":
