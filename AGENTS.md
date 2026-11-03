@@ -26,6 +26,9 @@ Técnico Assistente continua no repo dela; o Bench é cliente (ADR-003).
 - Marque os checkboxes do módulo em `docs/IMPLEMENTATION-PLAN.md`.
 - Se o chat de planejamento precisar saber, escreva em `.conversa/para-cowork.md`. Estado durável
   nunca fica só em `.conversa/`.
+- `.conversa/` tem um sentido por arquivo: o agente escreve só em `para-cowork.md` (entrada nova
+  no topo); o chat de planejamento escreve só em `para-agent.md`. Nunca edite `para-agent.md`,
+  nem o campo **Resposta** dele.
 
 ## Stack
 
