@@ -2,14 +2,15 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/modulo-03-monorepo` (PR para `develop`, por merge commit, aguardando revisão).
+- **Branch:** `chore/modulo-03-monorepo-v2`, PR #9 para `develop` (merge commit), aguardando revisão.
+  Substitui o PR #8, fechado sem merge porque um commit trazia hosts reais em dois docs.
   `develop` e `main` têm os Módulos 01 e 02 (PR #6 e PR #7 mergeados).
 - **Feito:** Módulo 03, parte do repositório — monorepo `app/` + `api/` (ADR-012), API importada
   com histórico do tecnico-assistente em `0bc5620`, CI por parte, docs em `docs/api/`, plano
   renumerado (03–16).
 - **Pela metade:** a transição no glpi-srv e no tecnico-assistente (`docs/api/DEPLOY.md`, seção
   "Transição"), que aguarda aprovação. O `api-deploy.yml` está só com `workflow_dispatch`.
-- **Próximo passo:** após aprovação e merge, PR no TA desligando o `push` do deploy; o responsável
+- **Próximo passo:** merge do #9 e release `develop` → `main`; PR #31 do TA (deploy só manual) mergeado e levado à `main` de lá antes da troca do remote; o responsável
   cria o environment `producao`, os 7 secrets e a deploy key; depois backup, troca do remote,
   primeiro deploy e relatório de teste. Em seguida, Módulo 04 — login e sessão (rotas em `api/`).
 - **Pendências externas:** passos do responsável no GitHub e no servidor; UAC real do 01 (cenário 7).
