@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from itc_bench.nucleo import acl
+
 
 def _base(variavel: str) -> Path:
     valor = os.environ.get(variavel)
@@ -25,7 +27,15 @@ def preferencias() -> Path:
     return _base("LOCALAPPDATA")
 
 
-def inicializar() -> None:
-    """Cria as pastas. Chamado uma vez, no início do app."""
+def inicializar(admin: bool = False) -> None:
+    r"""Cria as pastas. Chamado uma vez, no início do app, antes de abrir o log.
+
+    Elevado, aplica o ACL de %ProgramData%\ITC (ADR-011); recusa ponto de reparse antes de criar.
+    """
+    raiz = dados().parent
+    if admin:
+        acl.verificar_reparse(raiz)
     for pasta in (dados(), logs(), preferencias()):
         pasta.mkdir(parents=True, exist_ok=True)
+    if admin:
+        acl.proteger(raiz)

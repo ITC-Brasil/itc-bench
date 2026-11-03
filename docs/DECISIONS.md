@@ -284,3 +284,91 @@ import de `config.py`. Proposta e ajustes aprovados em `.conversa/` em 03/11/202
 `uv sync --frozen` reproduz o ambiente. Atualizar Python ou PySide6 exige rodar lint, testes e
 `--teste` e registrar a troca aqui ou em ADR novo. Código novo em `nucleo/` e `servicos/` pode
 ser testado sem Qt.
+
+---
+
+## ADR-011 — Executor único de comandos e ACL de `%ProgramData%\ITC`
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** 02
+
+**Context**
+O Configurador chama programas de quatro jeitos, vários com `shell=True` e com o dado do usuário
+dentro do texto do comando (`docs/referencia/analise-configurador-2026-11-03.md`, item 3). Só
+`backend/contas.py` segue um padrão seguro (dados em `ITC_*` no ambiente). A auditoria do Módulo
+01 achou `%ProgramData%\ITC\Bench` com o ACL herdado, que deixa usuário comum criar arquivos ali.
+Desenho aprovado em `.conversa/` em 03/11/2026, com ajustes.
+
+**Decision**
+- **Um executor**, `servicos/executor.py`, sem Qt:
+  `executar(argumentos, *, ambiente=None, entrada=None, timeout=120, codificacao="auto") -> Resultado`
+  e `powershell(script, *, timeout=120, **variaveis) -> Resultado`. `Resultado` (imutável):
+  `codigo` (`None` se esgotou), `saida`, `erros`, `duracao`, `esgotado`, e `ok`. Código ≠ 0 não
+  levanta exceção; uso errado levanta (`TypeError` para comando em texto, `ValueError` para caminho
+  relativo ou nome de variável inválido).
+- **Programa por caminho absoluto** (`sistema32("netsh.exe")`), `shell=False` explícito,
+  `CREATE_NO_WINDOW`. Motivo: `CreateProcess` sem caminho procura na pasta atual e no PATH.
+  A pasta de sistema vem de `GetSystemDirectoryW`, não de `SYSTEMROOT` do ambiente.
+- **Ambiente:** o filho herda `os.environ` sem nenhum `ITC_*` herdado; nomes novos têm que casar
+  com `ITC_[A-Z0-9_]+` (senão `ValueError`). `SYSTEMROOT` e `WINDIR` do filho são sobrescritos
+  com a pasta real do Windows (com `SYSTEMROOT` falso o PowerShell nem inicia).
+- **Dado sensível:** `Sensivel` (`repr`/`str` = `***`) só no ambiente ou no stdin, nunca nos
+  argumentos (aparecem na lista de processos). O log tem o comando, os nomes das variáveis, código
+  e duração, nunca os valores. Cada valor sensível é trocado por `***` em `saida` e `erros` antes de
+  devolver e de logar. O stderr do PowerShell com `-EncodedCommand` vem em CLIXML (`<`, `&` e
+  quebras escapados): é convertido em texto antes da máscara, senão a senha escapada passaria.
+- **PowerShell 5.1:** `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile
+  -NonInteractive -EncodedCommand <base64 de UTF-16LE>`. Abertura fixa: saída UTF-8,
+  `$ErrorActionPreference = 'Stop'`, `$ProgressPreference = 'SilentlyContinue'` e `PSModulePath`
+  só com `System32\WindowsPowerShell\v1.0\Modules` e `Program Files\WindowsPowerShell\Modules`,
+  lidos por `[Environment]::GetFolderPath`.
+  Sem `-ExecutionPolicy`: `-EncodedCommand` não é script em arquivo, e GPO ganha da linha de
+  comando. Testado com `-ExecutionPolicy Restricted`: `Get-LocalUser` e `Get-NetAdapter` (CDXML)
+  funcionam. **Limite de tamanho:** linha de comando do Windows tem 32 767 caracteres; o base64 de
+  UTF-16LE ocupa 8/3 caracteres por caractere do script, então abertura + script ficam em até
+  ~12 000 caracteres (o executor recusa acima disso).
+- **Timeout** 120 s padrão; quem instala programas (Módulo 08) passa o seu. Cada processo entra
+  num Job Object com `KILL_ON_JOB_CLOSE`. No timeout, `TerminateJobObject` encerra processo e
+  filhos (`esgotado=True`). No fim normal de cada chamada o handle do job é fechado e o que sobrou
+  é encerrado. Uma opção para manter filhos vivos só entra quando um módulo precisar, com registro.
+  **Limite conhecido:** o processo roda por alguns microssegundos antes de entrar no job (o
+  `Popen` não cria suspenso); um filho criado nesse intervalo escapa.
+- **Codificação:** PowerShell em UTF-8. Nativos em `auto` (padrão): UTF-8 se a saída for UTF-8
+  válido, senão OEM (`GetOEMCP`, cp850 no pt-BR). Motivo: no Windows 11 o `netsh` já escreve
+  UTF-8 mesmo com OEM 850, e o `cmd` escreve OEM; texto OEM com acento quase nunca é UTF-8
+  válido. `oem`, `ansi` (`GetACP`) e `utf-8` forçam a página. Sempre `errors="replace"`.
+- **UI:** `ui/tarefa.py`, `QRunnable` no pool global com sinais `concluido(Resultado)` e
+  `falhou(str)`. Exceção dentro da tarefa (que não passa pelo `sys.excepthook`) vai para o log com
+  traceback e para `falhou`.
+- **Sem shell:** ruff `TID251` bane `subprocess`, `os.system`, `os.popen`, `os.startfile`,
+  `os.spawn*`, `os.exec*` e `asyncio.create_subprocess_exec/_shell` em todo `src/`, menos no
+  executor; um teste percorre a AST de `src/` com os mesmos nomes e com `shell=` diferente de
+  `False`.
+- **ACL** em `%ProgramData%\ITC` e `%ProgramData%\ITC\Bench`, a cada execução elevada, antes de
+  abrir o log: SDDL `O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)` (dono
+  Administradores; sem herança; SYSTEM e `S-1-5-32-544` total; `S-1-5-32-545` leitura) aplicado com
+  `TreeSetNamedSecurityInfoW`, por ctypes, sem dependência nova. Antes, recusa e registra se `ITC`,
+  `Bench` ou algo dentro for ponto de reparse, e confere de novo depois do ACL (fecha a corrida
+  em que um usuário cria junction entre a checagem e o ACL; o `TreeSetNamedSecurityInfoW` não
+  atravessa junction, testado). Por item, a falha só chega pelo callback de progresso. Se a troca de dono falhar por acesso, habilita
+  `SeTakeOwnershipPrivilege` e `SeRestorePrivilege` e tenta de novo; se ainda falhar, log e tela.
+  Sem admin, não tenta e registra no log.
+- **Segredos (decisão do responsável):** cache, token e qualquer arquivo DPAPI dos Módulos 04 e
+  05 ficam numa subpasta sem leitura para Usuários (só SYSTEM e `S-1-5-32-544`), porque DPAPI em
+  escopo de máquina é decifrável por qualquer usuário local. Nome e criação ficam para o 04.
+
+**Alternatives considered**
+- Tupla `(codigo, linhas)` como em `contas.py` — não separa falha de tempo esgotado nem dá duração.
+- `-Command` com o script na lista de argumentos — o PowerShell 5.1 remove aspas duplas internas.
+- `-File` com `.ps1` empacotado — exigiria `-ExecutionPolicy Bypass` ou assinatura.
+- Filtro de regex no `logging` para senhas — não cobre `repr`, exceção nem tela.
+- `taskkill /T /F` — segue a árvore por PID do pai e perde órfãos.
+- PowerShell em volta de nativos para ter UTF-8 — corrompe a saída OEM.
+- `QThread` por chamada ou `QProcess` — mais código, ou executor preso ao Qt (ADR-010).
+- pywin32 ou `Set-Acl` para o ACL — dependência de ~10 MB, ou mais um processo e sem troca de dono.
+
+**Consequences**
+Todo backend migrado do Configurador passa pelo executor; `remoto.py` (`echo senha | anydesk`)
+usa `entrada=Sensivel(...)`. Script PowerShell maior que ~12 000 caracteres precisa ser dividido.
+`--dev` sem admin, depois de uma execução elevada, grava o log em `%LOCALAPPDATA%`.
