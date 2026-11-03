@@ -1,0 +1,19 @@
+# Fixed project name: the volume stays tecnico-assistente_tecnico-data whatever the folder is.
+name: tecnico-assistente
+
+services:
+  api:
+    build: .
+    container_name: tecnico-api
+    restart: always
+    env_file: .env
+    environment:
+      TZ: America/Sao_Paulo
+    # Loopback only: Docker bypasses UFW via iptables (ADR-009).
+    ports:
+      - "127.0.0.1:${APP_PORT}:${APP_PORT}"
+    volumes:
+      - tecnico-data:/data
+
+volumes:
+  tecnico-data:

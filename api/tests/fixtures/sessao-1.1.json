@@ -1,0 +1,74 @@
+{
+  "sessao": {
+    "versaoSchema": "1.1",
+    "tipo": "sessao",
+    "id": "2026-09-28_1510_TESTE-NB-11",
+    "hostname": "TESTE-NB-11",
+    "usuarioLogado": "tecnico.admin",
+    "projeto": "BSBIA",
+    "subPerfil": "aluno",
+    "politicaLimpeza": "permissiva",
+    "inicio": "2026-09-28T15:10:00-03:00",
+    "fim": null,
+    "ultimaAtualizacao": "2026-09-28T15:28:41-03:00",
+    "duracaoSegundos": 1121,
+    "encerradaNormalmente": false,
+    "executadoElevado": true,
+    "ferramentaVersao": "1.1 (Fase 1)",
+    "maquina": {
+      "fabricante": "LENOVO", "modelo": "82UM", "familia": "V15 G3 IAP",
+      "numeroSerie": "XXXXXXXX", "memoriaTotalGB": 8,
+      "processador": "12th Gen Intel(R) Core(TM) i5-1235U", "sistema": "Microsoft Windows 11 Pro",
+      "versaoSistema": "10.0.26200"
+    },
+    "modulos": {
+      "disco": { "rotulo": "Disco, espaço e SMART", "arquivo": "disco.json", "status": "ok", "erro": null, "duracaoSegundos": 480.2 },
+      "eventlog": { "rotulo": "Event Log", "arquivo": "eventlog.json", "status": "ok", "erro": null, "duracaoSegundos": 12.1 }
+    },
+    "correcoes": [],
+    "avisos": [],
+    "campoDeVersaoFutura": "ignorado"
+  },
+  "modulos": {
+    "disco": {
+      "versaoSchema": "1.1", "tipo": "modulo", "modulo": "disco", "status": "ok", "erro": null,
+      "hostname": "TESTE-NB-11", "sessaoId": "2026-09-28_1510_TESTE-NB-11",
+      "dados": {
+        "unidadeFerramenta": { "letra": "D", "discoNumero": 1, "tipo": "Removable", "barramento": "USB", "excluida": true },
+        "volumes": [
+          { "letra": "C", "rotulo": "Windows", "sistemaArquivos": "NTFS", "tipo": "Fixed", "totalGB": 237.3, "livreGB": 18.9, "percentualLivre": 8.0, "critico": true, "atencao": false }
+        ],
+        "discosFisicos": [
+          {
+            "numero": 0, "modelo": "SSSTC CL4-4D256-Q62", "tipoMidia": "SSD", "barramento": "NVMe", "tamanhoGB": 238.5,
+            "saude": "Healthy", "estadoOperacional": "OK", "estadoSmart": "parcial",
+            "errosLeituraNaoCorrigidos": null, "errosEscritaNaoCorrigidos": null,
+            "errosLeituraCorrigidos": null, "errosEscritaCorrigidos": null,
+            "temperaturaC": 43, "temperaturaMaximaC": 83, "horasLigado": null, "percentualDesgaste": 0,
+            "observacao": "Contadores não expostos pelo driver: errosLeituraNaoCorrigidos, errosEscritaNaoCorrigidos, errosLeituraCorrigidos, errosEscritaCorrigidos, horasLigado."
+          }
+        ],
+        "itensLimpeza": [
+          { "id": "temp-usuario", "rotulo": "Temporários do usuário", "tier": "seguro", "estrategia": "conteudo", "caminho": "C:\\Users\\aluno01\\AppData\\Local\\Temp", "usuario": "aluno01", "bytes": 2147483648, "arquivos": 900, "idadeMinimaDias": 0, "requerElevacao": false, "medido": true, "nota": null }
+        ],
+        "maioresPastasPerfil": [],
+        "maioresArquivos": [],
+        "resumo": { "recuperavelSeguroBytes": 2147483648, "itensSeguroComConteudo": 1, "revisarBytes": 0, "itensRevisar": 0, "limiarArquivoMB": 500, "limiarPastaMB": 1024 }
+      }
+    },
+    "eventlog": {
+      "versaoSchema": "1.1", "tipo": "modulo", "modulo": "eventlog", "status": "ok", "erro": null,
+      "hostname": "TESTE-NB-11", "sessaoId": "2026-09-28_1510_TESTE-NB-11",
+      "dados": {
+        "janelaDias": 7, "logsAnalisados": ["System", "Application"], "niveisAnalisados": ["critico", "erro", "aviso"],
+        "avisoSomenteBase": true, "totalOcorrencias": 16, "totalGrupos": 3, "gruposCriticos": 0, "gruposDesconhecidos": 1,
+        "grupos": [
+          { "log": "System", "provedor": "Microsoft-Windows-NDIS", "id": 10317, "nivel": "erro", "ocorrencias": 9, "conhecido": true, "apelido": "NDIS 10317", "categoria": "rede", "peso": "medio", "descricao": "Uma miniporta de rede nao respondeu a tempo.", "acaoSugerida": null, "nota": null, "fonteOficial": true, "exemploMensagem": null },
+          { "log": "System", "provedor": "Microsoft-Windows-HAL", "id": 21, "nivel": "erro", "ocorrencias": 5, "conhecido": false, "apelido": null, "categoria": null, "peso": null, "descricao": null, "acaoSugerida": null, "nota": null, "fonteOficial": null, "exemploMensagem": "The hardware real-time clock was not set." },
+          { "log": "System", "provedor": "Service Control Manager", "id": 7034, "nivel": "erro", "ocorrencias": 2, "conhecido": true, "apelido": "SCM 7034", "categoria": "servico", "peso": "medio", "descricao": "Um servico foi encerrado inesperadamente.", "acaoSugerida": "Avaliar se o servico e essencial.", "nota": null, "fonteOficial": false, "exemploMensagem": null }
+        ]
+      }
+    },
+    "desconhecido": { "dados": { "x": 1 } }
+  }
+}
