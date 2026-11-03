@@ -52,6 +52,9 @@ def proteger(raiz: Path) -> None:
     if any(codigo == _ERROR_ACCESS_DENIED for _, codigo in falhas):
         _habilitar_privilegios()
         falhas = _aplicar(raiz)
+    # Junction criada entre a primeira checagem e o ACL desviaria o log. Agora quem não é admin
+    # não cria mais nada ali, então a segunda checagem fecha a corrida.
+    verificar_reparse(raiz)
     if falhas:
         lista = "; ".join(f"{nome}: {ctypes.FormatError(codigo)}" for nome, codigo in falhas[:5])
         raise ErroAcl(falhas[0][1], f"ACL não aplicado em {len(falhas)} item(ns): {lista}")
