@@ -57,8 +57,12 @@ marcada como obrigatória nem única: validação fica na API.
 | `PerfilPadrao` | SingleLineText | Perfil da Preparação completa |
 | `Ativo` | Checkbox | |
 
-Pontos de atenção: `WiFi.Unidade` é texto, não relação; `Valor` mistura dado público e segredo
-na mesma coluna. Decidir na API se segredos saem só para sessão de técnico e se `Ativo = false`
+**Regra `WiFi.Unidade` (decidida em 03/11/2026):** continua texto, sem relação no NocoDB.
+Guarda exatamente o mesmo código de `Unidades.Codigo` (ex.: `UM-07`). A API valida o código ao
+entregar o cadastro e filtra as redes por unidade; o Bench não faz a junção nem confia em código
+que a API não validou.
+
+Ponto de atenção: `Servidores.Valor` mistura dado público e segredo na mesma coluna. Decidir na API se segredos saem só para sessão de técnico e se `Ativo = false`
 é filtrado no servidor.
 
 ## API (rotas)
@@ -80,6 +84,7 @@ cadastros. Nomes, formato e regras: a definir lá e copiados para cá quando exi
 | Estado da Preparação completa (etapas, retomada após reinício) | `%ProgramData%\ITC\Bench` | ACL de admin | migração do Master |
 | Log rotativo | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
+| Token da carreta (`itcta_`) | `%ProgramData%\ITC\Bench` | DPAPI, escopo máquina | 05 |
 | Sessões de diagnóstico | a definir no módulo de Diagnóstico | — | Diagnóstico |
 
 Escopo DPAPI (usuário ou máquina): a definir no Módulo 03, considerando que vários técnicos usam

@@ -7,7 +7,7 @@ Um módulo por sessão. Branch saindo de `develop`, PR para `develop`, merge pel
 
 - **Diagnóstico sobe para o 05**, antes das telas do Configurador. Motivo: só usa rotas que já
   existem na API (`POST /v1/relatorio`, `GET /v1/historico/{hostname}`) e substitui o pendrive
-  inteiro, liberando o técnico de carregar duas ferramentas cedo.
+  inteiro, liberando o técnico de carregar duas ferramentas cedo. Aprovado pelo responsável em 03/11/2026.
 - **Contas é a primeira tela migrada (06)**: `backend/contas.py` já segue o padrão seguro e o
   manual já tem a ajuda dela; valida o executor do Módulo 02 numa tela real.
 - **Preparação completa vem depois das telas que ela orquestra (12)**: depende de todas as etapas.
@@ -49,7 +49,9 @@ Um módulo por sessão. Branch saindo de `develop`, PR para `develop`, merge pel
 ### 05 — Diagnóstico · `feat/modulo-05-diagnostico`
 - [ ] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python
 - [ ] Coleta e laudo, Histórico; envio à API existente
-- [ ] Autenticação da carreta no Bench (token atual `itcta_` ou sessão do técnico) — se mudar, vira **[TA]**
+- [ ] Token da carreta (`itcta_`) guardado com DPAPI em escopo de máquina, em `%ProgramData%\ITC\Bench`; nunca no repositório nem no instalador (ADR-008)
+- [ ] Definir e documentar como o token chega à máquina (hoje é gravado no pendrive)
+- Se o login do técnico tornar o token da carreta desnecessário, isso é ADR novo e **[TA]**, fora do escopo do 05.
 
 ### 06 — Contas · `feat/modulo-06-contas`
 - [ ] Migrar `backend/contas.py` + `aba_usuarios.py`/`aba_admin.py`; SID `S-1-5-32-544`; fim do `wmic`
