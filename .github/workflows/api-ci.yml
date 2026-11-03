@@ -1,0 +1,28 @@
+name: api-ci
+
+on:
+  pull_request:
+    paths: ["api/**", ".github/workflows/api-ci.yml"]
+  push:
+    branches: [develop, main]
+    paths: ["api/**", ".github/workflows/api-ci.yml"]
+  # api-deploy.yml runs this same workflow as its test job.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Same image and command as AGENTS.md: the tests run on the Python of api/Dockerfile.
+      # The comparison with the pendrive copy of the event base left with ADR-012
+      # (api/app/eventlog-conhecidos.json is now the only copy; TA-ADR-022).
+      - name: pytest (api)
+        run: >
+          docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "$PWD/api:/app" -w /app
+          python:3.12.14-slim-trixie
+          sh -c "pip install -q --root-user-action=ignore -r requirements-dev.txt && pytest -q"
