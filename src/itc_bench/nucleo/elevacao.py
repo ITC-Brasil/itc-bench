@@ -5,7 +5,7 @@ toca o Windows.
 """
 
 import ctypes
-import subprocess
+import subprocess  # noqa: TID251 — só list2cmdline, para o ShellExecuteW
 import sys
 from pathlib import Path
 
