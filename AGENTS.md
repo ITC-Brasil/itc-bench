@@ -50,6 +50,9 @@ Dois projetos separados, sem workspace.
 
 - **Nada de segredo no repositório nem em `.conversa/`**: endereços de servidor, chaves, senhas,
   SSIDs reais. Só o endereço da API vai no instalador (ADR-008).
+- **Documento que lista padrões de varredura ou regras de substituição usa placeholders**
+  ("hosts reais do Grupo → `*.exemplo.invalid`"), nunca o valor procurado. A lista real fica fora
+  do repo (scratchpad).
 - **O Bench nunca fala com o GLPI nem com o NocoDB.** Tudo passa pela API em `api/`
   (ADR-005, ADR-006).
 - **Sem `shell=True` e sem interpolar entrada em comando.** Lista de argumentos; dados por variável
