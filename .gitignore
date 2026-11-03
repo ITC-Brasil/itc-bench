@@ -1,0 +1,16 @@
+# Canal de handoff entre chats (fora do git, ver AGENTS.md)
+/.conversa/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Build e empacotamento
+dist/
+build/
+*.spec.bak
+
+# Segredos e configuração local (ADR-008)
+segredos*.json
+*.ini.local
