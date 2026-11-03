@@ -89,8 +89,22 @@ def test_timeout_encerra_processo_e_filho():
     assert vivos.saida.strip() == "0"
 
 
-def test_acento_powershell_e_cmd():
+def _oem_representa(texto: str) -> bool:
+    try:
+        texto.encode(executor._codec("oem"))
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def test_acento_powershell():
     assert powershell("Write-Output 'ação Ç'").saida.strip() == "ação Ç"
+
+
+# O cmd escreve na página OEM. As máquinas de campo são pt-BR (850); o runner do CI é en-US
+# (437), que não tem "ã".
+@pytest.mark.skipif(not _oem_representa("ação"), reason="a página OEM desta máquina não tem 'ã'")
+def test_acento_cmd():
     assert executar([sistema32("cmd.exe"), "/c", "echo ação"]).saida.strip() == "ação"
 
 
@@ -103,7 +117,8 @@ def test_netsh_legivel():
 
 
 def test_auto_cai_para_oem_quando_nao_e_utf8():
-    assert executor._decodificar("ação".encode("cp850"), "auto") == "ação"
+    texto = "ação" if _oem_representa("ação") else "çé"
+    assert executor._decodificar(texto.encode(executor._codec("oem")), "auto") == texto
     assert executor._decodificar("ação".encode(), "auto") == "ação"
 
 
