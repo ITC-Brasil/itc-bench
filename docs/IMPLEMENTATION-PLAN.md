@@ -31,10 +31,10 @@ Um módulo por sessão. Branch saindo de `develop`, PR para `develop`, merge pel
 - Sem funcionalidades.
 
 ### 02 — Execução segura de comandos · `feat/modulo-02-executor`
-- [ ] Executor único: lista de argumentos, dados por ambiente, timeout, código de saída, log
-- [ ] Testes com entradas hostis (aspas, `&`, `|`, `;`, quebra de linha)
-- [ ] Proibir `shell=True` por lint/teste
-- [ ] ACL explícito em `%ProgramData%\ITC\Bench` na execução elevada (SYSTEM e `S-1-5-32-544` total, Usuários leitura), antes do cache do 04 (achado médio da auditoria do 01)
+- [x] Executor único: lista de argumentos, dados por ambiente, timeout, código de saída, log
+- [x] Testes com entradas hostis (aspas, `&`, `|`, `;`, quebra de linha)
+- [x] Proibir `shell=True` por lint/teste
+- [x] ACL explícito em `%ProgramData%\ITC\Bench` na execução elevada (SYSTEM e `S-1-5-32-544` total, Usuários leitura), antes do cache do 04 (achado médio da auditoria do 01)
 
 ### 03 — Login e sessão · `feat/modulo-03-login` · **[TA]**
 - [ ] [TA] Rotas de login na API, integração GLPI isolada em um arquivo, grupo de técnicos, limite de tentativas; ADR lá

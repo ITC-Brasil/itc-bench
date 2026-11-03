@@ -309,16 +309,20 @@ Desenho aprovado em `.conversa/` em 03/11/2026, com ajustes.
   relativo ou nome de variável inválido).
 - **Programa por caminho absoluto** (`sistema32("netsh.exe")`), `shell=False` explícito,
   `CREATE_NO_WINDOW`. Motivo: `CreateProcess` sem caminho procura na pasta atual e no PATH.
+  A pasta de sistema vem de `GetSystemDirectoryW`, não de `SYSTEMROOT` do ambiente.
 - **Ambiente:** o filho herda `os.environ` sem nenhum `ITC_*` herdado; nomes novos têm que casar
-  com `ITC_[A-Z0-9_]+` (senão `ValueError`).
+  com `ITC_[A-Z0-9_]+` (senão `ValueError`). `SYSTEMROOT` e `WINDIR` do filho são sobrescritos
+  com a pasta real do Windows (com `SYSTEMROOT` falso o PowerShell nem inicia).
 - **Dado sensível:** `Sensivel` (`repr`/`str` = `***`) só no ambiente ou no stdin, nunca nos
   argumentos (aparecem na lista de processos). O log tem o comando, os nomes das variáveis, código
   e duração, nunca os valores. Cada valor sensível é trocado por `***` em `saida` e `erros` antes de
-  devolver e de logar.
+  devolver e de logar. O stderr do PowerShell com `-EncodedCommand` vem em CLIXML (`<`, `&` e
+  quebras escapados): é convertido em texto antes da máscara, senão a senha escapada passaria.
 - **PowerShell 5.1:** `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile
   -NonInteractive -EncodedCommand <base64 de UTF-16LE>`. Abertura fixa: saída UTF-8,
   `$ErrorActionPreference = 'Stop'`, `$ProgressPreference = 'SilentlyContinue'` e `PSModulePath`
-  só com `System32\WindowsPowerShell\v1.0\Modules` e `Program Files\WindowsPowerShell\Modules`.
+  só com `System32\WindowsPowerShell\v1.0\Modules` e `Program Files\WindowsPowerShell\Modules`,
+  lidos por `[Environment]::GetFolderPath`.
   Sem `-ExecutionPolicy`: `-EncodedCommand` não é script em arquivo, e GPO ganha da linha de
   comando. Testado com `-ExecutionPolicy Restricted`: `Get-LocalUser` e `Get-NetAdapter` (CDXML)
   funcionam. **Limite de tamanho:** linha de comando do Windows tem 32 767 caracteres; o base64 de
@@ -345,7 +349,9 @@ Desenho aprovado em `.conversa/` em 03/11/2026, com ajustes.
   abrir o log: SDDL `O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)` (dono
   Administradores; sem herança; SYSTEM e `S-1-5-32-544` total; `S-1-5-32-545` leitura) aplicado com
   `TreeSetNamedSecurityInfoW`, por ctypes, sem dependência nova. Antes, recusa e registra se `ITC`,
-  `Bench` ou algo dentro for ponto de reparse. Se a troca de dono falhar por acesso, habilita
+  `Bench` ou algo dentro for ponto de reparse, e confere de novo depois do ACL (fecha a corrida
+  em que um usuário cria junction entre a checagem e o ACL; o `TreeSetNamedSecurityInfoW` não
+  atravessa junction, testado). Por item, a falha só chega pelo callback de progresso. Se a troca de dono falhar por acesso, habilita
   `SeTakeOwnershipPrivilege` e `SeRestorePrivilege` e tenta de novo; se ainda falhar, log e tela.
   Sem admin, não tenta e registra no log.
 - **Segredos (decisão do responsável):** cache, token e qualquer arquivo DPAPI dos Módulos 04 e
