@@ -6,6 +6,7 @@ itc-bench --teste    abre, escreve no log e fecha sozinho
 """
 
 import sys
+from types import TracebackType
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -19,7 +20,19 @@ from itc_bench.ui.janela import Janela
 from itc_bench.ui.log_qt import HandlerTela
 
 
+def _excecao(tipo: type[BaseException], valor: BaseException, rastro: TracebackType | None) -> None:
+    """Exceção não tratada: traceback no log e mensagem na tela."""
+    log.critical("Erro não tratado.", exc_info=(tipo, valor, rastro))
+    _ = QApplication.instance() or QApplication(sys.argv)
+    QMessageBox.critical(
+        None,
+        "ITC Bench",
+        f"Erro inesperado: {valor}\n\nDetalhes em bench.log, na pasta de logs do ITC Bench.",
+    )
+
+
 def main() -> int:
+    sys.excepthook = _excecao
     argv = sys.argv
     if elevacao.precisa_elevar(argv, elevacao.eh_admin()):
         if elevacao.pedir_elevacao(argv):
