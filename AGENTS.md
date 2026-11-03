@@ -32,9 +32,9 @@ Técnico Assistente continua no repo dela; o Bench é cliente (ADR-003).
 
 ## Stack
 
-A definir no Módulo 01. Ainda não há manifesto (`pyproject.toml`/`requirements.in`); nenhuma
-versão é citada antes de existir em arquivo. Decidido: Python + PySide6, PyInstaller, instalador
-Windows (ADR-002).
+Python 3.13 + PySide6 6.12 (ADR-002, ADR-010). Manifesto em `pyproject.toml`, lock em `uv.lock`,
+gerenciado pelo uv. Código em `src/itc_bench/`: `nucleo/` e `servicos/` sem Qt (ruff `TID251`),
+`ui/` com Qt, `recursos/` lidos por `importlib.resources`. Identificadores em português.
 
 ## Regras invioláveis
 
@@ -79,4 +79,12 @@ Nunca `git add -A`.
 
 ## Comandos úteis
 
-A definir no Módulo 01 (ambiente, execução com `--dev`, testes, lint).
+```
+uv sync --frozen                      # ambiente a partir do lock
+uv run itc-bench --dev                # abre sem pedir administrador
+uv run itc-bench --teste              # abre, loga e fecha (código 0)
+uv run itc-bench                      # pede elevação (UAC)
+uv run ruff check . && uv run ruff format --check .
+uv run mypy
+uv run pytest
+```
