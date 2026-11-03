@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import time
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping, Sequence
 from ctypes import wintypes
 from dataclasses import dataclass
@@ -127,7 +128,7 @@ def executar(
     resultado = Resultado(
         codigo=None if esgotado else processo.returncode,
         saida=_mascarar(_decodificar(saida, codificacao), segredos),
-        erros=_mascarar(_decodificar(erros, codificacao), segredos),
+        erros=_mascarar(_clixml(_decodificar(erros, codificacao)), segredos),
         duracao=duracao,
         esgotado=esgotado,
     )
@@ -167,6 +168,21 @@ def powershell(
 
 def _texto(valor: str | Sensivel) -> str:
     return valor.revelar() if isinstance(valor, Sensivel) else valor
+
+
+def _clixml(texto: str) -> str:
+    """O PowerShell com -EncodedCommand manda o stderr em CLIXML, com `<`, `&` e quebras escapados.
+
+    Volta para texto antes de mascarar; senão a senha escapada passaria pela máscara.
+    """
+    if not texto.startswith("#< CLIXML"):
+        return texto
+    try:
+        raiz = ET.fromstring(texto.split("\n", 1)[1])  # noqa: S314 — saída do próprio filho
+    except (ET.ParseError, IndexError):
+        return texto
+    partes = [no.text or "" for no in raiz.iter() if no.get("S") == "Error"]
+    return re.sub(r"_x([0-9A-Fa-f]{4})_", lambda m: chr(int(m[1], 16)), "".join(partes))
 
 
 def _mascarar(texto: str, segredos: list[str]) -> str:

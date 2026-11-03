@@ -50,6 +50,15 @@ def test_sensivel_mascarado_em_repr_saida_erro_e_log(caplog):
     assert "ITC_SENHA" in caplog.text
 
 
+@pytest.mark.parametrize("valor", ["Inv<ent>&ada\"'", "Inv_x0041_ada", "Invção#1"])
+def test_sensivel_com_caracteres_escapados_no_clixml(valor):
+    r = powershell('throw "erro: $env:ITC_SENHA"', senha=Sensivel(valor))
+    assert not r.ok
+    assert "#< CLIXML" not in r.erros
+    assert "erro: ***" in r.erros
+    assert "Inv" not in r.erros
+
+
 def test_entrada_pelo_stdin_mascarada():
     r = executar(
         [PS, "-NoProfile", "-Command", "$input | ForEach-Object { 'lido:' + $_ }"],
