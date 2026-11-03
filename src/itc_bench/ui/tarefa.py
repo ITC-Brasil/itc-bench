@@ -11,6 +11,9 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 
 from itc_bench.nucleo.log import log
 
+# Referência até o resultado chegar na thread da tela; sem ela o Python coleta os sinais antes.
+_ativas: set["Tarefa"] = set()
+
 
 class Sinais(QObject):
     concluido = Signal(object)
@@ -40,6 +43,10 @@ def iniciar(
 ) -> None:
     """Conecta os sinais e só então põe a função no pool global (sinal sem receptor se perde)."""
     tarefa = Tarefa(funcao)
+    tarefa.setAutoDelete(False)
+    _ativas.add(tarefa)
     tarefa.sinais.concluido.connect(ao_concluir)
     tarefa.sinais.falhou.connect(ao_falhar)
+    tarefa.sinais.concluido.connect(lambda _: _ativas.discard(tarefa))
+    tarefa.sinais.falhou.connect(lambda _: _ativas.discard(tarefa))
     QThreadPool.globalInstance().start(tarefa)

@@ -17,6 +17,7 @@ def test_resultado_chega_por_sinal_fora_da_thread_da_tela(qtbot):
     qtbot.waitUntil(lambda: bool(recebidos), timeout=30_000)
     assert recebidos[0].saida.strip() == "ok"
     assert threads[0] is not threading.main_thread()
+    qtbot.waitUntil(lambda: not tarefa._ativas)
 
 
 def test_excecao_vai_para_log_e_sinal_falhou(qtbot, caplog):
