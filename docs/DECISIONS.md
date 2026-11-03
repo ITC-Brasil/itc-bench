@@ -1,0 +1,207 @@
+# Architecture Decision Records
+
+Registro sequencial de decisões, com contexto e alternativas rejeitadas.
+Cada entrada é permanente — ADRs substituídos são marcados, nunca apagados.
+
+---
+
+## ADR-001 — Chamar o produto de ITC Bench e usar a identidade de `docs/design/`
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+O app junta configuração e diagnóstico. O nome não pode prender o produto a um dos dois e deve
+seguir a família ITC NoteScan / ITC Tasks.
+
+**Decision**
+Nome ITC Bench; símbolo, paleta, tipografia e ícones conforme `docs/design/README.md` e
+`docs/design/itc-bench-identidade-telas.html`.
+
+**Alternatives considered**
+- ITC Setup — fraco para diagnóstico; "setup" já nomeia metade dos instaladores.
+- ITC Toolbox — longo no lockup; soa como pasta de utilitários.
+
+**Consequences**
+Tokens e símbolo fixados em `docs/UI-UX-BRIEF.md`. O `.ico` multi-tamanho fica para o módulo de
+empacotamento (14).
+
+---
+
+## ADR-002 — Um app instalável em Python + PySide6, empacotado com PyInstaller
+
+**Status:** Accepted (ferramenta de instalador: planejada para o Módulo 14)
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+O Configurador tem duas UIs (CustomTkinter em `main_moderno.py` + `ui/`, PySide6 em `app_qt.py`
++ `interface_qt/`), roda da pasta do EXE e não tem `.spec`. A versão Qt já cobre mais abas e tem
+`LogBus` para atualizar a UI a partir de threads.
+
+**Decision**
+Um único app em Python + PySide6, partindo de `interface_qt/` e `backend/`, empacotado com
+PyInstaller e distribuído por instalador Windows. A UI CustomTkinter é descartada.
+
+**Alternatives considered**
+- Manter CustomTkinter — menos abas migradas, duplicação atual.
+- Reescrever em C#/.NET — perderia o `backend/` existente e a experiência da equipe em Python.
+- App portátil sem instalador — mantém caminhos atrelados ao EXE e segredos ao lado dele.
+
+**Consequences**
+Inno Setup ou WiX: **planejado**, decisão em ADR no Módulo 14. Versões de Python e PySide6
+fixadas no manifesto do Módulo 01.
+
+---
+
+## ADR-003 — Absorver o pendrive como módulo de Diagnóstico; a API continua no repo dela
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+O pendrive (`tecnico-assistente/pendrive/`, PowerShell 5.1) e a API (`tecnico-assistente/api/`,
+FastAPI + SQLite) vivem num monorepo (ADR-001 de lá). Com o Bench instalado, carregar pendrive
+deixa de fazer sentido.
+
+**Decision**
+O diagnóstico vira o grupo Diagnóstico do Bench. A API permanece em `ITC-Brasil/tecnico-assistente`
+e o Bench é cliente dela.
+
+**Alternatives considered**
+- Trazer a API para este repo — misturaria app de desktop com serviço do servidor, deploys diferentes.
+- Manter o pendrive separado — o técnico continua com duas ferramentas e dois logins.
+
+**Consequences**
+Mudanças de API exigem PR no outro repo (marcadas **[TA]** no plano). Reaproveitar os `.ps1` ou
+portar para Python: **planejado**, ADR no Módulo 05.
+
+---
+
+## ADR-004 — Organizar o menu em 7 grupos
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+O Configurador tem 17 abas planas (`interface_qt/aba_*.py`) mais o pendrive, sem ordem de trabalho.
+
+**Decision**
+Barra lateral com Início, Preparar, Software, Segurança, Aparência e periféricos, Diagnóstico e
+Sistema, com os itens de `docs/APP-FLOW.md`.
+
+**Alternatives considered**
+- Manter as 17 abas — difícil de achar, sem relação com a sequência de preparação.
+- Assistente linear único — rígido para correções pontuais; a Preparação completa já cobre o fluxo guiado.
+
+**Consequences**
+Apps, Winget e WebApps viram uma tela (Programas); Sistema se divide entre Identificação e Energia.
+A navegação é montada no Módulo 01.
+
+---
+
+## ADR-005 — Login por técnico validado no GLPI através da API do Técnico Assistente
+
+**Status:** Accepted (rotas: planejadas para o Módulo 03, no repo `tecnico-assistente`)
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+Hoje qualquer pessoa com acesso de administrador abre o Configurador; o pendrive usa senha única
+com SHA-256 em `config\auth.hash`. Nenhum registro diz quem fez cada ação. Todo técnico já tem
+conta no GLPI.
+
+**Decision**
+O Bench envia usuário e senha à API, que valida na API do GLPI, exige o grupo de técnicos, limita
+tentativas e devolve sessão. O Bench nunca fala com o GLPI. Sem internet, vale o último login
+daquele técnico naquela máquina por 7 dias (hash com DPAPI). A integração GLPI fica isolada em um
+módulo da API. O UAC continua obrigatório.
+
+**Alternatives considered**
+- Base de usuários própria — mais um cadastro para manter e desligar.
+- Bench falando direto com o GLPI — credenciais de app GLPI no instalador; acoplaria o Bench à versão do GLPI.
+- TOTP (Ente Auth) como fator principal — exige segredo por técnico e recuperação de celular; fica
+  como possível segundo fator só para Configurações, depois.
+- Senha única compartilhada (modelo do pendrive) — sem rastreio, revogação impossível.
+
+**Consequences**
+GLPI 11 hoje, 12 com HTTPS antes da volta a campo: troca toca um arquivo na API. Escopo DPAPI e
+persistência da sessão: ADR no Módulo 03.
+
+---
+
+## ADR-006 — Cadastros no NocoDB, entregues pela API, com cópia local DPAPI
+
+**Status:** Accepted (rotas: planejadas para o Módulo 04, no repo `tecnico-assistente`)
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+Wi-Fi, servidores e senhas estão em `config/wifi_db.json` e `config/segredos.json` ao lado do EXE.
+A base "ITC Bench" no NocoDB já tem as tabelas Servidores, Instaladores, WiFi e Unidades
+(`docs/BACKEND-SCHEMA.md`). O ADR-005 do Técnico Assistente define o NocoDB como espelho só de ida
+e proíbe acesso das carretas ao NocoDB.
+
+**Decision**
+O NocoDB é fonte da verdade dos cadastros. Após o login, o Bench pede os cadastros à API e guarda
+cópia protegida por DPAPI. O Bench nunca acessa o NocoDB.
+
+**Alternatives considered**
+- Bench lendo o NocoDB direto — token que lê, altera e apaga a base inteira em cada instalação,
+  sem revogação por máquina (mesmo motivo do ADR-005 de lá).
+- JSON no instalador — segredos distribuídos em cada máquina, atualização exige reinstalar.
+- Cadastros no SQLite da API com tela própria — construiria a interface que o NocoDB já dá.
+
+**Consequences**
+Revisa o ADR-005 do Técnico Assistente: um ADR correspondente entra lá no módulo que implementar
+as rotas. Funciona offline com dados da última sincronização.
+
+---
+
+## ADR-007 — Ajuda contextual em cada tela e tela Ajuda consolidada
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+O manual (`Manual_Configurador_ITC.pdf`, 31/10/2026) é um PDF separado e só tem passo a passo de
+Usuários, Tela, Mouse e Proteção do Login.
+
+**Decision**
+Botão "?" ao lado do título de cada tela abre as instruções dela; a tela Ajuda reúne todas, na
+ordem do menu, com busca. O texto das telas sem manual é escrito quando cada uma for migrada.
+
+**Alternatives considered**
+- Manter o PDF — desatualiza e fica longe de onde o técnico precisa.
+- Tooltips só — não cabem passo a passo nem regras ("o que o Bench não deixa fazer").
+
+**Consequences**
+Cada módulo de migração (06–12) inclui a ajuda da tela como tarefa. Formato do conteúdo: Módulo 01.
+
+---
+
+## ADR-008 — Dados fora do código; só o endereço da API no instalador
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** Pre-implementation
+
+**Context**
+`config/config.ini` do Configurador guarda senhas em texto claro; `config/segredos.json` fica
+legível ao lado do EXE. A análise de 03/11/2026 os classifica como críticos.
+
+**Decision**
+Endereços, chaves, senhas e redes Wi-Fi nunca entram no repositório nem em `.conversa/`. O único
+dado de ambiente no instalador é o endereço da API.
+
+**Alternatives considered**
+- Arquivo de segredos cifrado no instalador — a chave teria de ir junto.
+- Variáveis de ambiente na máquina — espalhadas, sem atualização central.
+
+**Consequences**
+`.gitignore` bloqueia `segredos*.json` e `*.ini.local`. Exemplos nas telas de design não vão para
+código nem testes. Telas sem cadastro preenchido recusam a ação e dizem o que falta.
