@@ -31,8 +31,10 @@ ABERTURA_PS = (
     "$OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n"
     "$ErrorActionPreference = 'Stop'\n"
     "$ProgressPreference = 'SilentlyContinue'\n"
-    '$env:PSModulePath = "$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\Modules;'
-    '$env:ProgramFiles\\WindowsPowerShell\\Modules"\n'
+    # Pastas pela API, não por variável de ambiente que o usuário pode trocar.
+    "$env:PSModulePath = [Environment]::GetFolderPath('System') + "
+    "'\\WindowsPowerShell\\v1.0\\Modules;' + [Environment]::GetFolderPath('ProgramFiles') + "
+    "'\\WindowsPowerShell\\Modules'\n"
 )
 
 Codificacao = Literal["auto", "utf-8", "oem", "ansi"]
@@ -69,8 +71,11 @@ class Resultado:
 
 
 def sistema32(nome: str) -> str:
-    r"""Caminho absoluto em %SystemRoot%\System32."""
-    return str(PureWindowsPath(os.environ.get("SYSTEMROOT", r"C:\Windows"), "System32", nome))
+    """Caminho absoluto na pasta de sistema, lida pela API (`SYSTEMROOT` do ambiente não conta)."""
+    buffer = ctypes.create_unicode_buffer(260)
+    if not ctypes.WinDLL("kernel32").GetSystemDirectoryW(buffer, len(buffer)):
+        raise ctypes.WinError()
+    return str(PureWindowsPath(buffer.value, nome))
 
 
 def executar(
@@ -97,6 +102,10 @@ def executar(
             raise ValueError(f"Nome de variável inválido: {nome!r} (use ITC_[A-Z0-9_]+).")
     filho = {k: v for k, v in os.environ.items() if not k.upper().startswith("ITC_")}
     filho.update({k: _texto(v) for k, v in ambiente.items()})
+    # Pasta do Windows pela API: um SYSTEMROOT trocado no ambiente quebra ou desvia o filho.
+    windows = str(PureWindowsPath(sistema32("")).parent)
+    filho.update({k: windows for k in list(filho) if k.upper() in ("SYSTEMROOT", "WINDIR")})
+    filho.setdefault("SYSTEMROOT", windows)
     segredos = [v.revelar() for v in [*ambiente.values(), entrada] if isinstance(v, Sensivel)]
     dados = None if entrada is None else _texto(entrada).encode(_codec(codificacao))
     rotulo = descricao or subprocess.list2cmdline(argumentos)

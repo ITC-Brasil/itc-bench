@@ -124,3 +124,11 @@ def test_politica_restricted_nao_impede_modulos():
         ]
     )
     assert r.ok, r.erros
+
+
+def test_sistema32_ignora_systemroot_do_ambiente(monkeypatch):
+    monkeypatch.setenv("SYSTEMROOT", r"C:\Falso")
+    assert not sistema32("cmd.exe").lower().startswith(r"c:\falso")
+    r = powershell("$env:PSModulePath")
+    assert "falso" not in r.saida.lower()
+    assert r.saida.strip().lower().endswith(r"\windowspowershell\modules")
