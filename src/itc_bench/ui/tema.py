@@ -53,6 +53,11 @@ def carregar_fontes() -> list[str]:
     return sorted(familias)
 
 
+def aplicar(app: QApplication) -> None:
+    carregar_fontes()
+    app.setStyleSheet(QSS)
+
+
 def svg(caminho: str, cor: str | None = None) -> bytes:
     dados = RECURSOS.joinpath(*caminho.split("/")).read_bytes()
     return dados.replace(b"currentColor", cor.encode()) if cor else dados
@@ -81,6 +86,21 @@ def simbolo(variante: str = "escuro", tamanho: int = 28) -> QPixmap:
     return pixmap(svg(f"simbolo/{arquivo}"), tamanho)
 
 
+def icone_nav(nome: str) -> QIcon:
+    """Ícone da barra: cinza normal, ciano quando selecionado, como no design."""
+    ic = QIcon()
+    for cor, estado in ((SIDE_ICONE, QIcon.State.Off), (CY5, QIcon.State.On)):
+        ic.addPixmap(pixmap(svg(f"icones/{nome}.svg", cor), 16), QIcon.Mode.Normal, estado)
+    return ic
+
+
+def icone_janela() -> QIcon:
+    ic = QIcon()
+    for t in (16, 24, 32, 48, 256):
+        ic.addPixmap(simbolo("16" if t <= 24 else "principal", t))
+    return ic
+
+
 QSS = f"""
 * {{ font-family: "{CORPO}"; }}
 #lateral {{ background: {INK}; }}
@@ -101,6 +121,8 @@ QSS = f"""
 #ajudaBotao {{ border: 1.5px solid #A5B0B0; border-radius: 10px; color: {MAIN_TRILHA};
                font: 700 11px "{CORPO}"; background: transparent; }}
 #ajudaBotao:checked {{ background: {CY9}; border-color: {CY9}; color: #FFFFFF; }}
+#ajudaTitulo {{ font: 700 14px "{DISPLAY}"; color: {INK}; }}
+#ajudaFechar {{ border: none; background: transparent; color: {MAIN_TRILHA}; }}
 #painel {{ background: #FFFFFF; border: 1px solid {MAIN_LINHA}; border-radius: 8px; }}
 #vazio {{ font: 400 13px "{CORPO}"; color: {MUTE}; }}
 #modulo {{ font: 600 11px "{CORPO}"; color: {CY9}; background: {CY50}; border-radius: 4px;

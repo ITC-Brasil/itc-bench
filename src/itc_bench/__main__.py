@@ -14,6 +14,8 @@ from itc_bench import __version__
 from itc_bench.nucleo import caminhos, elevacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
+from itc_bench.ui import tema
+from itc_bench.ui.janela import Janela
 from itc_bench.ui.log_qt import HandlerTela
 
 
@@ -44,6 +46,9 @@ def main() -> int:
     )
 
     app = QApplication(argv)
+    tema.aplicar(app)
+    janela = Janela(tela)
+    janela.show()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")
         QTimer.singleShot(800, app.quit)
