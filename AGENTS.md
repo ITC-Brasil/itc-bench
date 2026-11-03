@@ -32,9 +32,13 @@ Técnico Assistente continua no repo dela; o Bench é cliente (ADR-003).
 
 ## Stack
 
-Python 3.13 + PySide6 6.12 (ADR-002, ADR-010). Manifesto em `pyproject.toml`, lock em `uv.lock`,
-gerenciado pelo uv. Código em `src/itc_bench/`: `nucleo/` e `servicos/` sem Qt (ruff `TID251`),
-`ui/` com Qt, `recursos/` lidos por `importlib.resources`. Identificadores em português.
+Monorepo (ADR-012): `app/` é o programa Windows, `api/` é a API (FastAPI + SQLite no glpi-srv).
+Dois projetos separados, sem workspace.
+
+- **app/**: Python 3.13 + PySide6 6.12 (ADR-002, ADR-010). Manifesto em `app/pyproject.toml`, lock
+  em `app/uv.lock`, gerenciado pelo uv; comandos rodam de dentro de `app/`. Código em
+  `app/src/itc_bench/`: `nucleo/` e `servicos/` sem Qt (ruff `TID251`), `ui/` com Qt, `recursos/`
+  lidos por `importlib.resources`. Identificadores em português.
 
 ## Regras invioláveis
 
@@ -80,11 +84,11 @@ Nunca `git add -A`.
 ## Comandos úteis
 
 ```
-uv sync --frozen                      # ambiente a partir do lock
-uv run itc-bench --dev                # abre sem pedir administrador
-uv run itc-bench --teste              # abre, loga e fecha (código 0)
-uv run itc-bench                      # pede elevação (UAC)
-uv run ruff check . && uv run ruff format --check .
-uv run mypy
-uv run pytest
+uv --directory app sync --frozen                  # ambiente a partir do lock
+uv --directory app run itc-bench --dev            # abre sem pedir administrador
+uv --directory app run itc-bench --teste          # abre, loga e fecha (código 0)
+uv --directory app run itc-bench                  # pede elevação (UAC)
+uv --directory app run ruff check . && uv --directory app run ruff format --check .
+uv --directory app run mypy
+uv --directory app run pytest
 ```
