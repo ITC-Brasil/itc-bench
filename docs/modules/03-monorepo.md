@@ -41,6 +41,9 @@ squash apagaria os commits importados.
   `required-version`. O runner hospedado roda elevado, então os testes `so_admin` de ACL rodam lá;
   sem elevação eles já se marcam como pulados com o motivo.
 - **`api/** text eol=lf`** veio do `.gitattributes` do TA: a API roda em Linux.
+- **Testes de acento usam a página OEM real** (`_codec("oem")`): o runner en-US não tem "ã" na
+  OEM 437. O teste do `cmd` é pulado com motivo nessa situação; nas máquinas pt-BR (850) roda.
+  Achado pelo CI novo; o código do executor não mudou.
 - **Comparação da base de Event Log com o pendrive saiu do CI** (ADR-012, consequência do TA-ADR-022).
 - **Docs do TA sem histórico**, com `ADR-NNN` → `TA-ADR-NNN` e marcadores no lugar de host, porta
   SSH, usuário e diretório de deploy. `pendrive/SCHEMA.md` (contrato da sessão, que a API normaliza)
@@ -65,13 +68,14 @@ squash apagaria os commits importados.
 | Recursos sem conversão | `git check-attr text app/src/itc_bench/recursos/fontes/OFL.txt` | `unset` |
 | SHA-256 das fontes | `sha256sum` × README das fontes | iguais |
 | Lint e tipos do app | `uv --directory app run ruff check .`, `ruff format --check .`, `mypy` | limpos (29 arquivos; 16 fontes) |
-| Testes do app | `uv --directory app run pytest -q` | 87 passed |
+| Testes do app | `uv --directory app run pytest -q` | 87 passed (88 depois da divisão do teste de acento) |
 | App abre e fecha | `uv --directory app run itc-bench --teste` | código 0 |
 | Testes da API | pytest no `python:3.12.14-slim-trixie` (comando do `AGENTS.md`) | 151 passed, 1 warning |
 | Compose igual ao de produção | `docker compose config` com `.env` de teste (apagado depois) | `name: tecnico-assistente`, `container_name: tecnico-api`, `host_ip: 127.0.0.1`, volume `tecnico-assistente_tecnico-data` |
 | `.env` ignorado | `git check-ignore -v api/.env` | `.gitignore:22:.env` |
 | YAML válido | `yaml.safe_load` nos 4 workflows e no `dependabot.yml` | ok |
-| CI no GitHub | runs do PR | **a preencher** (no PR) |
+| CI no GitHub, 1ª execução | PR #8, `app-ci` | falhou: 2 testes de acento supunham OEM 850; o runner é en-US (437) |
+| CI no GitHub, depois da correção | PR #8: `app-ci`, `api-ci`, `gitleaks` | verdes; `app-ci` com 87 passed, 1 skipped (`test_acento_cmd`, motivo: OEM sem "ã"); `--teste` código 0 |
 
 ## Transição no servidor e no TA (aguarda aprovação)
 
