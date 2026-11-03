@@ -30,7 +30,7 @@ fez cada ação.
 1. Um app só, instalado, com login por técnico (ADR-002, ADR-005).
 2. Nenhum segredo no instalador ou ao lado do EXE; cadastros centrais via API (ADR-006, ADR-008).
 3. Preparação completa com retomada após reinício (antigo Master).
-4. Diagnóstico com laudo e histórico dentro do app (ADR-003).
+4. Diagnóstico com laudo e histórico dentro do app (ADR-003, ADR-012).
 5. Ajuda contextual em toda tela (ADR-007).
 6. Registro em arquivo de tudo o que o app fez, com o técnico que fez.
 

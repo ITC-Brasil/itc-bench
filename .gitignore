@@ -14,3 +14,15 @@ build/
 # Segredos e configuração local (ADR-008)
 segredos*.json
 *.ini.local
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# API: config local e banco (ADR-012, TA-ADR-005)
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

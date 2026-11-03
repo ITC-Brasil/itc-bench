@@ -67,11 +67,11 @@ Ponto de atenção: `Servidores.Valor` mistura dado público e segredo na mesma 
 
 ## API (rotas)
 
-Existentes no Técnico Assistente (`tecnico-assistente/docs/API.md`): `GET /v1/saude`,
+Existentes na API (`docs/api/API.md`): `GET /v1/saude`,
 `POST /v1/relatorio`, `GET /v1/historico/{hostname}`, autenticadas por token de carreta
 `Authorization: Bearer itcta_...`.
 
-Planejadas (Módulos 03 e 04, no repo `tecnico-assistente`): login do técnico e entrega dos quatro
+Planejadas (Módulos 04 e 05, em `api/`): login do técnico e entrega dos quatro
 cadastros. Nomes, formato e regras: a definir lá e copiados para cá quando existirem.
 
 ## Guardado localmente pelo Bench (planejado)
@@ -87,5 +87,5 @@ cadastros. Nomes, formato e regras: a definir lá e copiados para cá quando exi
 | Token da carreta (`itcta_`) | `%ProgramData%\ITC\Bench` | DPAPI, escopo máquina | 05 |
 | Sessões de diagnóstico | a definir no módulo de Diagnóstico | — | Diagnóstico |
 
-Escopo DPAPI (usuário ou máquina): a definir no Módulo 03, considerando que vários técnicos usam
+Escopo DPAPI (usuário ou máquina): a definir no Módulo 04, considerando que vários técnicos usam
 a mesma máquina e o app roda elevado.

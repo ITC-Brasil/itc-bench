@@ -1,2 +1,5 @@
 # Recursos com SHA-256 registrado: sem conversão de fim de linha.
-src/itc_bench/recursos/** -text
+app/src/itc_bench/recursos/** -text
+
+# API roda em Linux: LF em qualquer checkout (Dockerfile, .env, shell)
+api/** text eol=lf

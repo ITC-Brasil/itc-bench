@@ -1,0 +1,84 @@
+name: api-deploy
+
+# Manual only during module 03 (ADR-012): the push trigger on api/** comes back in a small PR
+# after the first deploy from this repository is validated.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer run waits instead of cancelling a deploy in progress.
+concurrency:
+  group: deploy-glpi-srv
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/api-ci.yml
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: producao
+    steps:
+      - name: ssh key and pinned host key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # The host key comes from a secret: no StrictHostKeyChecking=no, no ssh-keyscan at deploy time.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: pull, build and health check on glpi-srv
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_APP_PORT: ${{ secrets.DEPLOY_APP_PORT }}
+          # The clone directory reveals the deploy user (ADR-012): secret, passed as an argument.
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$DEPLOY_PORT" \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o BatchMode=yes -o ConnectTimeout=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash -s -- '$GITHUB_SHA' '$DEPLOY_APP_PORT' '$DEPLOY_DIR'" <<'REMOTE'
+          set -euo pipefail
+          expected_sha="$1"
+          app_port="$2"
+          deploy_dir="$3"
+          cd "$deploy_dir"
+          git checkout main
+          git pull --ff-only origin main
+          # Deploy exactly the commit that passed the tests. If main moved on, this run stops
+          # and a run on the newer commit deploys it.
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "$expected_sha" ]; then
+            echo "main is at $actual_sha, this run tested $expected_sha: stopping" >&2
+            exit 1
+          fi
+          cd api
+          docker compose up -d --build
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:${app_port}/v1/saude"; then
+              echo
+              echo "healthy after ${attempt} attempt(s), commit ${actual_sha}"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "no 200 from /v1/saude in 60 s" >&2
+          docker compose ps >&2
+          docker compose logs --tail 50 api >&2
+          exit 1
+          REMOTE
+
+      - name: remove key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

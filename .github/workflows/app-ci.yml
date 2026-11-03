@@ -1,0 +1,36 @@
+name: app-ci
+
+on:
+  pull_request:
+    paths: ["app/**", ".github/workflows/app-ci.yml"]
+  push:
+    branches: [develop, main]
+    paths: ["app/**", ".github/workflows/app-ci.yml"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  test:
+    # The hosted Windows runner runs elevated, so the ACL tests marked so_admin run here too.
+    runs-on: windows-2025
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # Same as [tool.uv] required-version in app/pyproject.toml.
+          version: "0.12.17"
+
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest -q
+      - run: uv run itc-bench --teste
