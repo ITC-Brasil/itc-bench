@@ -17,7 +17,7 @@ ITC Bench (Windows, UAC admin)
  ├─ backend/ (ações no Windows)    ← backend/ do Configurador, por composição, não mixins
  ├─ executor seguro de comandos    ← Módulo 02
  ├─ cliente da API (sessão)        ← Módulos 03–04
- └─ cache local DPAPI              ← Módulo 04
+ └─ cache local DPAPI              ← Módulo 05
         │ HTTPS
         ▼
 API do Técnico Assistente (repo próprio, FastAPI + SQLite)
@@ -49,7 +49,7 @@ como argumento e os dados por variável de ambiente; `nome_valido()` valida ante
 `sistema.py:21` (`Rename-Computer`), `desinstalador.py:63` (UninstallString executada com shell).
 Requisitos: timeout, código de saída checado, saída para o log, senha nunca na linha de comando.
 
-## Autenticação (planejado, Módulo 03, exige tecnico-assistente)
+## Autenticação (planejado, Módulo 04, rotas em `api/`)
 
 - Bench envia usuário e senha à API; a API valida no GLPI, exige o grupo de técnicos, limita
   tentativas e devolve sessão. Rotas exatas: a definir no repo da API.
@@ -57,7 +57,7 @@ Requisitos: timeout, código de saída checado, saída para o log, senha nunca n
 - Bloqueio após 15 minutos parado.
 - UAC continua obrigatório (elevação por `ShellExecuteW runas`, já usado em `app_qt.py`).
 
-## Cadastros (planejado, Módulo 04, exige tecnico-assistente)
+## Cadastros (planejado, Módulo 05, rotas em `api/`)
 
 Após o login, o Bench pede Servidores, Instaladores, WiFi e Unidades à API e guarda cópia
 protegida com DPAPI. Esquema: `docs/BACKEND-SCHEMA.md`.

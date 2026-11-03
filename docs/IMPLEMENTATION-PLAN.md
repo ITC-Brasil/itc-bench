@@ -1,17 +1,17 @@
 # Plano de implementação — ITC Bench
 
 Um módulo por sessão. Branch saindo de `develop`, PR para `develop`, merge pelo responsável.
-**[TA]** = exige PR antes no repo `ITC-Brasil/tecnico-assistente`.
+Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguintes subiram +1.
 
 ## Ajustes em relação à ordem proposta
 
-- **Diagnóstico sobe para o 05**, antes das telas do Configurador. Motivo: só usa rotas que já
+- **Diagnóstico sobe para o 06**, antes das telas do Configurador. Motivo: só usa rotas que já
   existem na API (`POST /v1/relatorio`, `GET /v1/historico/{hostname}`) e substitui o pendrive
   inteiro, liberando o técnico de carregar duas ferramentas cedo. Aprovado pelo responsável em 03/11/2026.
-- **Contas é a primeira tela migrada (06)**: `backend/contas.py` já segue o padrão seguro e o
+- **Contas é a primeira tela migrada (07)**: `backend/contas.py` já segue o padrão seguro e o
   manual já tem a ajuda dela; valida o executor do Módulo 02 numa tela real.
-- **Preparação completa vem depois das telas que ela orquestra (12)**: depende de todas as etapas.
-- **Empacotamento dividido em dois (14, 15)**: instalador e CI primeiro; atualização automática
+- **Preparação completa vem depois das telas que ela orquestra (13)**: depende de todas as etapas.
+- **Empacotamento dividido em dois (15, 16)**: instalador e CI primeiro; atualização automática
   depois, porque precisa de rota de versão na API.
 
 ## Módulos
@@ -34,53 +34,62 @@ Um módulo por sessão. Branch saindo de `develop`, PR para `develop`, merge pel
 - [x] Executor único: lista de argumentos, dados por ambiente, timeout, código de saída, log
 - [x] Testes com entradas hostis (aspas, `&`, `|`, `;`, quebra de linha)
 - [x] Proibir `shell=True` por lint/teste
-- [x] ACL explícito em `%ProgramData%\ITC\Bench` na execução elevada (SYSTEM e `S-1-5-32-544` total, Usuários leitura), antes do cache do 04 (achado médio da auditoria do 01)
+- [x] ACL explícito em `%ProgramData%\ITC\Bench` na execução elevada (SYSTEM e `S-1-5-32-544` total, Usuários leitura), antes do cache do 05 (achado médio da auditoria do 01)
 
-### 03 — Login e sessão · `feat/modulo-03-login` · **[TA]**
-- [ ] [TA] Rotas de login na API, integração GLPI isolada em um arquivo, grupo de técnicos, limite de tentativas; ADR lá
+### 03 — Migração da API para o monorepo · `chore/modulo-03-monorepo`
+- [x] ADR-012 (substitui o ADR-003), com a tabela de renumeração
+- [x] Programa Windows em `app/`; comandos, `.gitattributes` e ferramentas ajustados
+- [x] `api/` importada com histórico (filter-repo + replace-text, fonte `0bc5620`); varredura de segredos
+- [x] Workflows por parte com `paths`; gitleaks; `dependabot.yml`; deploy só manual, environment `producao`, `DEPLOY_DIR`
+- [x] `docs/api/` (API, TOKENS, SCHEMA, DEPLOY, TA-ADRs); regras da API no `AGENTS.md`
+- [ ] Transição no servidor e no TA, em `docs/api/DEPLOY.md` (aguarda aprovação): desligar `push` no TA, backup, deploy key, troca do remote, primeiro deploy, relatório de teste
+- [ ] Depois do deploy validado: `push` em `api/**` de volta no `api-deploy.yml`; README do TA apontando para cá
+
+### 04 — Login e sessão · `feat/modulo-04-login`
+- [ ] Rotas de login em `api/`, integração GLPI isolada em um arquivo, grupo de técnicos, limite de tentativas; ADR
 - [ ] Tela Entrar, sessão, bloqueio por 15 min parado
 - [ ] Login offline 7 dias com hash DPAPI; escopo DPAPI decidido em ADR
 - [ ] Técnico registrado em cada linha do log
 
-### 04 — Cadastros via API com cache DPAPI · `feat/modulo-04-cadastros` · **[TA]**
-- [ ] [TA] Rotas dos 4 cadastros; ADR que revisa o ADR-005 de lá
+### 05 — Cadastros via API com cache DPAPI · `feat/modulo-05-cadastros`
+- [ ] Rotas dos 4 cadastros em `api/`; ADR que revisa o TA-ADR-005 (nota do ADR-006)
 - [ ] Cliente e cache cifrado; indicação "sincronizado HH:MM"; modo offline
 - [ ] Tela Configurações (leitura; edição continua no NocoDB)
 
-### 05 — Diagnóstico · `feat/modulo-05-diagnostico`
-- [ ] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python
+### 06 — Diagnóstico · `feat/modulo-06-diagnostico`
+- [ ] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python. O pendrive não veio para o monorepo: a referência é `pendrive/` no repo `ITC-Brasil/tecnico-assistente` arquivado (até `0bc5620`), incluindo `pendrive/SCHEMA.md` (cópia em `docs/api/SCHEMA.md`)
 - [ ] Coleta e laudo, Histórico; envio à API existente
 - [ ] Token da carreta (`itcta_`) guardado com DPAPI em escopo de máquina, em `%ProgramData%\ITC\Bench`; nunca no repositório nem no instalador (ADR-008)
 - [ ] Definir e documentar como o token chega à máquina (hoje é gravado no pendrive)
-- Se o login do técnico tornar o token da carreta desnecessário, isso é ADR novo e **[TA]**, fora do escopo do 05.
+- Se o login do técnico tornar o token da carreta desnecessário, isso é ADR novo, fora do escopo do 06.
 
-### 06 — Contas · `feat/modulo-06-contas`
+### 07 — Contas · `feat/modulo-07-contas`
 - [ ] Migrar `backend/contas.py` + `aba_usuarios.py`/`aba_admin.py`; SID `S-1-5-32-544`; fim do `wmic`
 - [ ] Ajuda da tela a partir do manual
 
-### 07 — Identificação e Wi-Fi · `feat/modulo-07-identificacao-wifi`
+### 08 — Identificação e Wi-Fi · `feat/modulo-08-identificacao-wifi`
 - [ ] `sistema.py` (renomear PC sem interpolação), `wifi.py` com dados do cache; ajuda escrita
 
-### 08 — Acesso remoto · `feat/modulo-08-acesso-remoto`
+### 09 — Acesso remoto · `feat/modulo-09-acesso-remoto`
 - [ ] GLPI Agent, RustDesk, AnyDesk com dados de Servidores; senha AnyDesk sem `echo`; polling no lugar de `sleep(10)`; comparação de versão numérica
 
-### 09 — Programas e Remover programas · `feat/modulo-09-programas`
+### 10 — Programas e Remover programas · `feat/modulo-10-programas`
 - [ ] Apps + Winget + WebApps em lista única; download sob demanda com SHA-256; desinstalador sem shell
 
-### 10 — Políticas e USB · `feat/modulo-10-politicas-usb`
+### 11 — Políticas e USB · `feat/modulo-11-politicas-usb`
 - [ ] GPO: local e ACL do `.bat` de logon (achado 4 da análise); USB
 
-### 11 — Proteção do login e Aparência · `feat/modulo-11-protecao-aparencia`
+### 12 — Proteção do login e Aparência · `feat/modulo-12-protecao-aparencia`
 - [ ] Proteção, Tela e papel de parede, Mouse e teclado, Energia (ajudas do manual)
 
-### 12 — Preparação completa, Início e Limpeza · `feat/modulo-12-preparacao`
+### 13 — Preparação completa, Início e Limpeza · `feat/modulo-13-preparacao`
 - [ ] Perfis, etapas, retomada após reinício; tela Início; Limpeza; Registro; Ajuda consolidada
 
-### 13 — Revisão de segurança e testes de ponta a ponta · `chore/modulo-13-revisao`
+### 14 — Revisão de segurança e testes de ponta a ponta · `chore/modulo-14-revisao`
 - [ ] Máquina limpa preparada do zero; auditoria completa
 
-### 14 — Empacotamento, instalador e CI · `ci/modulo-14-instalador`
+### 15 — Empacotamento, instalador e CI · `ci/modulo-15-instalador`
 - [ ] `.spec` do PyInstaller, `.ico` multi-tamanho, Inno Setup x WiX decidido em ADR, endereço da API no instalador, CI
 
-### 15 — Atualização automática · `feat/modulo-15-atualizacao` · **[TA]**
-- [ ] [TA] Rota de versão disponível; download assinado/conferido; "atualizar ao fechar"
+### 16 — Atualização automática · `feat/modulo-16-atualizacao`
+- [ ] Rota de versão disponível em `api/`; download assinado/conferido; "atualizar ao fechar"

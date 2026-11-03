@@ -26,7 +26,7 @@ Referências do produto:
 | Telas e navegação | `docs/APP-FLOW.md`, `docs/UI-UX-BRIEF.md`, `docs/design/itc-bench-identidade-telas.html` |
 | Dados (NocoDB via API, cache local) | `docs/BACKEND-SCHEMA.md` |
 | Decisões | `docs/DECISIONS.md` |
-| Código de origem (só leitura, fora do repo) | `itc-config/configurador`, `itc-config/tecnico-assistente` |
+| Código de origem (só leitura, fora do repo) | `itc-config/configurador`; `itc-config/tecnico-assistente` (descontinuado; a `api/` veio para cá, ADR-012) |
 
 Stack e versões: a definir no Módulo 01; leia sempre do manifesto, nunca de memória.
 
