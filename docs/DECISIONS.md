@@ -205,3 +205,32 @@ dado de ambiente no instalador é o endereço da API.
 **Consequences**
 `.gitignore` bloqueia `segredos*.json` e `*.ini.local`. Exemplos nas telas de design não vão para
 código nem testes. Telas sem cadastro preenchido recusam a ação e dizem o que falta.
+
+---
+
+## ADR-009 — Aceitar os hosts reais de servidor no histórico git de `b70473b`
+
+**Status:** Accepted
+**Date:** 2026-11-03
+**Module:** 00
+
+**Context**
+O commit `b70473b` (`docs: add approved design and configurador analysis`) trouxe
+`docs/design/itc-bench-identidade-telas.html` com os hosts reais de GLPI e RustDesk na Tela 6.
+O `b76f685` os trocou por `exemplo.invalid`. O PR #1 foi mergeado em `develop` com merge commit
+(`e0bd38d`), não squash, e por isso `b70473b` ficou no histórico de `develop`. Isso contraria o
+ADR-008.
+
+**Decision**
+Aceitar o risco: manter o histórico como está e não reescrever `develop` nem `main`.
+
+**Alternatives considered**
+- Recriar `develop` com um único commit e force push — exige liberar o force push e obriga
+  quem já clonou o repo a clonar de novo, para esconder dados que não são credenciais.
+- Reescrever o histórico com `git filter-repo` — mesmo custo, e o GitHub continua servindo o
+  commit antigo pelo hash até o garbage collection.
+
+**Consequences**
+Os nomes de host podem ser lidos no histórico de qualquer clone. Não há senha, chave completa
+nem token. A partir daqui, achados da categoria 4 em histórico git são tratados antes do merge
+do PR. A auditoria do Módulo 00 (`docs/security/2026-11-03-modulo-00.md`) aponta para este ADR.
