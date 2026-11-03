@@ -57,7 +57,7 @@ fixadas no manifesto do Módulo 01.
 
 ## ADR-003 — Absorver o pendrive como módulo de Diagnóstico; a API continua no repo dela
 
-**Status:** Accepted
+**Status:** Superseded by ADR-012
 **Date:** 2026-11-03
 **Module:** Pre-implementation
 
@@ -135,7 +135,7 @@ persistência da sessão: ADR no Módulo 03.
 
 ## ADR-006 — Cadastros no NocoDB, entregues pela API, com cópia local DPAPI
 
-**Status:** Accepted (rotas: planejadas para o Módulo 04, no repo `tecnico-assistente`)
+**Status:** Accepted (rotas: planejadas para o Módulo 05, neste repo, em `api/`; ADR-012)
 **Date:** 2026-11-03
 **Module:** Pre-implementation
 
@@ -372,3 +372,85 @@ Desenho aprovado em `.conversa/` em 03/11/2026, com ajustes.
 Todo backend migrado do Configurador passa pelo executor; `remoto.py` (`echo senha | anydesk`)
 usa `entrada=Sensivel(...)`. Script PowerShell maior que ~12 000 caracteres precisa ser dividido.
 `--dev` sem admin, depois de uma execução elevada, grava o log em `%LOCALAPPDATA%`.
+
+---
+
+## ADR-012 — Monorepo: a API do Técnico Assistente vem para `api/`, o app vai para `app/`
+
+**Status:** Accepted (substitui o ADR-003)
+**Date:** 2026-11-03
+**Module:** 03
+
+**Context**
+O ADR-003 manteve a API em `ITC-Brasil/tecnico-assistente` (TA) e marcou com **[TA]** os módulos
+que dependiam de PR lá. O responsável decidiu descontinuar o TA: a única parte viva é a `api/`
+(FastAPI + SQLite no glpi-srv). O pendrive não está em uso. Login (ADR-005) e cadastros (ADR-006)
+precisam de rotas novas na API, e manter dois repos para um só produto dobra PRs, CI e revisão.
+
+**Decision**
+1. **Monorepo.** `app/` (programa Windows: `pyproject.toml`, `uv.lock`, `.python-version`, `src/`,
+   `tests/`) e `api/` (como no TA). São dois projetos separados, sem workspace uv: o app é Python
+   3.13 e a API roda Python 3.12.14 no Docker, e um workspace uv impõe um `requires-python` e um
+   lock comuns. A API mantém `requirements.in` + pip-compile (TA-ADR-025).
+2. **Importação só de `api/`, com histórico.** `git filter-repo --path api/ --replace-text` num
+   clone descartável da `main` do TA em `0bc5620d303fea2a0b56a27b03a6df3d2f0ae976` (PR #22, deploy
+   verde nesse SHA), depois `git merge --allow-unrelated-histories`. Os hosts reais do histórico
+   de `api/.env.example` (e, por garantia, os outros hosts e o usuário de deploy) viram
+   `exemplo.invalid` antes do merge; a varredura por regex e o gitleaks 8.30.1 rodam na cópia
+   reescrita e no histórico completo da branch. O PR para `develop` é por **merge commit**: squash
+   apagaria o histórico importado.
+3. **O pendrive fica fora.** Continua no TA arquivado, como referência do Diagnóstico (Módulo 06).
+   Docs e ADRs do TA vêm como arquivos (sem histórico) para `docs/api/`, com os ADRs renomeados
+   para `TA-ADR-NNN`.
+4. **CI com um workflow por parte, filtrado por `paths`:** `app-ci.yml` (`app/**`), `api-ci.yml`
+   (`api/**`), `api-deploy.yml` e `gitleaks.yml` (histórico inteiro, sem `paths`). Sai do CI da
+   API a comparação da base de Event Log com a cópia do pendrive: a cópia de `api/app/` passa a
+   ser a única, e a consequência do TA-ADR-022 que exigia as duas iguais deixa de valer.
+5. **Deploy pelo itc-bench, sem parada e sem troca de dados.** Mesmo container (`tecnico-api`),
+   mesmo projeto compose (nome fixo `tecnico-assistente`), mesmo volume, mesmo `.env`, mesmo
+   domínio e mesmo diretório no glpi-srv; muda só o remote do clone. Secrets no environment
+   `producao` do GitHub, restrito à `main`: os seis do TA mais **`DEPLOY_DIR`**, porque o caminho
+   do clone revela o usuário de deploy. O script remoto recebe o diretório como argumento.
+   Neste módulo o `api-deploy.yml` só tem `workflow_dispatch`; o gatilho de `push` em `api/**`
+   volta num PR pequeno depois do primeiro deploy validado.
+6. **Acesso do servidor ao itc-bench por deploy key SSH só de leitura** (chave própria no
+   servidor, diferente da `DEPLOY_SSH_KEY`), com o host do GitHub fixado no `known_hosts` do
+   servidor pelas impressões digitais publicadas pelo GitHub. Sem PAT.
+7. **Transição do clone, manual e única:** `git remote set-url origin
+   git@github.com:ITC-Brasil/itc-bench.git`, `git fetch origin main`, `git checkout -B main
+   origin/main`. O `pull --ff-only` do workflow vale a partir do deploy seguinte. Rollback também
+   manual (o `workflow_dispatch` do TA puxaria o remote novo). Passos em `docs/api/DEPLOY.md`.
+8. **Renumeração do plano** (o ADR-011 não é editado; onde ele diz Módulo 04 para a subpasta
+   DPAPI, leia-se 05):
+
+   | Antes | Depois | Módulo |
+   |---|---|---|
+   | — | 03 | Migração da API para o monorepo |
+   | 03 | 04 | Login e sessão |
+   | 04 | 05 | Cadastros via API com cache DPAPI |
+   | 05 | 06 | Diagnóstico |
+   | 06–14 | 07–15 | Contas … Empacotamento |
+   | 15 | 16 | Atualização automática |
+
+   A marcação **[TA]** sai do plano. A nota do ADR-006 ("ADR correspondente no tecnico-assistente")
+   passa a ser resolvida aqui, como TA-ADR novo ou ADR do Bench, no Módulo 05.
+
+**Alternatives considered**
+- `git subtree add --prefix=api` sem `--squash` — traz os 107 commits do TA, inclusive pendrive e
+  docs com host, porta e usuário de deploy reais. Com `--squash`, perde o histórico.
+- `filter-repo --to-subdirectory-filter api` do repo inteiro — geraria `api/pendrive/...` e os
+  mesmos hosts.
+- ADR de risco aceito para os hosts do histórico de `api/` — desnecessário: a cópia é local e
+  descartável, reescrever não custa nada (ao contrário do caso do ADR-009).
+- Workspace uv com os dois projetos — força a mesma versão de Python e mistura PySide6 no lock da API.
+- PAT fine-grained para o clone do servidor (como no TA) — credencial de usuário com validade e
+  escopo de conta; a deploy key é por repositório e só de leitura.
+- Manter o gatilho de `push` no deploy já neste módulo — o merge `develop` → `main` dispararia um
+  deploy antes da troca do remote.
+
+**Consequences**
+Comandos do app rodam de dentro de `app/` (`uv --directory app run …`); os da API seguem os do TA
+(pytest no Docker, pip-compile). `api/` não usa ruff nem mypy, como no TA. O TA recebe só dois PRs
+depois deste módulo (desligar o `push` do deploy antes da troca do remote; README apontando para
+cá); arquivamento é do responsável. Com `paths`, um PR só de docs não roda os testes do app nem da
+API; se algum dia esses checks virarem obrigatórios por branch protection, isso precisa de ajuste.
