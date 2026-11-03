@@ -12,7 +12,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from itc_bench import __version__
-from itc_bench.nucleo import caminhos, elevacao
+from itc_bench.nucleo import acl, caminhos, elevacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
 from itc_bench.ui import tema
@@ -46,20 +46,33 @@ def main() -> int:
         )
         return 1
 
-    caminhos.inicializar()
+    admin = elevacao.eh_admin()
+    erro_acl: acl.ErroAcl | None = None
+    try:
+        caminhos.inicializar(admin)
+    except acl.PontoDeReparse:
+        raise  # não abre log por um caminho desviado; o excepthook mostra na tela
+    except acl.ErroAcl as erro:
+        erro_acl = erro
     tela = HandlerTela()
     log.addHandler(tela)
     arquivo = configurar_log()
     log.info(
         "ITC Bench %s iniciado (admin=%s, args=%s). Log: %s",
         __version__,
-        elevacao.eh_admin(),
+        admin,
         argv[1:],
         arquivo,
     )
+    if not admin:
+        log.info("Sem administrador: ACL de %s não aplicado.", caminhos.dados().parent)
+    elif erro_acl:
+        log.error("%s", erro_acl)
 
     app = QApplication(argv)
     tema.aplicar(app)
+    if erro_acl:
+        QMessageBox.warning(None, "ITC Bench", f"{erro_acl}\n\nDetalhes em {arquivo}.")
     janela = Janela(tela)
     janela.show()
     if "--teste" in argv:
