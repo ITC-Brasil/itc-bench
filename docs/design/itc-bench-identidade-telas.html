@@ -1,0 +1,432 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+</head><body>
+<title>ITC Bench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: página-catálogo no padrão Tasks/NoteScan — cards de especificação, depois janelas do app em tamanho real com rolagem horizontal própria */
+:root{
+  --page:#E9E5DD; --card:#FDFBF7; --well:#F5F0E8; --line:#D8D2C6; --line2:#EDE8DE;
+  --ink:#1B1B1B; --mute:#5F594E; --faint:#8A8378;
+  --cy:#008F95; --cy9:#006C72; --cy12:#003C3F; --cy5:#30A5AB; --cy50:#E0F4F5;
+  --ok:#1A7F3C; --warn:#CC7A00; --err:#C0392B; --info:#1565C0;
+  --disp:Archivo,system-ui,sans-serif; --body:Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--disp)}
+.wrap{display:flex;flex-direction:column;gap:22px;padding-block:56px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1460px;margin:0 auto}
+.eyebrow{font:600 11px/1 var(--disp);letter-spacing:.42em;color:var(--cy)}
+h1{margin:0;font:800 34px/1 var(--disp);letter-spacing:-.025em}
+.lead{margin:0;max-width:820px;font:400 14.5px/1.55 var(--disp);color:var(--mute)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:22px}
+.card{border:1px solid var(--line);background:var(--card);min-width:0}
+.card.full{grid-column:1/-1}
+.ch{padding:18px 24px;border-bottom:1px solid var(--line2);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.ch h2{margin:0;font:800 15px/1 var(--disp);letter-spacing:-.01em}
+.ch span{font:400 12px/1.4 var(--disp);color:#6B6558}
+.cb{padding:26px 24px;background:var(--well);display:flex;gap:30px;flex-wrap:wrap;align-items:center}
+.cf{padding:14px 24px;border-top:1px solid var(--line2);font:400 12.5px/1.55 var(--disp);color:#6B6558}
+.cf b{color:var(--ink)}
+.cap{margin-top:10px;font:500 9px/1 var(--disp);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.lock{display:flex;align-items:center;gap:7px}
+.lock .t{display:flex;flex-direction:column;gap:5px}
+.lock .t i{font:normal 600 11px/1 var(--disp);letter-spacing:.42em;color:var(--cy)}
+.lock .t b{font:800 36px/.88 var(--disp);letter-spacing:-.025em}
+.names{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:0}
+.nm{padding:24px;border-right:1px solid var(--line2);display:flex;flex-direction:column;gap:12px;min-width:0}
+.nm:last-child{border-right:0}
+.nm p{margin:0;font:400 13px/1.5 var(--disp);color:var(--mute)}
+.pick{align-self:flex-start;font:600 9.5px/1 var(--disp);letter-spacing:.14em;text-transform:uppercase;background:var(--cy12);color:#fff;padding:5px 7px}
+.alt{align-self:flex-start;font:600 9.5px/1 var(--disp);letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line);color:var(--faint);padding:4px 7px}
+/* mapa de navegação */
+.map{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:0}
+.grp{padding:20px 24px;border-right:1px solid var(--line2);border-bottom:1px solid var(--line2);min-width:0}
+.grp h3{margin:0 0 4px;font:600 10px/1 var(--disp);letter-spacing:.2em;text-transform:uppercase;color:var(--cy9)}
+.grp .why{margin:0 0 12px;font:400 12px/1.45 var(--disp);color:var(--faint)}
+.it{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.it svg{flex:none;margin-top:1px}
+.it div{font:600 13px/1.25 var(--body)}
+.it small{display:block;font:400 11.5px/1.4 var(--body);color:var(--mute)}
+.from{font:500 10px/1 var(--body);color:var(--faint);font-variant-numeric:tabular-nums}
+/* janelas */
+.scroll{overflow-x:auto;padding:26px 24px;background:var(--well)}
+.win{position:relative;width:1180px;height:720px;background:#fff;border:1px solid #C9C2B4;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;font-family:var(--body);color:var(--ink);box-shadow:0 18px 40px -24px rgba(27,27,27,.35)}
+.tb{height:32px;flex:none;background:#1B1B1B;display:flex;align-items:center;padding:0 0 0 12px;gap:8px;color:#BABABA;font:500 11.5px/1 var(--body)}
+.tb .sp{flex:1}
+.tb .wc{width:46px;height:32px;display:flex;align-items:center;justify-content:center;color:#8E8E8E}
+.app{flex:1;display:flex;min-height:0}
+.side{width:232px;flex:none;background:#1B1B1B;color:#D0D0D0;display:flex;flex-direction:column;padding:16px 10px 12px;gap:2px}
+.side .brand{display:flex;align-items:center;gap:4px;padding:2px 8px 16px}
+.side .brand i{font:normal 600 7.5px/1 var(--disp);letter-spacing:.42em;color:var(--cy5)}
+.side .brand b{font:800 17px/.88 var(--disp);letter-spacing:-.025em;color:#fff}
+.side .sec{font:600 9.5px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:#797979;padding:14px 10px 6px}
+.nav{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;font:500 12.5px/1 var(--body);color:#D0D0D0}
+.nav.on{background:#2C2C2C;color:#fff;box-shadow:inset 2px 0 0 var(--cy5)}
+.nav .n{margin-left:auto;font:600 10px/1 var(--body);color:#8E8E8E;font-variant-numeric:tabular-nums}
+.side .foot{margin-top:auto;border-top:1px solid #2C2C2C;padding:12px 10px 0;font:400 10.5px/1.5 var(--body);color:#8E8E8E;font-variant-numeric:tabular-nums}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:#F4F6F6}
+.top{height:64px;flex:none;background:#fff;border-bottom:1px solid #D8DEDE;display:flex;align-items:center;padding:0 24px;gap:14px}
+.top h4{margin:0;font:800 20px/1 var(--disp);letter-spacing:-.015em}
+.top .crumb{font:500 11px/1 var(--body);color:#697272;margin-bottom:5px}
+.top .sp{flex:1}
+.btn{font:600 12px/1 var(--body);padding:9px 14px;border-radius:6px;border:1px solid #D8DEDE;background:#fff;color:#1A2020;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn.p{background:var(--cy9);border-color:var(--cy9);color:#fff}
+.body{flex:1;min-height:0;padding:20px 24px;display:grid;gap:16px;overflow:hidden}
+.pn{background:#fff;border:1px solid #D8DEDE;border-radius:8px;min-width:0;display:flex;flex-direction:column}
+.pn .h{padding:12px 16px;border-bottom:1px solid #EEF1F1;display:flex;align-items:center;gap:8px;font:700 13px/1 var(--disp)}
+.pn .h .sp{flex:1}
+.pn .h small{font:500 11px/1 var(--body);color:#697272}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;padding:14px 16px;font:400 12px/1.3 var(--body)}
+.kv dt{color:#697272}.kv dd{margin:0;font-weight:500;font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:5px;font:600 10.5px/1 var(--body);padding:4px 7px;border-radius:99px;white-space:nowrap}
+.pill:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ok{color:var(--ok);background:#E7F3EB}.warn{color:#8F5600;background:#FBF0DE}.err{color:var(--err);background:#F9E6E4}.inf{color:var(--info);background:#E5EEF9}.idle{color:#697272;background:#EEF1F1}
+.row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #F0F2F2;font:400 12.5px/1.3 var(--body)}
+.row:last-child{border-bottom:0}
+.row .sp{flex:1;min-width:0}
+.row small{display:block;color:#697272;font-size:11px;margin-top:3px}
+.chk{width:16px;height:16px;border-radius:4px;border:1.5px solid #A5B0B0;flex:none;display:flex;align-items:center;justify-content:center}
+.chk.on{background:var(--cy9);border-color:var(--cy9)}
+.log{background:#1A2020;color:#D8DEDE;font:400 11px/1.65 ui-monospace,Consolas,monospace;padding:12px 14px;border-radius:0 0 8px 8px;flex:1;overflow:hidden}
+.log .t{color:#697272}.log .g{color:#7BC896}.log .y{color:#E3A64A}
+.tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid #EEF1F1}
+.tab{font:600 12px/1 var(--body);padding:12px 10px;color:#697272;border-bottom:2px solid transparent}
+.tab.on{color:var(--cy12);border-color:var(--cy)}
+.search{display:flex;align-items:center;gap:8px;border:1px solid #D8DEDE;border-radius:6px;padding:8px 10px;font:400 12px/1 var(--body);color:#A5B0B0;width:260px;background:#fff}
+.bar{height:6px;border-radius:3px;background:#EEF1F1;overflow:hidden}.bar i{display:block;height:100%;background:var(--cy)}
+.md{padding:16px 20px;font:400 12.5px/1.6 var(--body);color:#3A4040;overflow:hidden}
+.md h5{margin:0 0 6px;font:700 13.5px/1.3 var(--disp);color:#1A2020}
+.md p{margin:0 0 12px}
+.md ul,.md ol{margin:0 0 12px;padding-left:18px}
+.hq{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid #A5B0B0;color:#697272;font:700 11px/1 var(--body);margin-left:10px;vertical-align:3px}
+.hq.on{background:var(--cy9);border-color:var(--cy9);color:#fff}
+.veil{position:absolute;inset:32px 0 0 0;background:rgba(26,32,32,.38);display:flex;align-items:flex-start;justify-content:flex-end;padding:72px 28px 0}
+.pop{width:420px;background:#fff;border-radius:8px;box-shadow:0 24px 50px -20px rgba(0,0,0,.5);overflow:hidden}
+.pop .ph{padding:14px 18px;border-bottom:1px solid #EEF1F1;display:flex;align-items:center;gap:8px;font:700 14px/1 var(--disp)}
+.pop .ph .sp{flex:1}
+.pop .pf{padding:12px 18px;border-top:1px solid #EEF1F1;display:flex;gap:8px;justify-content:flex-end;background:#FAFBFB}
+.fld{display:flex;flex-direction:column;gap:5px;font:500 11px/1 var(--body);color:#697272}
+.inp{border:1px solid #D8DEDE;border-radius:6px;padding:9px 10px;font:400 12.5px/1 var(--body);color:#1A2020;background:#fff;font-variant-numeric:tabular-nums}
+.src{display:inline-flex;align-items:center;gap:6px;font:500 11px/1 var(--body);color:#3A4040;background:var(--cy50);padding:6px 9px;border-radius:5px}
+.opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.opt>div{padding:22px 24px;border-right:1px solid var(--line2);display:flex;flex-direction:column;gap:10px;min-width:0}
+.opt>div:last-child{border-right:0}
+.opt h3{margin:0;font:800 15px/1.2 var(--disp)}
+.opt p,.opt li{margin:0;font:400 13px/1.55 var(--disp);color:var(--mute)}
+.opt ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+</style>
+
+<section class="wrap">
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap"><span class="eyebrow">ITC</span><h1>Bench — identidade e telas</h1></div>
+    <p class="lead">Proposta para o app único que junta o Configurador e o Técnico Assistente. Mesma montagem de marca do ITC NoteScan e do ITC Tasks: símbolo em grade 64 com traço de 8u, "ITC" espaçado em ciano e o nome em Archivo 800. Abaixo: nome, símbolo, ícones de navegação, organização das opções e quatro telas.</p>
+  </div>
+
+  <div class="g">
+    <div class="card full">
+      <div class="ch"><h2>Nome</h2><span>Uma palavra em inglês, curta e concreta, como Sentinel, NoteScan e Tasks</span></div>
+      <div class="names">
+        <div class="nm"><span class="pick">recomendado</span><div class="lock"><svg class="sym" width="50" height="50"></svg><div class="t"><i>ITC</i><b style="font-size:31px">Bench</b></div></div><p>A bancada do técnico: é onde o notebook chega, é preparado, testado e liberado. Cobre configuração e diagnóstico sem prender o nome a nenhum dos dois. Fala-se igual em português ("abre o Bench").</p></div>
+        <div class="nm"><span class="alt">alternativa</span><div class="lock"><svg class="sym" width="50" height="50"></svg><div class="t"><i>ITC</i><b style="font-size:31px">Setup</b></div></div><p>Direto e conhecido por todo técnico. Fraco para a parte de diagnóstico e genérico demais: "setup" já é o nome de metade dos instaladores na pasta.</p></div>
+        <div class="nm"><span class="alt">alternativa</span><div class="lock"><svg class="sym" width="50" height="50"></svg><div class="t"><i>ITC</i><b style="font-size:31px">Toolbox</b></div></div><p>Descreve bem a coleção de ferramentas, mas é longo no lockup e soa como pasta de utilitários, não como produto.</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><h2>Símbolo · grade de construção</h2></div>
+      <div class="cb">
+        <svg width="176" height="176" viewBox="0 0 64 64" style="flex:none"><g stroke="#C9DEDF" stroke-width=".4"><path d="M8 0V64M16 0V64M24 0V64M32 0V64M40 0V64M48 0V64M56 0V64M0 8H64M0 16H64M0 24H64M0 32H64M0 40H64M0 48H64M0 56H64"/></g><rect x=".5" y=".5" width="63" height="63" fill="none" stroke="#A8C9CB" stroke-width=".7"/><g class="symg"></g></svg>
+        <div style="display:flex;flex-direction:column;gap:9px;font:500 11.5px/1.35 var(--disp);color:var(--mute);flex:1 1 200px;min-width:190px">
+          <div>Caixa <b style="color:var(--ink)">64 × 64</b> · módulo <b style="color:var(--ink)">8</b> · traço <b style="color:var(--ink)">8u</b></div>
+          <div>Tela: retângulo <b style="color:var(--ink)">8,10 → 56,44</b> em ciano, cantos retos</div>
+          <div>Base: barra <b style="color:var(--ink)">4 → 60</b> em y=52, grafite</div>
+          <div>Dentro da tela, o prompt <b style="color:var(--ink)">›</b> <b style="color:var(--ink)">20,20 · 28,27 · 20,34</b>: os comandos que o app roda por você</div>
+          <div>Mesma lógica do Tasks: contorno em ciano, sinal de ação em ciano-escuro #003C3F</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><h2>Versões e aplicações</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr">
+        <div class="cb" style="gap:22px"><div><svg class="sym" width="56" height="56"></svg><div class="cap">principal</div></div><div><svg class="sym" data-v="mono" width="56" height="56"></svg><div class="cap">mono</div></div></div>
+        <div class="cb" style="background:#1B1B1B;gap:22px"><div><svg class="sym" data-v="dark" width="56" height="56"></svg><div class="cap">escuro</div></div><div><svg class="sym" data-v="neg" width="56" height="56"></svg><div class="cap">negativa</div></div></div>
+      </div>
+      <div class="cb" style="border-top:1px solid var(--line2);align-items:flex-end">
+        <div><div style="width:72px;height:72px;border-radius:16px;background:#003C3F;display:flex;align-items:center;justify-content:center"><svg class="sym" data-v="dark" width="44" height="44"></svg></div><div class="cap">.ico / atalho</div></div>
+        <div><div style="display:flex;gap:6px;align-items:flex-end"><svg class="sym" width="32" height="32"></svg><svg class="sym" width="24" height="24"></svg><svg class="sym" data-v="small" width="16" height="16"></svg></div><div class="cap">32 · 24 · 16 ajustado</div></div>
+        <div><div style="width:150px;height:96px;background:#1B1B1B;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:4px"><svg class="sym" data-v="dark" width="30" height="30"></svg><div style="display:flex;flex-direction:column;gap:3px"><span style="font:600 7.5px/1 var(--disp);letter-spacing:.42em;color:var(--cy5)">ITC</span><span style="font:800 17px/.88 var(--disp);letter-spacing:-.025em;color:#fff">Bench</span></div></div><div class="cap">splash do instalador</div></div>
+      </div>
+      <div class="cf">Em 16px o traço sobe para <b>10u</b> e o prompt encolhe, como no Tasks. O .ico do instalador leva 16, 24, 32, 48 e 256.</div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Ícones de navegação</h2><span>Grade 24, traço 2px, terminação reta, sem preenchimento. Um ícone por item do menu.</span></div>
+      <div class="cb" id="iconset" style="gap:18px 26px"></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Organização das opções</h2><span>As 17 abas atuais e o pendrive viram 7 grupos, na ordem em que o técnico trabalha no notebook</span></div>
+      <div class="map" id="map"></div>
+      <div class="cf">Mudanças em relação ao Configurador: <b>Master</b> vira "Preparação completa" e fica no topo, como fluxo guiado; <b>Apps, Winget e WebApps</b> viram uma tela só com abas; <b>Admin</b> some como aba e suas ações vão para Contas e Acesso remoto; <b>Wallpaper, Tela e Mouse</b> se juntam em Aparência e periféricos; <b>Energia</b> sai de Sistema e vai para Aparência. O <b>Diagnóstico</b> do pendrive ganha grupo próprio. Senhas e endereços (segredos.json) saem das telas e vão para Configurações, visíveis só depois de pedir a senha de administrador.</div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 1 · Início</h2><span>O estado da máquina antes de tudo: o que já está feito, o que falta e o último diagnóstico</span></div>
+      <div class="scroll"><div class="win" data-nav="inicio">
+        <div class="top"><div><div class="crumb">Início</div><h4>UM-07-NB12</h4></div><span class="pill warn">Preparação 6 de 9</span><div class="sp"></div><span class="btn">Coletar diagnóstico</span><span class="btn p">Continuar preparação</span></div>
+        <div class="body" style="grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto 1fr">
+          <div class="pn"><div class="h">Esta máquina</div><dl class="kv"><dt>Modelo</dt><dd>Lenovo V15 G4 IRU</dd><dt>Série</dt><dd>PF4XK2M7</dd><dt>Windows</dt><dd>11 Pro 24H2 · 26100.2314</dd><dt>Unidade</dt><dd>Carreta UM-07 · Juazeiro/BA</dd><dt>Disco</dt><dd>212 GB livres de 476 GB</dd><dt>Bateria</dt><dd>88% de saúde</dd></dl></div>
+          <div class="pn" style="grid-row:span 2"><div class="h">Preparação<span class="sp"></span><small>perfil Sala de aula</small></div>
+            <div class="row"><span class="pill ok">feito</span><span class="sp">Nome do computador</span></div>
+            <div class="row"><span class="pill ok">feito</span><span class="sp">Contas Aluno e Suporte</span></div>
+            <div class="row"><span class="pill ok">feito</span><span class="sp">Wi-Fi da unidade</span></div>
+            <div class="row"><span class="pill ok">feito</span><span class="sp">GLPI Agent</span></div>
+            <div class="row"><span class="pill ok">feito</span><span class="sp">RustDesk</span></div>
+            <div class="row"><span class="pill ok">feito</span><span class="sp">Programas (14)</span></div>
+            <div class="row"><span class="pill warn">pendente</span><span class="sp">Políticas (GPO)<small>Reinício pendente desde 14:32</small></span></div>
+            <div class="row"><span class="pill idle">não iniciado</span><span class="sp">Proteção da tela de login</span></div>
+            <div class="row"><span class="pill idle">não iniciado</span><span class="sp">Papel de parede e energia</span></div>
+          </div>
+          <div class="pn"><div class="h">Último diagnóstico<span class="sp"></span><small>28/10 · 09:14</small></div>
+            <div class="row"><span class="pill ok">ok</span><span class="sp">Disco<small>SSD sem alertas SMART</small></span></div>
+            <div class="row"><span class="pill warn">atenção</span><span class="sp">Event Log<small>3 desligamentos inesperados em 7 dias</small></span></div>
+            <div class="row"><span class="pill ok">ok</span><span class="sp">Rede e bateria</span></div>
+          </div>
+          <div class="pn"><div class="h">Atenção</div>
+            <div class="row"><span class="pill err">crítico</span><span class="sp">Utilman sem bloqueio<small>Aplicar em Segurança › Proteção</small></span></div>
+            <div class="row"><span class="pill inf">info</span><span class="sp">Versão 1.4.0 disponível<small>Atualizar ao fechar</small></span></div>
+          </div>
+          <div class="pn"><div class="h">Atalhos</div>
+            <div class="row"><span class="sp">Forçar inventário GLPI</span><span class="btn">Rodar</span></div>
+            <div class="row"><span class="sp">Limpar temporários</span><span class="btn">Rodar</span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 2 · Preparação completa</h2><span>O antigo Master: escolhe o perfil, revisa as etapas e roda. Retoma sozinho depois do reinício.</span></div>
+      <div class="scroll"><div class="win" data-nav="prep">
+        <div class="top"><div><div class="crumb">Início › Preparação completa</div><h4>Preparação completa</h4></div><div class="sp"></div><span class="btn">Perfil: Sala de aula ▾</span><span class="btn">Pausar</span><span class="btn p">Rodar 3 etapas</span></div>
+        <div class="body" style="grid-template-columns:1.05fr 1fr">
+          <div class="pn"><div class="h">Etapas<span class="sp"></span><small>6 de 9 concluídas</small></div>
+            <div style="padding:12px 16px 4px"><div class="bar"><i style="width:66%"></i></div></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Nome do computador<small>UM-07-NB12</small></span><span class="pill ok">feito</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Contas<small>Aluno (padrão, sem senha) · Suporte (admin)</small></span><span class="pill ok">feito</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Wi-Fi<small>ITC-UM07, ITC-Backup</small></span><span class="pill ok">feito</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Acesso remoto<small>GLPI Agent 1.15 · RustDesk</small></span><span class="pill ok">feito</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Programas<small>14 do perfil · winget e locais</small></span><span class="pill ok">feito</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Remover pré-instalados<small>McAfee, Microsoft 365 trial</small></span><span class="pill ok">feito</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Políticas (GPO)<small>Perfil Sala de aula · 22 regras</small></span><span class="pill inf">rodando</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Proteção da tela de login<small>Utilman e Shift 5x</small></span><span class="pill idle">na fila</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Aparência e energia<small>Wallpaper ITC · tela nunca desliga na tomada</small></span><span class="pill idle">na fila</span></div>
+          </div>
+          <div class="pn"><div class="h">Registro<span class="sp"></span><small>salvo em ProgramData\ITC\Bench\logs</small></div>
+            <div class="log"><span class="t">14:31:58</span> <span class="g">✓</span> Removido: McAfee LiveSafe<br><span class="t">14:32:04</span> <span class="g">✓</span> Removido: Microsoft 365 (pt-br)<br><span class="t">14:32:05</span> Aplicando GPO, perfil Sala de aula<br><span class="t">14:32:06</span>   Bloquear Painel de Controle … ok<br><span class="t">14:32:06</span>   Bloquear Prompt de Comando … ok<br><span class="t">14:32:07</span>   Ocultar unidade C: no Explorer … ok<br><span class="t">14:32:07</span>   Desativar Microsoft Store … ok<br><span class="t">14:32:08</span>   Bloquear mudança de wallpaper … ok<br><span class="t">14:32:09</span> <span class="y">!</span> gpupdate pede reinício para 2 regras<br><span class="t">14:32:09</span>   Retomada agendada: continua após reiniciar<br><span class="t">14:32:10</span>   Aplicando 14 de 22 …</div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 3 · Programas</h2><span>Apps, Winget e WebApps numa lista só. A origem vira coluna e filtro.</span></div>
+      <div class="scroll"><div class="win" data-nav="prog">
+        <div class="top"><div><div class="crumb">Software</div><h4>Programas</h4></div><div class="sp"></div><span class="search">⌕ Buscar programa</span><span class="btn">Perfil: Sala de aula ▾</span><span class="btn p">Instalar 4 selecionados</span></div>
+        <div class="body" style="grid-template-columns:1fr">
+          <div class="pn">
+            <div class="tabs"><span class="tab on">Todos 38</span><span class="tab">Programas 21</span><span class="tab">Jogos 6</span><span class="tab">Atalhos web 11</span><span class="tab">Instalados 17</span></div>
+            <div class="row" style="font:600 10.5px/1 var(--body);color:#697272;letter-spacing:.06em;text-transform:uppercase;background:#FAFBFB"><span class="chk"></span><span class="sp">Programa</span><span style="width:120px">Origem</span><span style="width:110px">Versão</span><span style="width:110px">Situação</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">LibreOffice<small>Escritório</small></span><span style="width:120px" class="from">pasta local · .msi</span><span style="width:110px" class="from">25.8.4.2</span><span style="width:110px"><span class="pill idle">não instalado</span></span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Google Chrome</span><span style="width:120px" class="from">winget</span><span style="width:110px" class="from">131.0.6778</span><span style="width:110px"><span class="pill warn">desatualizado</span></span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Visual Studio Code</span><span style="width:120px" class="from">winget</span><span style="width:110px" class="from">1.105.1</span><span style="width:110px"><span class="pill idle">não instalado</span></span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">Poki Games<small>Atalho web com ícone</small></span><span style="width:120px" class="from">atalho web</span><span style="width:110px" class="from">—</span><span style="width:110px"><span class="pill idle">não criado</span></span></div>
+            <div class="row"><span class="chk"></span><span class="sp">Python</span><span style="width:120px" class="from">winget</span><span style="width:110px" class="from">3.14.0</span><span style="width:110px"><span class="pill ok">instalado</span></span></div>
+            <div class="row"><span class="chk"></span><span class="sp">Unity Hub</span><span style="width:120px" class="from">sob demanda · 142 MB</span><span style="width:110px" class="from">3.10.0</span><span style="width:110px"><span class="pill ok">instalado</span></span></div>
+            <div class="row"><span class="chk"></span><span class="sp">Roblox</span><span style="width:120px" class="from">sob demanda · 6 MB</span><span style="width:110px" class="from">—</span><span style="width:110px"><span class="pill ok">instalado</span></span></div>
+            <div class="row"><span class="chk"></span><span class="sp">MySQL Workbench</span><span style="width:120px" class="from">pasta local · .msi</span><span style="width:110px" class="from">8.0.45</span><span style="width:110px"><span class="pill ok">instalado</span></span></div>
+            <div class="row"><span class="chk"></span><span class="sp">Construct 2</span><span style="width:120px" class="from">pasta local · .exe</span><span style="width:110px" class="from">r280</span><span style="width:110px"><span class="pill ok">instalado</span></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 4 · Diagnóstico</h2><span>O pendrive dentro do app: coleta local, envio à API do glpi-srv e laudo da IA ao lado do histórico</span></div>
+      <div class="scroll"><div class="win" data-nav="diag">
+        <div class="top"><div><div class="crumb">Diagnóstico</div><h4>Coleta e laudo</h4></div><span class="pill ok">API conectada · UM-07</span><div class="sp"></div><span class="btn">Abrir chamado no GLPI</span><span class="btn p">Nova coleta</span></div>
+        <div class="body" style="grid-template-columns:330px 1fr">
+          <div style="display:grid;gap:16px;grid-template-rows:auto 1fr;min-height:0">
+            <div class="pn"><div class="h">Coleta de hoje<span class="sp"></span><small>11:02 · 48 s</small></div>
+              <div class="row"><span class="pill ok">ok</span><span class="sp">Disco e SMART</span></div>
+              <div class="row"><span class="pill warn">atenção</span><span class="sp">Event Log<small>Kernel-Power 41 · 3×</small></span></div>
+              <div class="row"><span class="pill ok">ok</span><span class="sp">Rede</span></div>
+              <div class="row"><span class="pill ok">ok</span><span class="sp">Processos</span></div>
+              <div class="row"><span class="pill ok">ok</span><span class="sp">Bateria<small>88% de saúde · 412 ciclos</small></span></div>
+            </div>
+            <div class="pn"><div class="h">Histórico desta máquina</div>
+              <div class="row"><span class="sp">03/11 · 11:02</span><span class="pill warn">atenção</span></div>
+              <div class="row"><span class="sp">28/10 · 09:14</span><span class="pill warn">atenção</span></div>
+              <div class="row"><span class="sp">12/10 · 15:40</span><span class="pill ok">ok</span></div>
+            </div>
+          </div>
+          <div class="pn"><div class="h">Laudo<span class="sp"></span><small>gerado pela IA · revise antes de abrir chamado</small></div>
+            <div class="md"><h5>Desligamentos inesperados recorrentes</h5><p>O Event Log registra três eventos Kernel-Power 41 nos últimos sete dias, o mesmo padrão da coleta de 28/10. Bateria e temperatura estão normais, então a causa provável é o botão de energia pressionado com a máquina travada ou queda da tomada da carreta.</p><h5>Recomendações</h5><ul><li>Conferir com o instrutor se a máquina travou antes de desligar.</li><li>Testar a tomada da bancada 3 com outro equipamento.</li><li>Se repetir na próxima coleta, abrir chamado para o técnico da região.</li></ul><h5>Limpeza</h5><p>4,2 GB recuperáveis com segurança em temporários e cache do Windows Update.</p></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="card full">
+      <div class="ch"><h2>Acesso ao programa</h2><span>Duas alternativas avaliadas</span></div>
+      <div class="opt">
+        <div><span class="pick">recomendado</span><h3>Login e senha do técnico, validados no GLPI</h3><ul><li>Cada técnico já tem conta no GLPI. O Bench manda usuário e senha para a API do glpi-srv, que confere no GLPI e devolve uma sessão. Não nasce uma base de usuários nova para manter.</li><li>Só entra quem estiver no grupo Técnicos de Campo do GLPI. Desligar alguém é desativar a conta lá.</li><li>Sem internet na carreta: vale o último login daquele técnico naquela máquina por 7 dias (hash guardado com DPAPI).</li><li>O registro passa a dizer quem fez cada ação.</li></ul></div>
+        <div><span class="alt">depois, só para Configurações</span><h3>Código de 6 dígitos do Ente Auth (TOTP)</h3><ul><li>Funciona sem internet e é padrão (RFC 6238), qualquer app autenticador serve.</li><li>Exige cadastrar um segredo por técnico e guardar esse segredo no servidor, e recuperar o acesso quando alguém troca de celular.</li><li>Como segundo passo, faz sentido só para abrir Configurações e Cadastros, onde ficam senhas e servidores. Para o uso diário, o login basta.</li></ul></div>
+      </div>
+      <div class="cf">O app continua pedindo administrador do Windows (UAC). Login e UAC são camadas separadas: o UAC protege o sistema, o login diz quem é o técnico e trava o app para aluno, professor, pedagoga e atendente, mesmo numa conta com permissão de administrador.</div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 0 · Entrar</h2><span>Primeira tela, antes de qualquer menu. Fecha sozinho após 15 minutos parado.</span></div>
+      <div class="scroll"><div class="win" data-nav="login">
+        <div style="flex:1;display:flex;background:#F4F6F6">
+          <div style="width:440px;background:#1B1B1B;display:flex;flex-direction:column;justify-content:space-between;padding:40px">
+            <div style="display:flex;align-items:center;gap:8px"><svg class="sym" data-v="dark" width="58" height="58"></svg><div style="display:flex;flex-direction:column;gap:5px"><span style="font:600 11px/1 var(--disp);letter-spacing:.42em;color:var(--cy5)">ITC</span><span style="font:800 36px/.88 var(--disp);letter-spacing:-.025em;color:#fff">Bench</span></div></div>
+            <div style="font:400 12px/1.7 var(--body);color:#8E8E8E;font-variant-numeric:tabular-nums">UM-07-NB12 · Carreta UM-07<br>Windows 11 Pro 24H2<br>Bench 1.3.2</div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center">
+            <div style="width:360px;display:flex;flex-direction:column;gap:16px">
+              <div><div style="font:800 24px/1.1 var(--disp);letter-spacing:-.015em">Entrar</div><div style="font:400 12.5px/1.5 var(--body);color:#697272;margin-top:6px">Use seu usuário e senha do GLPI. Acesso só para técnicos.</div></div>
+              <label class="fld">Usuário<span class="inp">marcos.lima</span></label>
+              <label class="fld">Senha<span class="inp" style="letter-spacing:.2em">••••••••••</span></label>
+              <span class="btn p" style="justify-content:center;padding:11px">Entrar</span>
+              <span class="src">● glpi-srv conectado · validação online</span>
+              <div style="font:400 11px/1.5 var(--body);color:#A5B0B0">Sem internet, entra quem já fez login nesta máquina nos últimos 7 dias.</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 5 · Wi-Fi, com a ajuda aberta</h2><span>Redes vêm do glpi-srv. O <b>?</b> ao lado de cada título abre as instruções daquela tela.</span></div>
+      <div class="scroll"><div class="win" data-nav="wifi">
+        <div class="top"><div><div class="crumb">Preparar</div><h4>Wi-Fi</h4></div><span class="src">Cadastro central · sincronizado 11:40</span><div class="sp"></div><span class="btn">Testar conexão</span><span class="btn">+ Cadastrar rede</span><span class="btn p">Instalar 2 redes</span></div>
+        <div class="body" style="grid-template-columns:1fr">
+          <div class="pn">
+            <div class="tabs"><span class="tab on">Esta unidade 3</span><span class="tab">Todas as unidades 41</span><span class="tab">Instaladas no Windows 2</span></div>
+            <div class="row" style="font:600 10.5px/1 var(--body);color:#697272;letter-spacing:.06em;text-transform:uppercase;background:#FAFBFB"><span class="chk"></span><span class="sp">Rede</span><span style="width:140px">Categoria</span><span style="width:120px">Senha</span><span style="width:130px">Atualizada</span><span style="width:110px">No Windows</span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">ITC-UM07</span><span style="width:140px" class="from">Carreta</span><span style="width:120px" class="from">••••••••</span><span style="width:130px" class="from">02/11 por ana.r</span><span style="width:110px"><span class="pill warn">senha antiga</span></span></div>
+            <div class="row"><span class="chk on"></span><span class="sp">ITC-Backup-4G</span><span style="width:140px" class="from">Roteador 4G</span><span style="width:120px" class="from">••••••••</span><span style="width:130px" class="from">15/09 por marcos.l</span><span style="width:110px"><span class="pill idle">ausente</span></span></div>
+            <div class="row"><span class="chk"></span><span class="sp">Prefeitura-Juazeiro<small>Rede do ponto de parada</small></span><span style="width:140px" class="from">Parceiro local</span><span style="width:120px" class="from">••••••••</span><span style="width:130px" class="from">28/10 por ana.r</span><span style="width:110px"><span class="pill ok">igual</span></span></div>
+          </div>
+        </div>
+        <div class="veil"><div class="pop"><div class="ph">Ajuda · Wi-Fi<span class="sp"></span><span style="color:#697272">✕</span></div>
+          <div class="md" style="padding:14px 18px"><p>Cadastra redes por categoria e instala os perfis no Windows.</p><ol><li>A lista mostra as redes desta unidade, puxadas do cadastro central no glpi-srv.</li><li>Marque as redes e clique em Instalar. Redes com a pill senha antiga estão no Windows com uma senha diferente da cadastrada.</li><li>Senha mudou? Use Cadastrar rede ou edite a linha. Só técnicos com acesso a Cadastros podem salvar; a mudança vale para todas as máquinas na próxima sincronização.</li></ol><p style="color:#697272;font-size:11.5px">Sem internet, o Bench usa a última cópia sincronizada, guardada protegida nesta máquina.</p></div>
+          <div class="pf"><span class="btn">Ver toda a ajuda</span><span class="btn p">Entendi</span></div></div></div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 6 · Acesso remoto</h2><span>GLPI Agent e RustDesk com os dados de servidor à vista, para conferir antes de instalar</span></div>
+      <div class="scroll"><div class="win" data-nav="remoto">
+        <div class="top"><div><div class="crumb">Preparar</div><h4>Acesso remoto</h4></div><span class="src">Servidores · cadastro central</span><div class="sp"></div><span class="btn">Forçar inventário GLPI</span><span class="btn p">Instalar os dois</span></div>
+        <div class="body" style="grid-template-columns:1fr 1fr 300px">
+          <div class="pn"><div class="h">GLPI Agent<span class="sp"></span><span class="pill ok">instalado 1.15</span></div><dl class="kv" style="grid-template-columns:130px 1fr"><dt>Servidor</dt><dd>https://glpi.exemplo.invalid/<br>marketplace/glpiinventory/</dd><dt>Tag</dt><dd>UM-07</dd><dt>Instalador</dt><dd>GLPI-Agent-1.15-x64.msi</dd><dt>SHA-256</dt><dd>3f9a…c21e <span class="pill ok">confere</span></dd><dt>Último inventário</dt><dd>03/11 · 10:58</dd></dl><div style="padding:0 16px 14px;font:400 11.5px/1.5 var(--body);color:#697272">Comando: msiexec /i GLPI-Agent-1.15-x64.msi /quiet SERVER=… TAG=UM-07 RUNNOW=1</div></div>
+          <div class="pn"><div class="h">RustDesk<span class="sp"></span><span class="pill idle">não instalado</span></div><dl class="kv" style="grid-template-columns:130px 1fr"><dt>Servidor de ID</dt><dd>rustdesk.exemplo.invalid</dd><dt>Relay</dt><dd>rustdesk.exemplo.invalid:21117</dd><dt>API</dt><dd>https://rustdesk.exemplo.invalid</dd><dt>Chave pública</dt><dd>Zk3q…8rT= <span class="btn" style="padding:3px 7px;font-size:10.5px">copiar</span></dd><dt>Senha permanente</dt><dd>recebida do servidor · não exibida</dd><dt>Instalador</dt><dd>rustdesk-1.4.3-x86_64.msi</dd></dl></div>
+          <div class="pn"><div class="h">Antes de instalar</div><div class="md" style="font-size:12px"><p>Portas que a rede da carreta precisa liberar:</p><ul><li>21115 a 21117 TCP e 21116 UDP para o RustDesk</li><li>443 para o GLPI</li></ul><p>Os endereços e a chave vêm de Configurações › Servidores. Se algum estiver vazio, a instalação nem começa e diz qual falta.</p></div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>Tela 7 · Ajuda</h2><span>Todas as instruções juntas, na mesma ordem do menu, com busca. É o conteúdo do manual, separado por tela.</span></div>
+      <div class="scroll"><div class="win" data-nav="ajuda">
+        <div class="top"><div><div class="crumb">Sistema</div><h4>Ajuda</h4></div><div class="sp"></div><span class="search">⌕ O que você precisa fazer?</span></div>
+        <div class="body" style="grid-template-columns:260px 1fr">
+          <div class="pn" id="helpidx" style="overflow:hidden"></div>
+          <div class="pn"><div class="h">Contas<span class="sp"></span><small>Preparar</small></div><div class="md"><p>Cria, altera e exclui contas locais. A lista mostra o tipo de cada conta (Administrador ou Local padrão) e marca você, as contas nativas e as desativadas.</p><h5>Criar uma conta</h5><ol><li>Preencha o nome, com até 20 caracteres.</li><li>Digite a senha duas vezes, ou deixe vazio para criar sem senha.</li><li>Escolha Local (padrão) ou Administrador.</li><li>Se quiser, em Clonar de escolha uma conta existente e marque a cópia de pastas. As pastas só são copiadas se somarem até 10 GB.</li><li>Clique em Criar conta e confirme o resumo.</li></ol><h5>Mudar o tipo, trocar a senha ou excluir</h5><ol><li>Clique na conta na lista.</li><li>Use Tornar Administrador ou Tornar Local, ou digite a nova senha duas vezes e clique em Alterar senha.</li><li>Para excluir, decida se apaga a pasta e digite o nome para confirmar.</li></ol><h5>O que o Bench não deixa fazer</h5><p>Mexer no Administrador nativo, na conta logada, nas contas ITC e Suporte, excluir conta com sessão aberta ou rebaixar o último administrador.</p></div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="card full">
+      <div class="ch"><h2>De onde vêm os dados</h2><span>Wi-Fi, senhas e servidores saem dos arquivos JSON e passam a ter um cadastro central</span></div>
+      <div class="opt">
+        <div><span class="pick">recomendado</span><h3>Tabela no NocoDB, entregue pela API do glpi-srv</h3><ul><li>O NocoDB guarda as tabelas Wi-Fi, Servidores e Unidades; quem administra edita lá, como já faz com outras bases.</li><li>O Bench nunca fala com o NocoDB. Ele pede à API do Técnico Assistente, que lê o NocoDB e entrega só o que aquela unidade precisa, depois do login do técnico.</li><li>Cópia local protegida (DPAPI) para funcionar sem internet.</li><li>Cadastrar rede no app grava pela mesma API, com registro de quem mudou.</li></ul></div>
+        <div><span class="alt">não recomendado</span><h3>Bench lendo o NocoDB direto</h3><ul><li>Cada instalação teria um token do NocoDB, que lê, altera e apaga a base inteira e não pode ser revogado por máquina.</li><li>É o mesmo motivo pelo qual o ADR-005 proibiu os pendrives de acessar o NocoDB.</li></ul></div>
+      </div>
+      <div class="cf">Isso muda o ADR-005: o NocoDB deixa de ser só espelho de ida e vira fonte da verdade para os cadastros. Precisa de ADR novo antes do módulo.</div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  // Símbolo ITC Bench: tela (ciano) + base (grafite) + prompt › (ciano escuro)
+  var V={main:["#008F95","#1B1B1B","#003C3F",8],mono:["#000","#000","#000",8],dark:["#30A5AB","#F5F0E8","#F5F0E8",8],neg:["#fff","#fff","#fff",8],small:["#008F95","#1B1B1B","#003C3F",10]};
+  function sym(v){var c=V[v]||V.main,w=c[3],k=v==="small";
+    return '<rect x="'+(k?9:8)+'" y="'+(k?11:10)+'" width="'+(k?46:48)+'" height="'+(k?32:34)+'" fill="none" stroke="'+c[0]+'" stroke-width="'+w+'"/>'+
+      '<line x1="4" y1="'+(k?53:52)+'" x2="60" y2="'+(k?53:52)+'" stroke="'+c[1]+'" stroke-width="'+w+'"/>'+
+      '<polyline points="'+(k?"22,22 29,27 22,32":"20,20 28,27 20,34")+'" fill="none" stroke="'+c[2]+'" stroke-width="'+(k?8:7)+'" stroke-linejoin="miter"/>';}
+  document.querySelectorAll("svg.sym").forEach(function(s){s.setAttribute("viewBox","0 0 64 64");s.style.flex="none";s.innerHTML=sym(s.dataset.v);});
+  document.querySelectorAll("g.symg").forEach(function(g){g.innerHTML=sym("main")+'<circle cx="32" cy="27" r=".9" fill="#491027"/>';});
+
+  // Ícones 24px, traço 2
+  var I={
+    inicio:'<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    prep:'<path d="M4 6h10M4 12h10M4 18h7"/><path d="m15 17 2 2 4-4"/><path d="M18 4v6M15 7h6"/>',
+    id:'<rect x="3" y="4" width="18" height="12"/><path d="M8 20h8M12 16v4"/><path d="M7 10h4"/>',
+    contas:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2 .8 3 2.8 3 6"/>',
+    wifi:'<path d="M2 9a15 15 0 0 1 20 0"/><path d="M5.5 12.5a10 10 0 0 1 13 0"/><path d="M9 16a5 5 0 0 1 6 0"/><path d="M12 19.5h.01"/>',
+    remoto:'<rect x="2" y="4" width="13" height="10"/><path d="M5 18h7"/><path d="M15 17h7M19 14l3 3-3 3"/>',
+    prog:'<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>',
+    remover:'<path d="M4 7h16M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>',
+    gpo:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h5"/>',
+    protecao:'<path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+    usb:'<path d="M12 2v14"/><path d="M8 6l4-4 4 4"/><path d="M7 11v3l5 3 5-3v-3"/><circle cx="12" cy="19" r="2"/>',
+    aparencia:'<rect x="3" y="4" width="18" height="13"/><path d="m3 14 5-4 4 3 3-2 6 5"/><path d="M9 21h6"/>',
+    mouse:'<rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/>',
+    energia:'<path d="M13 2 5 13h6l-1 9 8-11h-6z"/>',
+    diag:'<path d="M3 12h4l2-5 4 10 2-5h6"/>',
+    hist:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+    limpeza:'<path d="M14 3 9 13"/><path d="M5 14h10l-1 7H6z"/><path d="M8 17v4M11 17v4"/>',
+    registro:'<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/>',
+    ajuda:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7v.5"/><path d="M12 17h.01"/>',
+    config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'
+  };
+  function ic(k,c,s){return '<svg width="'+(s||18)+'" height="'+(s||18)+'" viewBox="0 0 24 24" fill="none" stroke="'+(c||"currentColor")+'" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter">'+I[k]+'</svg>';}
+
+  var NAV=[
+    {g:"Início",why:"O estado da máquina e o fluxo guiado",it:[["inicio","Início","Resumo, pendências, último laudo",""],["prep","Preparação completa","Roda as etapas do perfil, retoma após reiniciar","Master"]]},
+    {g:"Preparar",why:"O que deixa o notebook pronto para a unidade",it:[["id","Identificação","Nome do PC, unidade, turnos","Sistema"],["contas","Contas","Aluno, Suporte, administrador, senhas","Usuários · Admin"],["wifi","Wi-Fi","Redes da unidade, teste de conexão","Wi-Fi"],["remoto","Acesso remoto","GLPI Agent, RustDesk, AnyDesk, inventário","Admin"]]},
+    {g:"Software",why:"Instalar e tirar programas",it:[["prog","Programas","Local, winget, jogos e atalhos web","Apps · Winget · WebApps"],["remover","Remover programas","Pré-instalados e lixo de fábrica","Desinstalador"]]},
+    {g:"Segurança",why:"Travas que protegem a máquina do uso",it:[["gpo","Políticas","Regras por perfil de uso","GPO"],["protecao","Proteção do login","Utilman e Shift 5x","Proteção"],["usb","USB","Copiar para pendrives, bloquear armazenamento","USB"]]},
+    {g:"Aparência e periféricos",why:"Ajustes que o aluno vê",it:[["aparencia","Tela e papel de parede","Resolução, escala, wallpaper ITC","Tela · Wallpaper"],["mouse","Mouse e teclado","Velocidade, botões","Mouse"],["energia","Energia","Suspensão, tela, hibernação","Sistema"]]},
+    {g:"Diagnóstico",why:"O antigo pendrive",it:[["diag","Coleta e laudo","Disco, Event Log, rede, bateria, laudo da IA","Pendrive"],["hist","Histórico","Coletas anteriores desta máquina","Pendrive"],["limpeza","Limpeza","Temporários, perfis antigos","Limpeza"]]},
+    {g:"Sistema",why:"Do próprio app",it:[["registro","Registro","Tudo o que o app fez, em arquivo","Logs"],["ajuda","Ajuda","Instruções de todas as telas","Manual em PDF"],["config","Configurações","Servidores, Wi-Fi, senhas (cadastro central)","segredos.json · wifi_db.json"]]}
+  ];
+  var map=document.getElementById("map");
+  map.innerHTML=NAV.map(function(s){return '<div class="grp"><h3>'+s.g+'</h3><p class="why">'+s.why+'</p>'+s.it.map(function(i){return '<div class="it">'+ic(i[0],"#006C72")+'<div>'+i[1]+'<small>'+i[2]+'</small>'+(i[3]?'<span class="from">antes: '+i[3]+'</span>':'')+'</div></div>';}).join("")+'</div>';}).join("");
+
+  var set=document.getElementById("iconset");var seen={};
+  NAV.forEach(function(s){s.it.forEach(function(i){if(seen[i[0]])return;seen[i[0]]=1;
+    set.insertAdjacentHTML("beforeend",'<div style="display:flex;flex-direction:column;align-items:center;gap:9px;width:84px"><div style="width:44px;height:44px;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center">'+ic(i[0],"#1B1B1B",24)+'</div><div class="cap" style="margin:0;text-align:center;line-height:1.3">'+i[1]+'</div></div>');});});
+
+  // Janela: barra de título + sidebar
+  var sideHTML=function(on){
+    var h='<div class="side"><div class="brand"><svg width="28" height="28" viewBox="0 0 64 64">'+sym("dark")+'</svg><div style="display:flex;flex-direction:column;gap:3px"><i>ITC</i><b>Bench</b></div></div>';
+    NAV.forEach(function(s,ix){if(ix>0)h+='<div class="sec">'+s.g+'</div>';
+      s.it.forEach(function(i){var n=i[0]==="prep"?'<span class="n">6/9</span>':i[0]==="protecao"?'<span class="n" style="color:#E07A6E">1</span>':'';
+        h+='<div class="nav'+(i[0]===on?' on':'')+'">'+ic(i[0],i[0]===on?"#30A5AB":"#8E8E8E",16)+i[1]+n+'</div>';});});
+    return h+'<div class="foot">UM-07-NB12 · admin<br>Bench 1.3.2</div></div>';};
+  var hi=document.getElementById("helpidx");
+  if(hi)hi.innerHTML=NAV.map(function(s){return '<div style="padding:10px 14px 4px;font:600 9.5px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:#697272">'+s.g+'</div>'+s.it.map(function(i){var on=i[0]==="contas";return '<div style="display:flex;gap:8px;align-items:center;padding:5px 14px;font:500 12px/1.2 var(--body);'+(on?'background:#E0F4F5;color:#003C3F;font-weight:600':'color:#3A4040')+'">'+ic(i[0],on?"#006C72":"#A5B0B0",14)+i[1]+'</div>';}).join("");}).join("");
+  document.querySelectorAll(".win").forEach(function(w){
+    var h4=w.querySelector(".top h4");if(h4&&w.dataset.nav!=="ajuda")h4.insertAdjacentHTML("beforeend",'<span class="hq'+(w.querySelector(".veil")?' on':'')+'">?</span>');
+    if(w.dataset.nav==="login"){w.insertAdjacentHTML("afterbegin",'<div class="tb"><svg width="14" height="14" viewBox="0 0 64 64">'+sym("dark")+'</svg>ITC Bench<span class="sp"></span><span class="wc">—</span><span class="wc">▢</span><span class="wc">✕</span></div>');w.querySelectorAll("svg.sym").forEach(function(s){});return;}
+    var inner=w.innerHTML;
+    w.innerHTML='<div class="tb"><svg width="14" height="14" viewBox="0 0 64 64">'+sym("dark")+'</svg>ITC Bench<span class="sp"></span><span class="wc">—</span><span class="wc">▢</span><span class="wc">✕</span></div><div class="app">'+sideHTML(w.dataset.nav)+'<div class="main">'+inner.replace(/<div class="veil"[\s\S]*$/,"")+'</div></div>'+(inner.match(/<div class="veil"[\s\S]*$/)||[""])[0];
+  });
+})();
+</script>
+</body></html>
