@@ -80,15 +80,22 @@ def test_timeout_encerra_processo_e_filho():
     assert vivos.saida.strip() == "0"
 
 
-def test_acento_powershell_e_cmd_oem():
+def test_acento_powershell_e_cmd():
     assert powershell("Write-Output 'ação Ç'").saida.strip() == "ação Ç"
     assert executar([sistema32("cmd.exe"), "/c", "echo ação"]).saida.strip() == "ação"
 
 
 def test_netsh_legivel():
-    r = executar([sistema32("netsh.exe"), "interface", "show", "interface"])
-    assert r.ok
-    assert "�" not in r.saida
+    # O netsh do Windows 11 escreve UTF-8 com acento ("Versão", "Proteção") mesmo com OEM 850.
+    r = executar([sistema32("netsh.exe"), "wlan", "show", "drivers"])
+    assert "�" not in r.saida + r.erros
+    assert "Ã" not in r.saida
+    assert "├" not in r.saida
+
+
+def test_auto_cai_para_oem_quando_nao_e_utf8():
+    assert executor._decodificar("ação".encode("cp850"), "auto") == "ação"
+    assert executor._decodificar("ação".encode(), "auto") == "ação"
 
 
 def test_script_grande_demais():

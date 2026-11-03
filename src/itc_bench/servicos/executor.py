@@ -34,7 +34,7 @@ ABERTURA_PS = (
     '$env:ProgramFiles\\WindowsPowerShell\\Modules"\n'
 )
 
-Codificacao = Literal["utf-8", "oem", "ansi"]
+Codificacao = Literal["auto", "utf-8", "oem", "ansi"]
 
 
 class Sensivel:
@@ -78,7 +78,7 @@ def executar(
     ambiente: Mapping[str, str | Sensivel] | None = None,
     entrada: str | Sensivel | None = None,
     timeout: float = TIMEOUT_PADRAO,
-    codificacao: Codificacao = "oem",
+    codificacao: Codificacao = "auto",
     descricao: str | None = None,
 ) -> Resultado:
     """Roda o programa e espera. Código ≠ 0 volta no `Resultado`; uso errado levanta exceção."""
@@ -97,8 +97,7 @@ def executar(
     filho = {k: v for k, v in os.environ.items() if not k.upper().startswith("ITC_")}
     filho.update({k: _texto(v) for k, v in ambiente.items()})
     segredos = [v.revelar() for v in [*ambiente.values(), entrada] if isinstance(v, Sensivel)]
-    codec = _codec(codificacao)
-    dados = None if entrada is None else _texto(entrada).encode(codec)
+    dados = None if entrada is None else _texto(entrada).encode(_codec(codificacao))
     rotulo = descricao or subprocess.list2cmdline(argumentos)
 
     inicio = time.monotonic()
@@ -127,8 +126,8 @@ def executar(
 
     resultado = Resultado(
         codigo=None if esgotado else processo.returncode,
-        saida=_mascarar(saida.decode(codec, errors="replace"), segredos),
-        erros=_mascarar(erros.decode(codec, errors="replace"), segredos),
+        saida=_mascarar(_decodificar(saida, codificacao), segredos),
+        erros=_mascarar(_decodificar(erros, codificacao), segredos),
         duracao=duracao,
         esgotado=esgotado,
     )
@@ -177,8 +176,19 @@ def _mascarar(texto: str, segredos: list[str]) -> str:
     return texto.removeprefix("\ufeff")
 
 
+def _decodificar(dados: bytes, codificacao: Codificacao) -> str:
+    """`auto`: UTF-8 se for válido (netsh no Windows 11 já escreve UTF-8), senão OEM (cmd)."""
+    if codificacao == "auto":
+        try:
+            return dados.decode("utf-8")
+        except UnicodeDecodeError:
+            codificacao = "oem"
+    return dados.decode(_codec(codificacao), errors="replace")
+
+
 def _codec(codificacao: Codificacao) -> str:
-    if codificacao == "utf-8":
+    """Página de código para escrever no stdin; `auto` escreve em UTF-8."""
+    if codificacao in ("auto", "utf-8"):
         return "utf-8"
     kernel32 = ctypes.WinDLL("kernel32")
     pagina = kernel32.GetOEMCP() if codificacao == "oem" else kernel32.GetACP()

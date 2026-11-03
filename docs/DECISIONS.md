@@ -302,7 +302,7 @@ Desenho aprovado em `.conversa/` em 03/11/2026, com ajustes.
 
 **Decision**
 - **Um executor**, `servicos/executor.py`, sem Qt:
-  `executar(argumentos, *, ambiente=None, entrada=None, timeout=120, codificacao="oem") -> Resultado`
+  `executar(argumentos, *, ambiente=None, entrada=None, timeout=120, codificacao="auto") -> Resultado`
   e `powershell(script, *, timeout=120, **variaveis) -> Resultado`. `Resultado` (imutável):
   `codigo` (`None` se esgotou), `saida`, `erros`, `duracao`, `esgotado`, e `ok`. Código ≠ 0 não
   levanta exceção; uso errado levanta (`TypeError` para comando em texto, `ValueError` para caminho
@@ -330,8 +330,10 @@ Desenho aprovado em `.conversa/` em 03/11/2026, com ajustes.
   é encerrado. Uma opção para manter filhos vivos só entra quando um módulo precisar, com registro.
   **Limite conhecido:** o processo roda por alguns microssegundos antes de entrar no job (o
   `Popen` não cria suspenso); um filho criado nesse intervalo escapa.
-- **Codificação:** PowerShell em UTF-8; nativos em `oem` (`GetOEMCP`, cp850 no pt-BR) ou `ansi`
-  (`GetACP`), sempre `errors="replace"`.
+- **Codificação:** PowerShell em UTF-8. Nativos em `auto` (padrão): UTF-8 se a saída for UTF-8
+  válido, senão OEM (`GetOEMCP`, cp850 no pt-BR). Motivo: no Windows 11 o `netsh` já escreve
+  UTF-8 mesmo com OEM 850, e o `cmd` escreve OEM; texto OEM com acento quase nunca é UTF-8
+  válido. `oem`, `ansi` (`GetACP`) e `utf-8` forçam a página. Sempre `errors="replace"`.
 - **UI:** `ui/tarefa.py`, `QRunnable` no pool global com sinais `concluido(Resultado)` e
   `falhou(str)`. Exceção dentro da tarefa (que não passa pelo `sys.excepthook`) vai para o log com
   traceback e para `falhou`.
