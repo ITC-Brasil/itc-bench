@@ -8,9 +8,31 @@ from itc_bench.nucleo import caminhos
 
 TAMANHO_MAXIMO = 1024 * 1024
 ARQUIVOS_ANTIGOS = 4
-FORMATO = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+FORMATO = "%(asctime)s %(levelname)s [%(tecnico)s] %(name)s: %(message)s"
+SEM_TECNICO = "-"
 
 log = logging.getLogger("itc_bench")
+_tecnico = SEM_TECNICO
+
+
+def definir_tecnico(login: str | None) -> None:
+    """Técnico das próximas linhas do log (ADR-013); `None` antes do login e depois do logout.
+
+    Valor global: uma tarefa iniciada por um técnico que termina depois da troca sai com o
+    novo; por isso `ui/tarefa.py` repete o técnico de quem a iniciou na mensagem.
+    """
+    global _tecnico
+    _tecnico = login or SEM_TECNICO
+
+
+def tecnico() -> str:
+    return _tecnico
+
+
+class FiltroTecnico(logging.Filter):
+    def filter(self, registro: logging.LogRecord) -> bool:
+        registro.tecnico = _tecnico
+        return True
 
 
 def configurar(pasta: Path | None = None) -> Path:
@@ -38,6 +60,7 @@ def _handler(pasta: Path) -> RotatingFileHandler:
         encoding="utf-8",
     )
     handler.setFormatter(logging.Formatter(FORMATO))
+    handler.addFilter(FiltroTecnico())
     log.setLevel(logging.INFO)
     log.addHandler(handler)
     return handler

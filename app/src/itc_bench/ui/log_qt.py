@@ -4,7 +4,7 @@ import logging
 
 from PySide6.QtCore import QObject, Signal
 
-from itc_bench.nucleo.log import FORMATO
+from itc_bench.nucleo.log import FORMATO, FiltroTecnico
 
 
 class _Ponte(QObject):
@@ -17,6 +17,7 @@ class HandlerTela(logging.Handler):
     def __init__(self) -> None:
         super().__init__()
         self.setFormatter(logging.Formatter(FORMATO, "%H:%M:%S"))
+        self.addFilter(FiltroTecnico())
         self.ponte = _Ponte()
         self.historico: list[str] = []
 
