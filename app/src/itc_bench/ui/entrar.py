@@ -187,10 +187,16 @@ class TelaEntrar(QWidget):
         self.usuario.returnPressed.connect(self.senha.setFocus)
         self._rodape("verificando…")
 
+    def definir_unidade(self, codigo: str) -> None:
+        """Unidade da máquina, validada pela janela contra o cache dos cadastros (ADR-014)."""
+        self._unidade = codigo
+        self._rodape(self._estado_api)
+
     def _rodape(self, estado_api: str) -> None:
-        # Unidade vem do cadastro (Módulo 05); até lá, "—".
+        self._estado_api = estado_api
+        unidade = getattr(self, "_unidade", "—")
         self.rodape.setText(
-            f"{html.escape(socket.gethostname())} · Unidade —<br>"
+            f"{html.escape(socket.gethostname())} · Unidade {html.escape(unidade)}<br>"
             f"{html.escape(versao_windows())}<br>"
             f"Bench {__version__}<br>API: {estado_api}"
         )

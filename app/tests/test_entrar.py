@@ -158,3 +158,68 @@ def test_nome_do_glpi_nunca_vira_html(qtbot, monkeypatch, tmp_path):
     j.bloquear()
     assert j.entrar.subtitulo.textFormat() == Qt.TextFormat.PlainText
     assert "&lt;b&gt;" in j.rodape.text()
+
+
+def test_cadastros_sincronizam_no_login_e_ficam_no_logout(qtbot, monkeypatch, tmp_path):
+    """Login online sincroniza; rodapé com "sincronizado HH:MM"; logout não apaga o cache."""
+    from test_cadastros import corpo
+
+    from itc_bench.servicos.cadastros import Armazem
+
+    monkeypatch.setattr(api, "cadastros", lambda base, token, versao, unidade: corpo())
+    j = montar(qtbot, monkeypatch, tmp_path)
+    j.armazem = Armazem(tmp_path / "cadastros.dpapi")
+    assert "sem cadastros" in j.rodape.text()
+    logar(qtbot, j)
+    qtbot.waitUntil(lambda: "sincronizado" in j.rodape.text())
+    assert j.sincronia.isActive()
+    j.botao_sair.click()
+    assert not j.sincronia.isActive()
+    assert (tmp_path / "cadastros.dpapi").exists() and j.armazem.carregar() is not None
+
+
+def test_login_offline_mostra_dados_antigos(qtbot, monkeypatch, tmp_path):
+    from test_cadastros import corpo
+
+    from itc_bench.servicos import cadastros
+    from itc_bench.servicos.cadastros import Armazem
+
+    armazem = Armazem(tmp_path / "cadastros.dpapi")
+    monkeypatch.setattr(api, "cadastros", lambda *a: corpo())
+    cadastros.sincronizar("b", Sensivel("t"), armazem, "ana", None)
+    j = montar(qtbot, monkeypatch, tmp_path)
+    j.armazem, j.cadastros = armazem, armazem.carregar()
+    from itc_bench.servicos.login import Entrada
+
+    j._entrou(Entrada("ana.lima", "Ana Lima", None))
+    assert "offline · dados de" in j.rodape.text()
+
+
+def test_401_na_sincronizacao_volta_para_entrar(qtbot, monkeypatch, tmp_path):
+    def recusa(*_a):
+        raise api.Recusado(401, "nao_autorizado")
+
+    monkeypatch.setattr(api, "cadastros", recusa)
+    j = montar(qtbot, monkeypatch, tmp_path)
+    logar(qtbot, j)
+    qtbot.waitUntil(lambda: "expirada" in j.entrar.mensagem.text())
+    assert j.raiz.currentWidget() is j.entrar and j.entrada is None
+
+
+def test_unidade_no_rodape_so_se_estiver_no_cache(qtbot, monkeypatch, tmp_path):
+    from test_cadastros import corpo
+
+    from itc_bench.servicos import cadastros
+    from itc_bench.servicos.cadastros import Armazem
+
+    armazem = Armazem(None)
+    monkeypatch.setattr(api, "cadastros", lambda *a: corpo())
+    cadastros.sincronizar("b", Sensivel("t"), armazem, "ana", None)
+    j = montar(qtbot, monkeypatch, tmp_path)
+    j.armazem, j.cadastros = armazem, armazem.carregar()
+    j.unidade = "UM-02"
+    j._atualizar_rodape()
+    assert "Unidade UM-02" in j.rodape.text() and "Unidade UM-02" in j.entrar.rodape.text()
+    j.unidade = "UM-99"
+    j._atualizar_rodape()
+    assert "Unidade —" in j.rodape.text()

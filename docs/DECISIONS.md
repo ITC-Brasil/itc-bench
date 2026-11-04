@@ -572,3 +572,92 @@ proposto e aprovado com ajustes em `.conversa/` em 04/11/2026.
 O responsável faz, nesta ordem: deploy → `.env` (`GLPI_*`, `BENCH_LOGIN_HMAC_KEY`) → `restart` →
 Access Bypass e rate limiting na Cloudflare → verificação com `curl`. A bancada precisa da
 chave `ApiUrl` até o instalador existir.
+
+---
+
+## ADR-014 — Cadastros pela API em uma rota, cache DPAPI por unidade e tela Configurações só leitura
+
+**Status:** Accepted
+**Date:** 2026-11-04
+**Module:** 05
+
+**Context**
+O ADR-006 fez do NocoDB a fonte dos cadastros (Servidores, Instaladores, WiFi, Unidades),
+entregues pela API com cópia local DPAPI. O Wi-Fi (08) e o acesso remoto (09) são usados
+justamente sem rede, e `Servidores.Valor` mistura dado público e segredo. Desenho proposto e
+aprovado com ajustes em `.conversa/` em 04/11/2026. A revisão do TA-ADR-005 está no TA-ADR-027.
+
+**Decision**
+1. **Leitura do NocoDB** em `api/app/services/nocodb_cadastros.py`: `GET /api/v2/tables/{id}/records`
+   com `fields` e paginação; ids de tabela pelo `.env` (`NOCODB_TABELA_SERVIDORES`,
+   `NOCODB_TABELA_INSTALADORES`, `NOCODB_TABELA_WIFI`, `NOCODB_TABELA_UNIDADES`); token próprio
+   `NOCODB_CADASTROS_TOKEN` de um usuário **Viewer só na base "ITC Bench"** (o NocoDB não tem
+   escopo por token; risco residual: o token lê a base inteira, sem alterar nem apagar).
+   Timeout de 5 s por requisição (`NOCODB_CADASTROS_TIMEOUT_SECONDS`), teto de 30 s na leitura.
+   Descartados, com `Id` e motivo no log: `Ativo` diferente de `true`, campo de exibição vazio,
+   `WiFi.Unidade` fora das Unidades ativas. Erro do NocoDB vira `NocodbIndisponivel` com motivo
+   (`timeout`, `indisponivel`, `http_<status>`, `resposta_invalida`), nunca URL nem cabeçalho.
+2. **Rota única** `GET /v1/bench/cadastros[?unidade=<codigo>]`, com `exigir_sessao`: `200` com
+   `versao`, `lido_em`, `defasado`, `unidade`, os quatro cadastros e `descartados`; `ETag` e
+   `Cache-Control: no-store`; `304` com `If-None-Match` igual (o `304` também exige sessão);
+   `401`; `422 unidade_invalida` (código fora das Unidades ativas); `503 cadastros_indisponivel`.
+   - **Filtro por unidade (ajuste do responsável):** sem `unidade`, todo o Wi-Fi (fase de
+     bancada); com `unidade`, só o Wi-Fi dela. Servidores, Instaladores e Unidades são globais. Se
+     um servidor passar a ser de uma unidade só, entra uma coluna `Unidade` opcional e o mesmo
+     filtro. Isto substitui a regra de 03/11 do BACKEND-SCHEMA ("a API filtra as redes por
+     unidade" sempre).
+   - **`versao`** = HMAC-SHA256 do JSON canônico da resposta (com o filtro) com a chave
+     `BENCH_CADASTROS_ETAG_KEY`; sem ela, chave aleatória por processo (o restart invalida o
+     `304`, aceito). Não deriva só do conteúdo, porque o conteúdo tem segredos. Os logs da API e
+     do Bench e a auditoria guardam só os 12 primeiros caracteres.
+   - **Cópia em memória**, TTL 60 s (`NOCODB_CADASTROS_TTL_SECONDS`). **Uma leitura do NocoDB
+     por vez:** quem pega o lock renova; os demais recebem a cópia existente e só esperam quando
+     não há nenhuma. NocoDB fora com cópia: devolve a cópia com `defasado: true` por até 24 h;
+     depois, `503`. Nada de cadastro vai para o SQLite.
+   - **Auditoria** `bench_cadastros_entregas` (migração `0005`, a próxima livre depois da `0004`
+     do 04): uma linha por `200` com sessão, usuário, unidade, horário e os 12 caracteres da
+     versão; retenção de 90 dias, limpa a cada entrega, como a auditoria do login. Sem limite por
+     sessão: a sessão roubada leva tudo na primeira chamada, e o NocoDB está protegido pelo TTL.
+3. **Segredos.** Tudo sai depois do login (o uso é offline; segredo sob demanda quebraria o 08 e
+   o 09). Coluna nova `Servidores.Publico` (Checkbox): só `true` sai como público; vazio, falso ou
+   coluna ausente = segredo. Com `Publico` falso, `Valor` **e `Observacao`** são segredo (texto
+   livre pode ter senha). WiFi: `Senha` sempre segredo; `SSID` visível na tela e fora do log
+   ("sensível para log"). Na API, `SecretStr` até a serialização; no Bench, `Sensivel` (ADR-011).
+   Log: contagens, versão curta, `Id`; nunca valor, SSID, link ou observação.
+4. **Cache no Bench** `protegido\cadastros.dpapi` (DPAPI de máquina, pasta do ADR-013), escrita
+   atômica (`.tmp` + `replace`), `{"formato": 1, versao, sincronizado_em, por, unidade, dados}`.
+   Validade de 7 dias desde `sincronizado_em` (igual ao login offline); relógio voltado mais de
+   5 min é tratado como vencido. Vencido ou corrompido: log, arquivo apagado, tela "conecte e
+   sincronize"; os módulos recebem "sem cadastros". Logout e troca de técnico não apagam (o
+   cadastro é da máquina). `--dev` sem admin: cache só em memória.
+5. **Unidade da máquina** escolhida à mão em Configurações, gravada em
+   `HKLM\SOFTWARE\ITC\Bench\Unidade` (exige admin; sem admin, só na sessão). Ao gravar ou trocar,
+   o Bench ressincroniza com `?unidade=` e regrava o cache filtrado; offline, filtra o cache
+   existente e regrava. O rodapé mostra o código se estiver nas Unidades do cache; senão "—".
+6. **Sincronização:** depois do login online, botão "Sincronizar agora" e a cada 30 min com sessão
+   online, sempre com `If-None-Match`. Sem servidor (`SemConexao`, 502/503/504/530) ou
+   `503 cadastros_indisponivel`: mantém o cache e não mexe na sessão; o `503 cadastros_indisponivel`
+   nunca é tratado como o `503 glpi_indisponivel` do login. `401`: volta à tela Entrar (ADR-013).
+   Rodapé: "sincronizado HH:MM" (hoje), "sincronizado DD/MM HH:MM", "offline · dados de …" e "sem
+   cadastros". Interface sem Qt em `servicos/cadastros.py`.
+7. **Tela Configurações** (grupo Sistema), só leitura, abas Servidores, Wi-Fi, Instaladores e
+   Unidades, segredos como `••••••••` sem botão de revelar (quem precisa ver, vê no NocoDB), "?"
+   (ADR-007), "Sincronizar agora" e a escolha da unidade da máquina.
+
+**Riscos aceitos (responsável, 04/11/2026)**
+- Na fase de bancada (sem unidade gravada), o cache tem o Wi-Fi de todas as unidades.
+- O token de leitura do NocoDB lê a base "ITC Bench" inteira, segredos inclusive.
+
+**Alternatives considered**
+- Uma rota por tabela — quatro versões e quatro sincronizações para dados usados juntos.
+- Segredo só no momento do uso (rota por id) — quebra o uso offline, que é o caso principal.
+- Separar segredo pelo texto de `Papel` — texto livre; um erro de digitação vaza na tela.
+- `versao` = SHA-256 do conteúdo — derivada dos segredos e gravada num log legível por Usuários.
+- Cópia dos cadastros no SQLite da API — segredo em mais um disco e no backup do volume.
+- Apagar o cache no logout — a carreta sem rede perderia Wi-Fi e acesso remoto.
+- Unidade pela tag do GLPI Agent — o agente só é instalado no 09, e precisa da unidade antes.
+- Botão de revelar segredo — expõe a senha a quem está ao lado, sem uso que o Bench precise.
+
+**Consequences**
+O responsável cria `Servidores.Publico` e o usuário Viewer no NocoDB e preenche o `.env`. Os
+módulos 08–10 leem por `servicos/cadastros.py` e recusam a ação quando falta cadastro (ADR-008).

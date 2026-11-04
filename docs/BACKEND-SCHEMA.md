@@ -19,7 +19,8 @@ marcada como obrigatória nem única: validação fica na API.
 | `Valor` | LongText | **Sensível**: endereços, chaves, senhas |
 | `Versao` | SingleLineText | |
 | `Ativo` | Checkbox | |
-| `Observacao` | LongText | |
+| `Observacao` | LongText | Segredo quando `Publico` não é `true` (ADR-014) |
+| `Publico` | Checkbox | Coluna nova (ADR-014): só `true` sai como público; vazio ou coluna ausente = segredo |
 
 ### Instaladores
 
@@ -37,7 +38,7 @@ marcada como obrigatória nem única: validação fica na API.
 
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
-| `SSID` | SingleLineText, display | **Sensível** |
+| `SSID` | SingleLineText, display | **Sensível para log**: visível na tela, nunca no log (o log usa `Id`) |
 | `Senha` | SingleLineText | **Sensível**, nunca exibida na UI |
 | `Unidade` | SingleLineText | Texto livre, casa com `Unidades.Codigo` (sem link) |
 | `categoria` | SingleLineText | Ex.: Carreta, Roteador 4G, Parceiro local |
@@ -57,13 +58,14 @@ marcada como obrigatória nem única: validação fica na API.
 | `PerfilPadrao` | SingleLineText | Perfil da Preparação completa |
 | `Ativo` | Checkbox | |
 
-**Regra `WiFi.Unidade` (decidida em 03/11/2026):** continua texto, sem relação no NocoDB.
-Guarda exatamente o mesmo código de `Unidades.Codigo` (ex.: `UM-07`). A API valida o código ao
-entregar o cadastro e filtra as redes por unidade; o Bench não faz a junção nem confia em código
-que a API não validou.
+**Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
+`Unidades.Codigo` (ex.: `UM-07`). A API descarta a rede cuja unidade não é uma Unidade ativa; o
+Bench não confia em código que a API não validou. Sem `?unidade=`, a API entrega todo o Wi-Fi;
+com `?unidade=`, só o daquela unidade (ADR-014, que substitui a regra de 03/11/2026 de filtrar
+sempre).
 
-Ponto de atenção: `Servidores.Valor` mistura dado público e segredo na mesma coluna. Decidir na API se segredos saem só para sessão de técnico e se `Ativo = false`
-é filtrado no servidor.
+`Servidores.Valor` misturava público e segredo: resolvido pela coluna `Publico` (ADR-014). Linhas
+com `Ativo` diferente de `true` são filtradas na API.
 
 ## API (rotas)
 
@@ -71,21 +73,20 @@ Existentes na API (`docs/api/API.md`): `GET /v1/saude`,
 `POST /v1/relatorio`, `GET /v1/historico/{hostname}`, autenticadas por token de carreta
 `Authorization: Bearer itcta_...`.
 
-Planejadas (Módulos 04 e 05, em `api/`): login do técnico e entrega dos quatro
-cadastros. Nomes, formato e regras: a definir lá e copiados para cá quando existirem.
+Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout|sessao|saude`
+(ADR-013) e `GET /v1/bench/cadastros[?unidade=<codigo>]` (ADR-014). Formato em `docs/api/API.md`.
 
-## Guardado localmente pelo Bench (planejado)
+## Guardado localmente pelo Bench
 
 | O quê | Onde | Proteção | Módulo |
 |---|---|---|---|
-| Cache dos 4 cadastros + data da sincronização | `%ProgramData%\ITC\Bench` | DPAPI | 04 |
-| Hash do último login por técnico + data (validade 7 dias) | `%ProgramData%\ITC\Bench` | DPAPI | 03 |
-| Sessão da API (token) | Memória; persistência a decidir | DPAPI se persistida | 03 |
+| Cache dos 4 cadastros (`formato`, versão, `sincronizado_em`, `por`, unidade, corpo da API com segredos); válido 7 dias | `%ProgramData%\ITC\Bench\protegido\cadastros.dpapi`; sem admin, só memória | DPAPI de máquina + ACL só SYSTEM e `S-1-5-32-544` (ADR-013, ADR-014) | 05 |
+| Unidade da máquina (código de `Unidades`) | `HKLM\SOFTWARE\ITC\Bench`, valor `Unidade` | Escrita só por admin | 05 |
+| Verificador do login offline por técnico (scrypt) + datas, validade 7 dias | `%ProgramData%\ITC\Bench\protegido\logins.dpapi` | DPAPI de máquina + ACL (ADR-013) | 04 |
+| Sessão da API (`itcbs_`) | Só memória | — | 04 |
+| Endereço da API | `HKLM\SOFTWARE\ITC\Bench`, valor `ApiUrl` | Escrita só por admin | 04 |
 | Estado da Preparação completa (etapas, retomada após reinício) | `%ProgramData%\ITC\Bench` | ACL de admin | migração do Master |
-| Log rotativo | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
+| Log rotativo (sem segredo nem SSID; versão com 12 caracteres) | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
-| Token da carreta (`itcta_`) | `%ProgramData%\ITC\Bench` | DPAPI, escopo máquina | 05 |
+| Token da carreta (`itcta_`) | a decidir (proposta do ADR-013: trocar pela sessão no 06) | DPAPI de máquina | 06 |
 | Sessões de diagnóstico | a definir no módulo de Diagnóstico | — | Diagnóstico |
-
-Escopo DPAPI (usuário ou máquina): a definir no Módulo 04, considerando que vários técnicos usam
-a mesma máquina e o app roda elevado.

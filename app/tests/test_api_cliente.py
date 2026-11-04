@@ -20,6 +20,8 @@ class Roteiro:
     tipo = "application/json"
     extras: dict[str, str] = {}  # noqa: RUF012
     recebido: bytes = b""
+    caminho = ""
+    cabecalhos: dict[str, str] = {}  # noqa: RUF012
 
 
 def resposta(
@@ -37,6 +39,7 @@ class Handler(BaseHTTPRequestHandler):
     def _responder(self) -> None:
         tamanho = int(self.headers.get("Content-Length") or 0)
         Roteiro.recebido = self.rfile.read(tamanho)
+        Roteiro.caminho, Roteiro.cabecalhos = self.path, dict(self.headers)
         self.send_response(Roteiro.status)
         self.send_header("Content-Type", Roteiro.tipo)
         for nome, valor in Roteiro.extras.items():
@@ -184,3 +187,60 @@ def test_validar_endereco(url, dev, ok):
 def test_endereco_dev_pela_variavel(monkeypatch):
     monkeypatch.setenv(api.VARIAVEL_DEV, "http://127.0.0.1:9")
     assert api.endereco(dev=True) == "http://127.0.0.1:9"
+
+
+# Cadastros (ADR-014)
+
+
+def test_cadastros_200_com_versao_e_unidade(base):
+    resposta(200, {"versao": "v1", "wifi": []})
+    dados = api.cadastros(base, Sensivel(SESSAO), "v0", "UM-01")
+    assert dados == {"versao": "v1", "wifi": []}
+    assert Roteiro.caminho == "/v1/bench/cadastros?unidade=UM-01"
+    assert Roteiro.cabecalhos["If-None-Match"] == '"v0"'
+    assert Roteiro.cabecalhos["Authorization"] == f"Bearer {SESSAO}"
+
+
+def test_cadastros_sem_versao_nem_unidade(base):
+    resposta(200, {"versao": "v1"})
+    api.cadastros(base, Sensivel(SESSAO), None, None)
+    assert Roteiro.caminho == "/v1/bench/cadastros"
+    assert "If-None-Match" not in Roteiro.cabecalhos
+
+
+def test_cadastros_304(base):
+    resposta(304, "", tipo="text/plain")
+    assert api.cadastros(base, Sensivel(SESSAO), "v1", None) is None
+
+
+def test_cadastros_503_do_nocodb_nao_e_sem_conexao(base):
+    resposta(503, {"erro": "cadastros_indisponivel"})
+    with pytest.raises(api.CadastrosIndisponivel):
+        api.cadastros(base, Sensivel(SESSAO), None, None)
+    assert not issubclass(api.CadastrosIndisponivel, api.SemConexao)
+
+
+def test_cadastros_borda_fora_e_sem_conexao(base):
+    resposta(530, "<html>tunel</html>", tipo="text/html")
+    with pytest.raises(api.SemConexao):
+        api.cadastros(base, Sensivel(SESSAO), None, None)
+
+
+@pytest.mark.parametrize(
+    ("status", "corpo", "codigo"),
+    [
+        (401, {"erro": "nao_autorizado"}, "nao_autorizado"),
+        (422, {"erro": "unidade_invalida"}, "unidade_invalida"),
+    ],
+)
+def test_cadastros_recusados(base, status, corpo, codigo):
+    resposta(status, corpo)
+    with pytest.raises(api.Recusado) as erro:
+        api.cadastros(base, Sensivel(SESSAO), None, "UM-09")
+    assert erro.value.codigo == codigo
+
+
+def test_cadastros_403_html_do_access_e_erro_api(base):
+    resposta(403, "<html>Access</html>", tipo="text/html")
+    with pytest.raises(api.ErroApi):
+        api.cadastros(base, Sensivel(SESSAO), None, None)

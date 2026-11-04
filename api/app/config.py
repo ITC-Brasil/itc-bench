@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     bench_sessao_horas: int = Field(12, ge=1, le=24)
     bench_login_falhas_usuario: int = Field(5, ge=1)
     bench_login_falhas_ip: int = Field(20, ge=1)
+    # Bench cadastros read from NocoDB (ADR-014, TA-ADR-027). Own token: a Viewer user only on
+    # the "ITC Bench" base, never the mirror token. Empty: the route answers 503.
+    nocodb_cadastros_token: SecretStr = SecretStr("")
+    nocodb_tabela_servidores: str = ""
+    nocodb_tabela_instaladores: str = ""
+    nocodb_tabela_wifi: str = ""
+    nocodb_tabela_unidades: str = ""
+    nocodb_cadastros_timeout_seconds: float = Field(5.0, gt=0, le=15)
+    nocodb_cadastros_ttl_seconds: int = Field(60, ge=1)
+    # Keys the ETag: the content holds secrets, so the version must not derive from it alone.
+    # Empty: a random key per process (a restart invalidates the 304s).
+    bench_cadastros_etag_key: SecretStr = SecretStr("")
 
     @field_validator("opencode_go_model")
     @classmethod

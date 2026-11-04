@@ -206,3 +206,47 @@ aqui, e uma sessão `itcbs_` não vale nas rotas da carreta.
 ### GET /v1/bench/saude
 
 Igual a `GET /v1/saude`, no prefixo que passa pela borda sem service token.
+
+### GET /v1/bench/cadastros
+
+Cadastros da base "ITC Bench" no NocoDB (ADR-014, TA-ADR-027), para o Bench guardar no cache
+DPAPI. Exige `Authorization: Bearer itcbs_…` (o `304` também). Leitura do NocoDB só em
+`app/services/nocodb_cadastros.py`; rota em `app/routes/cadastros.py`.
+
+Parâmetro opcional `unidade=<Unidades.Codigo>`: sem ele, todo o Wi-Fi (fase de bancada); com
+ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempre inteiros.
+
+| Código | Corpo | Quando |
+|---|---|---|
+| 200 | ver abaixo, com `ETag: "<versao>"` e `Cache-Control: no-store` | Sessão válida |
+| 304 | vazio, com o `ETag` | `If-None-Match` igual à versão desta resposta (com o mesmo filtro) |
+| 401 | `{"erro": "nao_autorizado"}` | Sessão ausente, malformada, vencida ou revogada |
+| 422 | `{"erro": "unidade_invalida"}` | `unidade` fora das Unidades ativas (diferencia maiúsculas) |
+| 422 | `{"erro": "requisicao_invalida"}` | `unidade` vazia ou com mais de 32 caracteres |
+| 503 | `{"erro": "cadastros_indisponivel"}` | Leitura não configurada, NocoDB fora sem cópia em memória, ou cópia com mais de 24 h. Não mexe na sessão e não é o `glpi_indisponivel` do login |
+
+```json
+{
+  "versao": "<64 hex>", "lido_em": "AAAA-MM-DDTHH:MM:SSZ", "defasado": false, "unidade": null,
+  "servidores": [{"id": 1, "servico": "RustDesk", "papel": "servidor de ID", "valor": "...", "versao": "", "observacao": "", "publico": true}],
+  "instaladores": [{"id": 1, "programa": "...", "versao": "...", "arquivo": "...", "sha256": "<hex minúsculo>", "link": "https://...", "observacao": ""}],
+  "wifi": [{"id": 10, "ssid": "...", "senha": "...", "unidade": "UM-01", "categoria": "Carreta", "atualizado_em": "..."}],
+  "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "...", "uf": "..", "tag_glpi": "...", "perfil_padrao": "..."}],
+  "descartados": {"wifi": [12]}
+}
+```
+
+- Só linhas com `Ativo = true`. Linha sem o campo de exibição (`Servico`, `Programa`, `SSID`,
+  `Codigo`) ou Wi-Fi com unidade fora das Unidades ativas sai em `descartados` (só o `Id`).
+- **Segredos:** `servidores[].valor` e `observacao` são segredo quando `publico` é `false`
+  (`Publico` vazio ou ausente no NocoDB = segredo); `wifi[].senha` sempre. Saem em texto nesta
+  resposta (o Bench precisa deles offline) e em nenhum log ou tabela.
+- **`versao`:** HMAC-SHA256 do JSON canônico da resposta com `BENCH_CADASTROS_ETAG_KEY` (sem
+  ela, chave aleatória por processo). Não muda se o NocoDB não mudou.
+- **Cópia em memória** por `NOCODB_CADASTROS_TTL_SECONDS` (60): uma leitura do NocoDB por vez; os
+  outros pedidos recebem a cópia (só esperam quando não há nenhuma). NocoDB fora: a cópia sai com
+  `"defasado": true` e o `lido_em` dela, por até 24 h. Uma leitura que falhou não se repete
+  dentro do TTL.
+- Auditoria `bench_cadastros_entregas` (migração `0005`): uma linha por `200` (sessão, usuário,
+  unidade, horário, 12 caracteres da versão), apagada depois de 90 dias. O log da API tem as
+  contagens e a versão curta; nunca valor, SSID, link, observação ou o `If-None-Match`.
