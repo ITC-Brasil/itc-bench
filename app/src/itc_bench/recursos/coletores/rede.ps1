@@ -41,7 +41,9 @@ $r.testes = @($testes)
 try {
     $nomes = @{}
     foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) { $nomes[[string]$p.Id] = $p.ProcessName }
-    $r.portas = @(Get-NetTCPConnection -State Listen | Sort-Object LocalPort -Unique | ForEach-Object {
+    # Sem Sort-Object -Unique: no PS 5.1 ele compara o texto do objeto CIM (todos iguais) e
+    # descarta portas ao acaso (defeito do pendrive). A deduplicação por porta é em Python.
+    $r.portas = @(Get-NetTCPConnection -State Listen | ForEach-Object {
         [ordered]@{ enderecoLocal = $_.LocalAddress; porta = $_.LocalPort; pid = $_.OwningProcess; processo = $nomes[[string]$_.OwningProcess] }
     })
 } catch { [void]$avisos.Add('Falha ao listar portas em escuta: ' + $_.Exception.Message) }

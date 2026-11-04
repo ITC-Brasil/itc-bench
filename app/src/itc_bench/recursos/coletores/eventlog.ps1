@@ -4,7 +4,9 @@
 $avisos = New-Object System.Collections.ArrayList
 $dias = [int]$env:ITC_DIAS
 $pares = @{}
-foreach ($p in @($env:ITC_PARES | ConvertFrom-Json)) { $pares[([string]$p).ToLower()] = $true }
+# Sem @(): no PS 5.1 o array do ConvertFrom-Json viraria um item só.
+$lista = $env:ITC_PARES | ConvertFrom-Json
+foreach ($p in $lista) { $pares[([string]$p).ToLower()] = $true }
 $ids = @($pares.Keys | ForEach-Object { [int]($_.Split('|')[-1]) } | Sort-Object -Unique)
 $inicio = (Get-Date).AddDays(-$dias)
 $grupos = New-Object System.Collections.ArrayList
