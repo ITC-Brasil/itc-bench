@@ -10,7 +10,7 @@ from app import db, tarefas
 from app.auth import Refusal, refusal_handler
 from app.body_limit import BodyLimit
 from app.config import Settings
-from app.routes import bench, cadastros, relatorio, saude
+from app.routes import bench, bench_relatorio, cadastros, relatorio, saude
 from app.services import glpi, nocodb
 
 log = logging.getLogger("tecnico")
@@ -58,6 +58,7 @@ def create_app(settings: Settings | None = None, transports: dict | None = None,
     app.include_router(relatorio.router)
     app.include_router(bench.router)
     app.include_router(cadastros.router)
+    app.include_router(bench_relatorio.router)
     return app
 
 
