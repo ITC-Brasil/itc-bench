@@ -1,4 +1,4 @@
 # Test dependencies. -c keeps every shared package at the version of the API lock (ADR-025).
 -c requirements.txt
 -r requirements.in
-pytest==9.1.1
+pytest==9.2.0
