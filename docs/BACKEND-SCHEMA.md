@@ -74,7 +74,8 @@ Existentes na API (`docs/api/API.md`): `GET /v1/saude`,
 `Authorization: Bearer itcta_...`.
 
 Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout|sessao|saude`
-(ADR-013) e `GET /v1/bench/cadastros[?unidade=<codigo>]` (ADR-014). Formato em `docs/api/API.md`.
+(ADR-013), `GET /v1/bench/cadastros[?unidade=<codigo>]` (ADR-014), `POST /v1/bench/relatorio` e
+`GET /v1/bench/historico/{hostname}` (ADR-016). Formato em `docs/api/API.md`.
 
 ## Guardado localmente pelo Bench
 
@@ -88,5 +89,6 @@ Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout
 | Estado da Preparação completa (etapas, retomada após reinício) | `%ProgramData%\ITC\Bench` | ACL de admin | migração do Master |
 | Log rotativo (sem segredo nem SSID; versão com 12 caracteres) | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
-| Token da carreta (`itcta_`) | a decidir (proposta do ADR-013: trocar pela sessão no 06) | DPAPI de máquina | 06 |
-| Sessões de diagnóstico | a definir no módulo de Diagnóstico | — | Diagnóstico |
+| Fila de diagnósticos não enviados (`formato`, `envio_id`, `criado_em`, `coletado_por`, hostname, corpo 1.3 já saneado); 10 itens, 14 dias | `%ProgramData%\ITC\Bench\protegido\fila-diagnostico.dpapi`; ilegível vira `fila-diagnostico.corrompida`; sem admin, só memória | DPAPI de máquina + ACL (ADR-015) | 06 |
+| Token da carreta (`itcta_`) | Não vai aos notebooks: o envio usa a sessão (ADR-016) | — | 06 |
+| `batteryreport.html` do powercfg | Pasta temporária, apagado depois de lido | — | 06 |

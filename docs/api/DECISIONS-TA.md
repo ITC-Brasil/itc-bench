@@ -1008,8 +1008,8 @@ O ADR-016 do Bench manda o diagnóstico pela sessão do técnico. A tabela `diag
 gravado faz o Bench reenviar.
 
 **Decision**
-- Migração `0006` reconstrói `diagnosticos` numa transação: `carreta` e `token_id` aceitam nulo
-  (CHECK: `token_id` ou `bench_usuario`), colunas `bench_usuario`, `bench_sessao_id`, `unidade`,
+- Migração `0006` reconstrói `diagnosticos` numa transação: `token_id` aceita nulo (CHECK:
+  `token_id` ou `bench_usuario`; `carreta` continua `NOT NULL`, `'BANCADA'` no Bench), colunas `bench_usuario`, `bench_sessao_id`, `unidade`,
   `envio_id` (UNIQUE) e `processando_desde`. Ids e `relatorios.diagnostico_id` mantidos; nenhuma
   coluna removida ou renomeada.
 - `POST /v1/bench/relatorio`: sessão; `envio_id` UUID (`422` se não for); limite por técnico em
