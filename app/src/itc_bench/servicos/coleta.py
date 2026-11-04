@@ -279,7 +279,16 @@ def rede(cru: dict[str, Any]) -> dict[str, Any]:
         for t in lista(cru.get("testes"))[:10]
     ]
     portas = []
-    for p in lista(cru.get("portas"))[:MAX_PORTAS]:
+    vistas: set[int | None] = set()
+    # Uma linha por porta (a do pendrive saía ao acaso: Sort-Object -Unique do PS 5.1).
+    brutas = sorted(
+        lista(cru.get("portas")),
+        key=lambda p: (inteiro(p.get("porta")) or 0, str(p.get("enderecoLocal"))),
+    )
+    for p in brutas:
+        if inteiro(p.get("porta")) in vistas or len(portas) >= MAX_PORTAS:
+            continue
+        vistas.add(inteiro(p.get("porta")))
         local = texto(p.get("enderecoLocal"), 60)
         portas.append(
             {

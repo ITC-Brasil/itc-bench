@@ -274,3 +274,15 @@ def test_trechos_powershell_cabem_no_executor(nome):
     from itc_bench.servicos import executor
 
     assert len(executor.ABERTURA_PS + coleta.script(nome)) < executor.LIMITE_SCRIPT
+
+
+def test_portas_uma_por_porta_em_ordem():
+    cru = {
+        "portas": [
+            {"porta": 445, "enderecoLocal": "::"},
+            {"porta": 135, "enderecoLocal": "::"},
+            {"porta": 445, "enderecoLocal": "192.0.2.5"},
+        ]
+    }
+    portas = coleta.rede(cru)["portasEmEscuta"]
+    assert [(p["porta"], p["enderecoLocal"]) for p in portas] == [(135, "::"), (445, "192.0.2.5")]
