@@ -487,17 +487,25 @@ proposto e aprovado com ajustes em `.conversa/` em 04/11/2026.
    - IP do cliente: `CF-Connecting-IP`, lido só em `/v1/bench/*`; sem o cabeçalho, o IP da
      conexão. Confiável porque a porta só escuta em `127.0.0.1` (TA-ADR-009) e o único caminho é
      o túnel.
-2. **GLPI.** API v2 (`/api.php`), OAuth2 grant `password` com o cliente OAuth cadastrado no GLPI;
-   lê o usuário e os grupos e descarta o token. A legada (`initSession` + `App-Token`) fica como
-   reserva atrás da mesma interface, só se a v2 falhar no servidor. Arquivo único
-   `api/app/services/glpi.py`: `autenticar(settings, usuario, senha, transport) -> Tecnico`, levanta
-   `CredenciaisInvalidas` ou `GlpiIndisponivel`. Grupo pelo id (`GLPI_GRUPO_TECNICOS_ID`).
+2. **GLPI.** API v2 (`/api.php`, habilitada no servidor, confirmado pelo responsável), OAuth2
+   grant `password` com o cliente OAuth cadastrado no GLPI (`POST /api.php/token`, escopo `api`),
+   depois `GET /api.php/v2/session` e o token é descartado. A legada (`initSession` +
+   `App-Token`, `glpiprofiles` do `getFullSession`) fica só como reserva documentada. Arquivo
+   único `api/app/services/glpi.py`: `autenticar(settings, usuario, senha, transport) -> Tecnico`
+   (`glpi_id`, `login`, `nome`, `tem_perfil`), levanta `CredenciaisInvalidas` ou
+   `GlpiIndisponivel`.
+   - **Acesso pelo perfil do GLPI, nunca pelo grupo** (os grupos têm outra finalidade):
+     `GLPI_PERFIL_TECNICOS_ID`, preenchido só no `.env` do servidor. Conta qualquer vínculo do
+     usuário com o perfil, em qualquer entidade, não só o perfil ativo ou o padrão: o campo
+     `profiles` de `GET /session` é o `$_SESSION['glpiprofiles']` (todos os perfis do usuário;
+     `CoreController` do GLPI 11), e o `active_profile` é ignorado.
    **`GLPI_URL` é interna** (o próprio servidor ou a rede do Docker), nunca rota pela internet,
    porque o GLPI 11 está sem HTTPS: a API recusa no arranque `http://` para host que não seja
    `localhost`, IP privado, nome sem ponto ou `.internal`/`.local`/`.lan`/`.invalid` (log de erro e
    login em `503`).
 3. **Rotas e dados.** `POST /v1/bench/login` → `200 {sessao, expira_em, tecnico}`,
-   `401 credenciais_invalidas`, `403 fora_do_grupo` (só com senha certa), `429 limite_excedido`
+   `401 credenciais_invalidas`, `403 fora_do_perfil` (só com senha certa; no Bench: "Usuário sem
+   perfil de técnico no GLPI"), `429 limite_excedido`
    com `Retry-After`, `503 glpi_indisponivel` (inclui timeout e GLPI não configurado),
    `422 requisicao_invalida`. `POST /v1/bench/logout` → `204`. `GET /v1/bench/sessao` → `200` ou
    `401`. Sessão `itcbs_` + 43 caracteres, só SHA-256 no banco, validade **absoluta de 12 h**,
@@ -505,7 +513,7 @@ proposto e aprovado com ajustes em `.conversa/` em 04/11/2026.
    `bench_login_auditoria`, sem coluna de senha. Limite em janela fixa de 15 min: 5 falhas por
    usuário e 20 por IP, conferido antes de chamar o GLPI; sucesso zera o usuário; `503` não conta.
    - **Usuário que pode ser senha:** auditoria e alerta ntfy gravam o usuário por extenso só
-     quando o GLPI o reconhece (`ok` ou `fora_do_grupo`). Nos outros casos, e sempre na chave do
+     quando o GLPI o reconhece (`ok` ou `fora_do_perfil`). Nos outros casos, e sempre na chave do
      limite, vai `HMAC-SHA256(BENCH_LOGIN_HMAC_KEY, usuario_normalizado)` (16 hex).
    - **Deploy sem parada:** toda variável nova tem padrão; com `GLPI_*` ou a chave HMAC vazios a
      API sobe e o login responde `503 glpi_indisponivel`.
@@ -514,7 +522,7 @@ proposto e aprovado com ajustes em `.conversa/` em 04/11/2026.
 5. **Cliente.** `servicos/api.py`, stdlib (`urllib.request` + `ssl.create_default_context()`),
    timeout 15 s, **sem seguir redirecionamento**. Endereço: `HKLM\SOFTWARE\ITC\Bench\ApiUrl`
    (instalador, Módulo 15); em `--dev`, `ITC_BENCH_API_URL` antes. Resposta que não for JSON
-   (302, HTML do Access) é `ErroApi`; um 403 em HTML nunca vira `fora_do_grupo`; 429 sem
+   (302, HTML do Access) é `ErroApi`; um 403 em HTML nunca vira `fora_do_perfil`; 429 sem
    `Retry-After` tem mensagem genérica.
 6. **Offline 7 dias.** Liberam o offline: sem conexão (DNS, recusa, timeout, TLS), 502, 503, 504
    e 530 da borda, e `503 glpi_indisponivel`. Nunca liberam: 401, 403, 429; 401/403 apagam a
@@ -551,7 +559,9 @@ proposto e aprovado com ajustes em `.conversa/` em 04/11/2026.
 - Service token no instalador (compartilhado ou por máquina) — segredo extraível do EXE; fere o
   ADR-008.
 - API legada do GLPI como primeira escolha — obsoleta; a troca para o 12 a obrigaria de novo.
-- Grupo por nome — renomear o grupo abriria ou fecharia acesso.
+- Grupo do GLPI (por nome ou id) — os grupos têm outra finalidade no GLPI do Grupo; o perfil é o
+  que define o técnico. Perfil só ativo/padrão — técnico com o perfil numa entidade secundária
+  ficaria de fora.
 - Sessão deslizante — sessão roubada viveria indefinidamente.
 - SHA-256 puro ou PBKDF2 no offline — força bruta rápida; scrypt resiste melhor a GPU.
 - DPAPI escopo de usuário — some ao trocar a conta do Windows na bancada.
