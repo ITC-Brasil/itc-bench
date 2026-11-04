@@ -47,10 +47,11 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [ ] Pasta de deploy no servidor renomeada para `itc-bench` (`mv`, `DEPLOY_DIR`, novo deploy; compose, volume e container mantêm os nomes); depois, README do TA apontando para cá (arquivamento do TA é do responsável)
 
 ### 04 — Login e sessão · `feat/modulo-04-login`
-- [ ] Rotas de login em `api/`, integração GLPI isolada em um arquivo, grupo de técnicos, limite de tentativas; ADR
-- [ ] Tela Entrar, sessão, bloqueio por 15 min parado
-- [ ] Login offline 7 dias com hash DPAPI; escopo DPAPI decidido em ADR
-- [ ] Técnico registrado em cada linha do log
+- [x] Rotas de login em `api/`, integração GLPI isolada em um arquivo, perfil de técnicos (não grupo), limite de tentativas; ADR-013
+- [x] Tela Entrar, sessão, bloqueio por 15 min parado
+- [x] Login offline 7 dias com hash DPAPI; escopo DPAPI decidido em ADR (máquina, ADR-013)
+- [x] Técnico registrado em cada linha do log
+- [ ] Depois do merge (responsável): deploy da API, `.env`, Bypass e rate limiting na Cloudflare, `curl`, login real, teste com conta comum
 
 ### 05 — Cadastros via API com cache DPAPI · `feat/modulo-05-cadastros`
 - [ ] Rotas dos 4 cadastros em `api/`; ADR que revisa o TA-ADR-005 (nota do ADR-006)

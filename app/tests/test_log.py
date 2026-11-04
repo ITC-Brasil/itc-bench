@@ -42,3 +42,21 @@ def test_sem_permissao_vai_para_localappdata(tmp_path, monkeypatch, caplog):
         arquivo = modulo_log.configurar(tmp_path / "pd")
     assert arquivo == tmp_path / "la" / "ITC" / "Bench" / "logs" / "bench.log"
     assert "Sem permissão" in caplog.text
+
+
+def test_tecnico_em_cada_linha(tmp_path):
+    arquivo = modulo_log.configurar(tmp_path)
+    modulo_log.log.info("antes")
+    modulo_log.definir_tecnico("ana.lima")
+    modulo_log.log.info("durante")
+    modulo_log.definir_tecnico("ana.lima (offline)")
+    modulo_log.log.info("offline")
+    modulo_log.definir_tecnico(None)
+    modulo_log.log.info("depois")
+    for h in modulo_log.log.handlers:
+        h.flush()
+    linhas = arquivo.read_text(encoding="utf-8").splitlines()
+    assert "INFO [-] itc_bench: antes" in linhas[0]
+    assert "INFO [ana.lima] itc_bench: durante" in linhas[1]
+    assert "INFO [ana.lima (offline)] itc_bench: offline" in linhas[2]
+    assert "INFO [-] itc_bench: depois" in linhas[3]

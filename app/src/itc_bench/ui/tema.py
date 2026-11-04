@@ -127,5 +127,24 @@ QSS = f"""
 #vazio {{ font: 400 13px "{CORPO}"; color: {MUTE}; }}
 #modulo {{ font: 600 11px "{CORPO}"; color: {CY9}; background: {CY50}; border-radius: 4px;
            padding: 4px 8px; }}
+#entrarLado {{ background: {INK}; }}
+#entrarItc {{ font: 600 11px "{DISPLAY}"; letter-spacing: 4px; color: {CY5}; }}
+#entrarBench {{ font: 800 36px "{DISPLAY}"; color: #FFFFFF; }}
+#entrarRodape {{ font: 400 12px "{CORPO}"; color: {SIDE_ICONE}; }}
+#entrarTitulo {{ font: 800 24px "{DISPLAY}"; color: {INK}; }}
+#entrarSub {{ font: 400 12.5px "{CORPO}"; color: {MAIN_TRILHA}; }}
+#rotulo {{ font: 600 11px "{CORPO}"; color: {MAIN_TRILHA}; }}
+#campo {{ font: 400 13px "{CORPO}"; padding: 8px 10px; border: 1px solid {MAIN_LINHA};
+          border-radius: 6px; background: #FFFFFF; color: {INK}; }}
+#campo:focus {{ border-color: {CY}; }}
+#primario {{ font: 600 13px "{CORPO}"; padding: 11px; border: none; border-radius: 6px;
+             background: {CY9}; color: #FFFFFF; }}
+#primario:disabled {{ background: #A5B0B0; }}
+#entrarErro {{ font: 500 12px "{CORPO}"; color: {ERR}; }}
+#entrarEstado {{ font: 500 11.5px "{CORPO}"; color: {MAIN_TRILHA}; }}
+#entrarEstado[tipo="ok"] {{ color: {OK}; }}
+#entrarEstado[tipo="aviso"] {{ color: {WARN}; }}
+#entrarEstado[tipo="erro"] {{ color: {ERR}; }}
+#entrarNota {{ font: 400 11px "{CORPO}"; color: #A5B0B0; }}
 #log {{ font: 11px "Consolas"; color: {INK}; background: {WELL}; border: none; }}
 """

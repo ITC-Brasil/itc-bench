@@ -44,6 +44,7 @@ def test_cada_item_abre_sua_tela_com_modulo(qtbot):
 def test_botao_ajuda_abre_e_fecha_popup(qtbot):
     j, _ = janela(qtbot)
     j.show()
+    j.raiz.setCurrentWidget(j.conteudo)  # sem login: o conteúdo fica atrás da Entrar
     tela = j.telas["wifi"]
     j.abrir("wifi")
     tela.botao_ajuda.click()

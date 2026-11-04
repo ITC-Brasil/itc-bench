@@ -33,6 +33,19 @@ class Settings(BaseSettings):
     ntfy_token: SecretStr = SecretStr("")
     ntfy_repeat_minutes: int = Field(60, ge=1)
     ntfy_failure_threshold_per_hour: int = Field(5, ge=1)
+    # Bench login (ADR-013). Every default lets the API start: with GLPI_* or the HMAC key
+    # empty, POST /v1/bench/login answers 503 glpi_indisponivel.
+    glpi_url: str = ""
+    glpi_oauth_client_id: str = ""
+    glpi_oauth_client_secret: SecretStr = SecretStr("")
+    glpi_perfil_tecnicos_id: int = 0
+    glpi_timeout_seconds: float = Field(10.0, gt=0, le=30)
+    # Keys the user field in the audit and the rate limit when GLPI did not recognize it:
+    # a password typed in the user field must not reach the database (ADR-013).
+    bench_login_hmac_key: SecretStr = SecretStr("")
+    bench_sessao_horas: int = Field(12, ge=1, le=24)
+    bench_login_falhas_usuario: int = Field(5, ge=1)
+    bench_login_falhas_ip: int = Field(20, ge=1)
 
     @field_validator("opencode_go_model")
     @classmethod

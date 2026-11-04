@@ -15,6 +15,8 @@ from itc_bench import __version__
 from itc_bench.nucleo import acl, caminhos, elevacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
+from itc_bench.servicos import api
+from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tema
 from itc_bench.ui.janela import Janela
 from itc_bench.ui.log_qt import HandlerTela
@@ -73,7 +75,22 @@ def main() -> int:
     tema.aplicar(app)
     if erro_acl:
         QMessageBox.warning(None, "ITC Bench", f"{erro_acl}\n\nDetalhes em {arquivo}.")
-    janela = Janela(tela)
+    dev = "--dev" in argv
+    base = api.endereco(dev)
+    if base:
+        try:
+            base = api.validar(base, dev)
+        except ValueError as erro:
+            log.error("Endereço da API recusado: %s", erro)
+            QMessageBox.warning(None, "ITC Bench", f"{erro}\n\nO login só funciona offline.")
+            base = None
+    else:
+        log.warning("Endereço da API não configurado; só o login offline funciona.")
+    # Sem administrador não existe pasta protegida: sem login offline (ADR-013).
+    cofre = Cofre(caminhos.protegida() / "logins.dpapi") if admin and not erro_acl else None
+    if cofre is None:
+        log.info("Login offline desligado (sem administrador ou sem pasta protegida).")
+    janela = Janela(tela, base, cofre)
     janela.show()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")

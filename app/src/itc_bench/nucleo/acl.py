@@ -12,11 +12,16 @@ from ctypes import wintypes
 from pathlib import Path
 
 SDDL = "O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)"
+# Pasta protegida (ADR-011, ADR-013): sem Usuários, porque DPAPI de máquina qualquer um decifra.
+SDDL_PROTEGIDO = "O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
+# Dono Administradores e DACL vazia sem proteção: o item só herda do pai.
+_SO_HERDA = "O:BAD:"
 
 _SE_FILE_OBJECT = 1
 _OWNER = 0x1
 _DACL = 0x4
 _PROTECTED_DACL = 0x80000000
+_UNPROTECTED_DACL = 0x20000000
 _TREE_SEC_INFO_RESET = 2
 _PROGRESS_INVOKE_ON_ERROR = 3
 _ERROR_ACCESS_DENIED = 5
@@ -45,19 +50,61 @@ def verificar_reparse(raiz: Path) -> None:
             pendentes.extend(item.iterdir())
 
 
-def proteger(raiz: Path) -> None:
-    """Aplica o SDDL na raiz e em tudo dentro dela, trocando o dono de arquivos de terceiros."""
+def proteger(raiz: Path, sddl: str = SDDL, exceto: Path | None = None) -> None:
+    """Aplica o SDDL na raiz e em tudo dentro dela, trocando o dono de arquivos de terceiros.
+
+    `exceto`: subpasta que o reset não pode tocar (a protegida). O reset recursivo do Windows
+    sobrescreve até DACL protegida (testado com os três modos de `TreeSetNamedSecurityInfoW`),
+    o que daria leitura a Usuários na pasta protegida até ela ser refeita.
+    """
     verificar_reparse(raiz)
-    falhas = _aplicar(raiz)
+    falhas = _aplicar(raiz, sddl, exceto)
     if any(codigo == _ERROR_ACCESS_DENIED for _, codigo in falhas):
         _habilitar_privilegios()
-        falhas = _aplicar(raiz)
+        falhas = _aplicar(raiz, sddl, exceto)
     # Junction criada entre a primeira checagem e o ACL desviaria o log. Agora quem não é admin
     # não cria mais nada ali, então a segunda checagem fecha a corrida.
     verificar_reparse(raiz)
     if falhas:
         lista = "; ".join(f"{nome}: {ctypes.FormatError(codigo)}" for nome, codigo in falhas[:5])
         raise ErroAcl(falhas[0][1], f"ACL não aplicado em {len(falhas)} item(ns): {lista}")
+
+
+def proteger_segredos(raiz: Path, protegida: Path) -> None:
+    """ACL da árvore sem tocar na pasta protegida; depois a protegida, e confere dono e DACL."""
+    protegida.mkdir(parents=True, exist_ok=True)
+    proteger(raiz, exceto=protegida)
+    proteger(protegida, SDDL_PROTEGIDO)
+    if (atual := sddl_atual(protegida)) != SDDL_PROTEGIDO:
+        raise ErroAcl(0, f"Pasta protegida {protegida} com ACL inesperado: {atual}")
+
+
+def sddl_atual(caminho: Path) -> str:
+    """Dono e DACL do item em SDDL."""
+    descritor = ctypes.c_void_p()
+    codigo = _advapi.GetNamedSecurityInfoW(
+        str(caminho),
+        _SE_FILE_OBJECT,
+        _OWNER | _DACL,
+        None,
+        None,
+        None,
+        None,
+        ctypes.byref(descritor),
+    )
+    if codigo:
+        raise ctypes.WinError(codigo)
+    texto = wintypes.LPWSTR()
+    try:
+        if not _advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+            descritor, 1, _OWNER | _DACL, ctypes.byref(texto), None
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        valor = texto.value or ""
+        _kernel32.LocalFree(texto)
+        return valor
+    finally:
+        _kernel32.LocalFree(descritor)
 
 
 _advapi = ctypes.WinDLL("advapi32", use_last_error=True)
@@ -80,6 +127,27 @@ _advapi.TreeSetNamedSecurityInfoW.argtypes = (
 _Progresso = ctypes.WINFUNCTYPE(
     None, wintypes.LPWSTR, wintypes.DWORD, ctypes.c_void_p, ctypes.c_void_p, wintypes.BOOL
 )
+_advapi.SetNamedSecurityInfoW.restype = wintypes.DWORD
+_advapi.SetNamedSecurityInfoW.argtypes = (
+    wintypes.LPWSTR,
+    ctypes.c_int,
+    wintypes.DWORD,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+)
+_advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD
+_advapi.GetNamedSecurityInfoW.argtypes = (
+    wintypes.LPWSTR,
+    ctypes.c_int,
+    wintypes.DWORD,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.POINTER(ctypes.c_void_p),
+)
 _kernel32.LocalFree.argtypes = (ctypes.c_void_p,)
 _kernel32.GetCurrentProcess.restype = wintypes.HANDLE
 _kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
@@ -98,8 +166,25 @@ _advapi.AdjustTokenPrivileges.argtypes = (
 )
 
 
-def _aplicar(raiz: Path) -> list[tuple[str, int]]:
+def _aplicar(raiz: Path, sddl: str = SDDL, exceto: Path | None = None) -> list[tuple[str, int]]:
     """Devolve (item, código de erro) de cada item que falhou."""
+    if exceto is None or not exceto.exists():
+        return _definir(raiz, sddl, _PROTECTED_DACL, arvore=True)
+    # Sem recursão na raiz e nas pastas a caminho da exceção (o Windows propaga a herança e
+    # pula a DACL protegida); com recursão em cada irmã, que volta a só herdar.
+    falhas = _definir(raiz, sddl, _PROTECTED_DACL, arvore=False)
+    partes = exceto.relative_to(raiz).parts
+    caminho = [raiz.joinpath(*partes[:i]) for i in range(1, len(partes))]
+    for pasta in [raiz, *caminho]:
+        if pasta != raiz:
+            falhas += _definir(pasta, _SO_HERDA, _UNPROTECTED_DACL, arvore=False)
+        for item in pasta.iterdir():
+            if item != exceto and item not in caminho:
+                falhas += _definir(item, _SO_HERDA, _UNPROTECTED_DACL, arvore=True)
+    return falhas
+
+
+def _definir(alvo: Path, sddl: str, protecao: int, *, arvore: bool) -> list[tuple[str, int]]:
     falhas: list[tuple[str, int]] = []
 
     def anotar(nome: str, codigo: int, _ajuste: object, _args: object, _aplicado: bool) -> None:
@@ -109,7 +194,7 @@ def _aplicar(raiz: Path) -> list[tuple[str, int]]:
     progresso = _Progresso(anotar)
     descritor = ctypes.c_void_p()
     if not _advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(
-        SDDL, 1, ctypes.byref(descritor), None
+        sddl, 1, ctypes.byref(descritor), None
     ):
         raise ctypes.WinError(ctypes.get_last_error())
     try:
@@ -119,11 +204,14 @@ def _aplicar(raiz: Path) -> list[tuple[str, int]]:
         _advapi.GetSecurityDescriptorDacl(
             descritor, ctypes.byref(presente), ctypes.byref(dacl), ctypes.byref(padrao)
         )
-        codigo = int(
-            _advapi.TreeSetNamedSecurityInfoW(
-                str(raiz),
+        if not dacl:
+            raise ErroAcl(0, "SDDL sem DACL")  # DACL nula daria acesso total a todos
+        flags = _OWNER | _DACL | protecao
+        if arvore:
+            codigo = _advapi.TreeSetNamedSecurityInfoW(
+                str(alvo),
                 _SE_FILE_OBJECT,
-                _OWNER | _DACL | _PROTECTED_DACL,
+                flags,
                 dono,
                 None,
                 dacl,
@@ -133,9 +221,12 @@ def _aplicar(raiz: Path) -> list[tuple[str, int]]:
                 _PROGRESS_INVOKE_ON_ERROR,
                 None,
             )
-        )
+        else:
+            codigo = _advapi.SetNamedSecurityInfoW(
+                str(alvo), _SE_FILE_OBJECT, flags, dono, None, dacl, None
+            )
         if codigo:
-            falhas.append((str(raiz), codigo))
+            falhas.append((str(alvo), int(codigo)))
         return falhas
     finally:
         _kernel32.LocalFree(descritor)

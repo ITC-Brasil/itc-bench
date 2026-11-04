@@ -9,7 +9,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 
-from itc_bench.nucleo.log import log
+from itc_bench.nucleo.log import log, tecnico
 
 # Referência até o resultado chegar na thread da tela; sem ela o Python coleta os sinais antes.
 _ativas: set["Tarefa"] = set()
@@ -25,12 +25,14 @@ class Tarefa(QRunnable):
         super().__init__()
         self.funcao = funcao
         self.sinais = Sinais()
+        # Quem iniciou: o técnico do log pode trocar antes de a tarefa acabar (ADR-013).
+        self.tecnico = tecnico()
 
     def run(self) -> None:
         try:
             resultado = self.funcao()
         except Exception as erro:  # noqa: BLE001 — vai para o log com traceback e para a tela
-            log.exception("Falha na tarefa em segundo plano.")
+            log.exception("Falha na tarefa em segundo plano (iniciada por %s).", self.tecnico)
             self.sinais.falhou.emit(str(erro))
             return
         self.sinais.concluido.emit(resultado)
