@@ -76,18 +76,17 @@ Existentes na API (`docs/api/API.md`): `GET /v1/saude`,
 Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout|sessao|saude`
 (ADR-013) e `GET /v1/bench/cadastros[?unidade=<codigo>]` (ADR-014). Formato em `docs/api/API.md`.
 
-## Guardado localmente pelo Bench (planejado)
+## Guardado localmente pelo Bench
 
 | O quê | Onde | Proteção | Módulo |
 |---|---|---|---|
-| Cache dos 4 cadastros + data da sincronização | `%ProgramData%\ITC\Bench` | DPAPI | 04 |
-| Hash do último login por técnico + data (validade 7 dias) | `%ProgramData%\ITC\Bench` | DPAPI | 03 |
-| Sessão da API (token) | Memória; persistência a decidir | DPAPI se persistida | 03 |
+| Cache dos 4 cadastros (`formato`, versão, `sincronizado_em`, `por`, unidade, corpo da API com segredos); válido 7 dias | `%ProgramData%\ITC\Bench\protegido\cadastros.dpapi`; sem admin, só memória | DPAPI de máquina + ACL só SYSTEM e `S-1-5-32-544` (ADR-013, ADR-014) | 05 |
+| Unidade da máquina (código de `Unidades`) | `HKLM\SOFTWARE\ITC\Bench`, valor `Unidade` | Escrita só por admin | 05 |
+| Verificador do login offline por técnico (scrypt) + datas, validade 7 dias | `%ProgramData%\ITC\Bench\protegido\logins.dpapi` | DPAPI de máquina + ACL (ADR-013) | 04 |
+| Sessão da API (`itcbs_`) | Só memória | — | 04 |
+| Endereço da API | `HKLM\SOFTWARE\ITC\Bench`, valor `ApiUrl` | Escrita só por admin | 04 |
 | Estado da Preparação completa (etapas, retomada após reinício) | `%ProgramData%\ITC\Bench` | ACL de admin | migração do Master |
-| Log rotativo | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
+| Log rotativo (sem segredo nem SSID; versão com 12 caracteres) | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
-| Token da carreta (`itcta_`) | `%ProgramData%\ITC\Bench` | DPAPI, escopo máquina | 05 |
+| Token da carreta (`itcta_`) | a decidir (proposta do ADR-013: trocar pela sessão no 06) | DPAPI de máquina | 06 |
 | Sessões de diagnóstico | a definir no módulo de Diagnóstico | — | Diagnóstico |
-
-Escopo DPAPI (usuário ou máquina): a definir no Módulo 04, considerando que vários técnicos usam
-a mesma máquina e o app roda elevado.
