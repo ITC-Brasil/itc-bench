@@ -37,15 +37,18 @@ class Entrada(BaseModel):
     correcoes: dict[str, Any] | None = None
 
 
-def historico(conn, hostname: str, limite: int) -> list[dict]:
+def historico(conn, hostname: str, limite: int, bench: bool = False) -> list[dict]:
+    """bench: also who sent it, the unit and the report text (GET /v1/bench/historico, ADR-016).
+    Never in the prompt: there the GLPI login of the technician stays out (TA-ADR-028)."""
     rows = conn.execute(
         "SELECT d.id, d.recebido_em, d.carreta, d.sessao_id, d.projeto, d.sub_perfil, d.versao_schema,"
-        " d.resumo, d.falha, r.maior_confianca, r.chamado_titulo, r.modelo"
+        " d.resumo, d.falha, r.maior_confianca, r.chamado_titulo, r.modelo,"
+        " d.bench_usuario, d.unidade, r.relatorio_md, r.chamado_descricao"
         " FROM diagnosticos d LEFT JOIN relatorios r ON r.diagnostico_id = d.id"
         " WHERE d.hostname = ? ORDER BY d.id DESC LIMIT ?",
         (hostname, limite),
     ).fetchall()
-    return [
+    itens = [
         {
             "diagnostico_id": row[0],
             "recebido_em": row[1],
@@ -62,6 +65,43 @@ def historico(conn, hostname: str, limite: int) -> list[dict]:
         }
         for row in rows
     ]
+    if bench:
+        for item, row in zip(itens, rows, strict=True):
+            item["bench_usuario"], item["unidade"] = row[12], row[13]
+            if item["relatorio"] is not None:
+                item["relatorio"]["relatorio_md"], item["relatorio"]["chamado_descricao"] = row[14], row[15]
+    return itens
+
+
+def gerar_laudo(request: Request, conn, diagnostico_id: int, normalizada: dict, avisos: list[str], anteriores: list[dict]):
+    """Call the AI outside any transaction (it can take up to the timeout, TA-ADR-010) and store
+    the report; on failure store the code in diagnosticos.falha and refuse with it."""
+    settings = request.app.state.settings
+    sessao = normalizada["sessao"]
+    try:
+        gerado = opencode_go.gerar(
+            settings, prompt.montar(normalizada, avisos, anteriores), sessao["id"], request.app.state.transports.get("ia")
+        )
+    except opencode_go.IAFalha as falha:
+        with db.immediate(conn):
+            conn.execute(
+                "UPDATE diagnosticos SET falha = ?, processando_desde = NULL WHERE id = ?", (falha.code, diagnostico_id)
+            )
+        tarefas.falha_ia(request.app, falha.code)
+        raise Refusal(falha.status, falha.code) from None
+
+    relatorio_md = com_avisos(gerado.relatorio_md, avisos)
+    with db.immediate(conn):
+        conn.execute(
+            "INSERT INTO relatorios (diagnostico_id, modelo, tokens_entrada, tokens_saida, duracao_ms,"
+            " maior_confianca, relatorio_md, chamado_titulo, chamado_descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                diagnostico_id, gerado.modelo, gerado.tokens_entrada, gerado.tokens_saida, gerado.duracao_ms,
+                gerado.maior_confianca, relatorio_md, gerado.chamado_titulo, gerado.chamado_descricao,
+            ),
+        )
+        conn.execute("UPDATE diagnosticos SET falha = NULL, processando_desde = NULL WHERE id = ?", (diagnostico_id,))
+    return gerado, relatorio_md
 
 
 def com_avisos(relatorio_md: str, avisos: list[str]) -> str:
@@ -93,27 +133,7 @@ def relatorio(entrada: Entrada, request: Request, carreta: str = Depends(exigir_
                 ),
             ).lastrowid
 
-        # Outside any transaction: the call can take up to the timeout (ADR-010).
-        try:
-            gerado = opencode_go.gerar(
-                settings, prompt.montar(normalizada, avisos, anteriores), sessao["id"], request.app.state.transports.get("ia")
-            )
-        except opencode_go.IAFalha as falha:
-            with db.immediate(conn):
-                conn.execute("UPDATE diagnosticos SET falha = ? WHERE id = ?", (falha.code, diagnostico_id))
-            tarefas.falha_ia(request.app, falha.code)
-            raise Refusal(falha.status, falha.code) from None
-
-        relatorio_md = com_avisos(gerado.relatorio_md, avisos)
-        with db.immediate(conn):
-            conn.execute(
-                "INSERT INTO relatorios (diagnostico_id, modelo, tokens_entrada, tokens_saida, duracao_ms,"
-                " maior_confianca, relatorio_md, chamado_titulo, chamado_descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    diagnostico_id, gerado.modelo, gerado.tokens_entrada, gerado.tokens_saida, gerado.duracao_ms,
-                    gerado.maior_confianca, relatorio_md, gerado.chamado_titulo, gerado.chamado_descricao,
-                ),
-            )
+        gerado, relatorio_md = gerar_laudo(request, conn, diagnostico_id, normalizada, avisos, anteriores)
     finally:
         conn.close()
 
