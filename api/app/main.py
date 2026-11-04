@@ -10,7 +10,7 @@ from app import db, tarefas
 from app.auth import Refusal, refusal_handler
 from app.body_limit import BodyLimit
 from app.config import Settings
-from app.routes import bench, relatorio, saude
+from app.routes import bench, cadastros, relatorio, saude
 from app.services import glpi, nocodb
 
 log = logging.getLogger("tecnico")
@@ -22,7 +22,7 @@ async def invalid_request(request, exc) -> JSONResponse:
 
 
 def create_app(settings: Settings | None = None, transports: dict | None = None, em_segundo_plano=tarefas.em_thread) -> FastAPI:
-    """transports: httpx transports by service ("ia", "nocodb", "ntfy"); tests pass mocks,
+    """transports: httpx transports by service ("ia", "nocodb", "ntfy", "glpi", "nocodb_cadastros"); tests pass mocks,
     production none. em_segundo_plano: how off-request work runs; tests run it inline."""
     # Settings are loaded here, so a forbidden model (ADR-011) stops the container at startup.
     settings = settings or Settings()
@@ -49,12 +49,15 @@ def create_app(settings: Settings | None = None, transports: dict | None = None,
     app.state.settings = settings
     app.state.transports = transports or {}
     app.state.em_segundo_plano = em_segundo_plano
+    app.state.cadastros = cadastros.Copia()
+    app.state.chave_versao = cadastros.chave_versao(settings)
     app.add_middleware(BodyLimit, max_bytes=settings.max_body_bytes)
     app.add_exception_handler(Refusal, refusal_handler)
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.include_router(saude.router)
     app.include_router(relatorio.router)
     app.include_router(bench.router)
+    app.include_router(cadastros.router)
     return app
 
 
