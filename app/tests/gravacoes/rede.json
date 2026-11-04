@@ -1,0 +1,401 @@
+{
+ "bench": {
+  "adaptadores": [
+   {
+    "nome": "Conexão de Rede Bluetooth",
+    "descricao": "Bluetooth Device (Personal Area Network)",
+    "status": "Disconnected",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-01",
+    "velocidadeMbps": "3 Mbps",
+    "enderecosIPv4": [
+     "169.254.122.113"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Enabled"
+   },
+   {
+    "nome": "Ethernet",
+    "descricao": "Realtek PCIe GbE Family Controller",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-02",
+    "velocidadeMbps": "100 Mbps",
+    "enderecosIPv4": [
+     "192.0.2.1"
+    ],
+    "gateway": "192.0.2.2",
+    "servidoresDNS": [
+     "8.8.8.8",
+     "192.0.2.3"
+    ],
+    "dhcp": "Enabled"
+   },
+   {
+    "nome": "Npcap Loopback Adapter",
+    "descricao": "Npcap Loopback Adapter",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-03",
+    "velocidadeMbps": "1.2 Gbps",
+    "enderecosIPv4": [
+     "169.254.3.113"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Enabled"
+   },
+   {
+    "nome": "Tailscale",
+    "descricao": "Tailscale Tunnel",
+    "status": "Up",
+    "tipoConexao": "IP",
+    "macAddress": "",
+    "velocidadeMbps": "100 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.4"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Disabled"
+   },
+   {
+    "nome": "vEthernet (Default Switch)",
+    "descricao": "Hyper-V Virtual Ethernet Adapter",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-04",
+    "velocidadeMbps": "10 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.5"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Disabled"
+   },
+   {
+    "nome": "vEthernet (WSL (Hyper-V firewall))",
+    "descricao": "Hyper-V Virtual Ethernet Adapter #2",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-05",
+    "velocidadeMbps": "10 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.6"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Disabled"
+   },
+   {
+    "nome": "Wi-Fi",
+    "descricao": "Realtek RTL8852AE WiFi 6 802.11ax PCIe Adapter",
+    "status": "Up",
+    "tipoConexao": "Native 802.11",
+    "macAddress": "02-00-5E-10-00-06",
+    "velocidadeMbps": "1.2 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.7"
+    ],
+    "gateway": "192.0.2.8",
+    "servidoresDNS": [
+     "192.0.2.8"
+    ],
+    "dhcp": "Enabled"
+   }
+  ],
+  "testes": [
+   {
+    "tipo": "ping",
+    "alvo": "8.8.8.8",
+    "sucesso": true,
+    "latenciaMs": 71,
+    "detalhe": null
+   },
+   {
+    "tipo": "ping",
+    "alvo": "1.1.1.1",
+    "sucesso": true,
+    "latenciaMs": 34,
+    "detalhe": null
+   },
+   {
+    "tipo": "resolucao-dns",
+    "alvo": "www.google.com",
+    "sucesso": true,
+    "latenciaMs": null,
+    "detalhe": "192.0.2.9"
+   }
+  ],
+  "portas": [
+   {
+    "enderecoLocal": "::",
+    "porta": 5434,
+    "pid": 0,
+    "processo": "com.docker.backend"
+   },
+   {
+    "enderecoLocal": "192.0.2.7",
+    "porta": 53167,
+    "pid": 0,
+    "processo": "Hermes"
+   },
+   {
+    "enderecoLocal": "192.0.2.7",
+    "porta": 48900,
+    "pid": 0,
+    "processo": "tailscaled"
+   },
+   {
+    "enderecoLocal": "127.0.0.1",
+    "porta": 34729,
+    "pid": 0,
+    "processo": "python"
+   },
+   {
+    "enderecoLocal": "127.0.0.1",
+    "porta": 17600,
+    "pid": 0,
+    "processo": "Dropbox"
+   },
+   {
+    "enderecoLocal": "0.0.0.0",
+    "porta": 2179,
+    "pid": 0,
+    "processo": "vmms"
+   },
+   {
+    "enderecoLocal": "192.0.2.5",
+    "porta": 139,
+    "pid": 0,
+    "processo": "System"
+   },
+   {
+    "enderecoLocal": "0.0.0.0",
+    "porta": 135,
+    "pid": 0,
+    "processo": "svchost"
+   }
+  ],
+  "avisos": []
+ },
+ "pendrive": {
+  "adaptadores": [
+   {
+    "nome": "Conexão de Rede Bluetooth",
+    "descricao": "Bluetooth Device (Personal Area Network)",
+    "status": "Disconnected",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-01",
+    "velocidadeMbps": "3 Mbps",
+    "enderecosIPv4": [
+     "169.254.122.113"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Enabled",
+    "semIP": false,
+    "apipa": false
+   },
+   {
+    "nome": "Ethernet",
+    "descricao": "Realtek PCIe GbE Family Controller",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-02",
+    "velocidadeMbps": "100 Mbps",
+    "enderecosIPv4": [
+     "192.0.2.1"
+    ],
+    "gateway": "192.0.2.2",
+    "servidoresDNS": [
+     "8.8.8.8",
+     "192.0.2.3"
+    ],
+    "dhcp": "Enabled",
+    "semIP": false,
+    "apipa": false
+   },
+   {
+    "nome": "Npcap Loopback Adapter",
+    "descricao": "Npcap Loopback Adapter",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-03",
+    "velocidadeMbps": "1.2 Gbps",
+    "enderecosIPv4": [
+     "169.254.3.113"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Enabled",
+    "semIP": false,
+    "apipa": true
+   },
+   {
+    "nome": "Tailscale",
+    "descricao": "Tailscale Tunnel",
+    "status": "Up",
+    "tipoConexao": "IP",
+    "macAddress": "",
+    "velocidadeMbps": "100 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.4"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Disabled",
+    "semIP": false,
+    "apipa": false
+   },
+   {
+    "nome": "vEthernet (Default Switch)",
+    "descricao": "Hyper-V Virtual Ethernet Adapter",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-04",
+    "velocidadeMbps": "10 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.5"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Disabled",
+    "semIP": false,
+    "apipa": false
+   },
+   {
+    "nome": "vEthernet (WSL (Hyper-V firewall))",
+    "descricao": "Hyper-V Virtual Ethernet Adapter #2",
+    "status": "Up",
+    "tipoConexao": "802.3",
+    "macAddress": "02-00-5E-10-00-05",
+    "velocidadeMbps": "10 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.6"
+    ],
+    "gateway": null,
+    "servidoresDNS": [],
+    "dhcp": "Disabled",
+    "semIP": false,
+    "apipa": false
+   },
+   {
+    "nome": "Wi-Fi",
+    "descricao": "Realtek RTL8852AE WiFi 6 802.11ax PCIe Adapter",
+    "status": "Up",
+    "tipoConexao": "Native 802.11",
+    "macAddress": "02-00-5E-10-00-06",
+    "velocidadeMbps": "1.2 Gbps",
+    "enderecosIPv4": [
+     "192.0.2.7"
+    ],
+    "gateway": "192.0.2.8",
+    "servidoresDNS": [
+     "192.0.2.8"
+    ],
+    "dhcp": "Enabled",
+    "semIP": false,
+    "apipa": false
+   }
+  ],
+  "testesConectividade": [
+   {
+    "tipo": "ping",
+    "alvo": "8.8.8.8",
+    "sucesso": true,
+    "latenciaMs": 40,
+    "detalhe": null
+   },
+   {
+    "tipo": "ping",
+    "alvo": "1.1.1.1",
+    "sucesso": true,
+    "latenciaMs": 36,
+    "detalhe": null
+   },
+   {
+    "tipo": "resolucao-dns",
+    "alvo": "www.google.com",
+    "sucesso": true,
+    "latenciaMs": null,
+    "detalhe": "192.0.2.10"
+   }
+  ],
+  "portasEmEscuta": [
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "0.0.0.0",
+    "porta": 135,
+    "pid": 0,
+    "processo": "svchost",
+    "escutaExterna": true
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "192.0.2.5",
+    "porta": 139,
+    "pid": 0,
+    "processo": "System",
+    "escutaExterna": true
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "0.0.0.0",
+    "porta": 2179,
+    "pid": 0,
+    "processo": "vmms",
+    "escutaExterna": true
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "::",
+    "porta": 5434,
+    "pid": 0,
+    "processo": "com.docker.backend",
+    "escutaExterna": true
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "127.0.0.1",
+    "porta": 17600,
+    "pid": 0,
+    "processo": "Dropbox",
+    "escutaExterna": false
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "192.0.2.7",
+    "porta": 48900,
+    "pid": 0,
+    "processo": "tailscaled",
+    "escutaExterna": true
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "192.0.2.7",
+    "porta": 58083,
+    "pid": 0,
+    "processo": "Termius",
+    "escutaExterna": true
+   },
+   {
+    "protocolo": "TCP",
+    "enderecoLocal": "192.0.2.7",
+    "porta": 58803,
+    "pid": 0,
+    "processo": "MsMpEng",
+    "escutaExterna": true
+   }
+  ],
+  "resumo": {
+   "adaptadoresAtivos": 6,
+   "temIPValido": true,
+   "internetOk": true,
+   "dnsOk": true,
+   "portasEmEscutaTotal": 8
+  },
+  "avisos": []
+ }
+}

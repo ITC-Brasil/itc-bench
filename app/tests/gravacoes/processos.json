@@ -1,0 +1,539 @@
+{
+ "bench": {
+  "memoriaTotalKB": 15542712,
+  "memoriaLivreKB": 1273536,
+  "processos": [],
+  "servicos": [
+   {
+    "nome": "brave",
+    "nomeExibicao": "Serviço do Brave Update (brave)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "dbupdate",
+    "nomeExibicao": "Serviço Atualização do Dropbox (dbupdate)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "DropboxUpdaterInternalService123.0.6299.152",
+    "nomeExibicao": "DropboxUpdater InternalService 123.0.6299.152 (DropboxUpdaterInternalService123.0.6299.152)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "DropboxUpdaterService123.0.6299.152",
+    "nomeExibicao": "DropboxUpdater Service 123.0.6299.152 (DropboxUpdaterService123.0.6299.152)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "edgeupdate",
+    "nomeExibicao": "Microsoft Edge Update Service (edgeupdate)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "GoogleUpdaterInternalService157.0.8089.0",
+    "nomeExibicao": "Google Updater Internal Service (GoogleUpdaterInternalService157.0.8089.0)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "GoogleUpdaterService157.0.8089.0",
+    "nomeExibicao": "Google Updater Service (GoogleUpdaterService157.0.8089.0)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "gupdate",
+    "nomeExibicao": "Serviço do Google Update (gupdate)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "LPlatSvc",
+    "nomeExibicao": "Lenovo Platform Service",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "MapsBroker",
+    "nomeExibicao": "Gerenciador de Mapas Baixados",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "SamsungInternetUpdaterInternalService136.0.0.20",
+    "nomeExibicao": "Samsung Internet Updater Internal Service (SamsungInternetUpdaterInternalService136.0.0.20)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "SamsungInternetUpdaterService136.0.0.20",
+    "nomeExibicao": "Samsung Internet Updater Service (SamsungInternetUpdaterService136.0.0.20)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "sppsvc",
+    "nomeExibicao": "Proteção de Software",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "TrustedInstaller",
+    "nomeExibicao": "Instalador de Módulos do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "localSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "WbioSrvc",
+    "nomeExibicao": "Serviço de Biometria do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "CodexSandboxService.OpenAI.Codex",
+    "nomeExibicao": "ChatGPT",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   }
+  ],
+  "inicializacao": [
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-19\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-20\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Edgemin",
+    "comando": "<comando>",
+    "origem": "Startup"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_F051A690BAA67B3401A30F8EB7BB491E",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDrive",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "electron.app.Notion",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Spotify",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "IDMan",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "electron.app.Bitwarden",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Steam",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "WallpaperEngine",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Docker Desktop",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "BackgroundSwitcher",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Nextcloud",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "FluxDown",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_8698A41C832BEB5A0481FE22CAD7C02D",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "AnyDesk ClientTec",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "AnyDesk",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "Brother iPSMonitor",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "RustDesk Tray",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "Tailscale",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "SecurityHealth",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "GLPI-AgentMonitor",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Logi Download Assistant",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Nearby Share",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   }
+  ],
+  "avisos": []
+ },
+ "pendrive": {
+  "memoria": {
+   "totalGB": 14.8,
+   "disponivelGB": 1.6,
+   "percentualEmUso": 89.2,
+   "pressaoAlta": true
+  },
+  "processosPorMemoria": [],
+  "processosPorCpu": [],
+  "servicosAutomaticosParados": [
+   {
+    "nome": "brave",
+    "nomeExibicao": "Serviço do Brave Update (brave)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "dbupdate",
+    "nomeExibicao": "Serviço Atualização do Dropbox (dbupdate)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "DropboxUpdaterInternalService123.0.6299.152",
+    "nomeExibicao": "DropboxUpdater InternalService 123.0.6299.152 (DropboxUpdaterInternalService123.0.6299.152)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "DropboxUpdaterService123.0.6299.152",
+    "nomeExibicao": "DropboxUpdater Service 123.0.6299.152 (DropboxUpdaterService123.0.6299.152)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "edgeupdate",
+    "nomeExibicao": "Microsoft Edge Update Service (edgeupdate)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "GoogleUpdaterInternalService157.0.8089.0",
+    "nomeExibicao": "Google Updater Internal Service (GoogleUpdaterInternalService157.0.8089.0)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "GoogleUpdaterService157.0.8089.0",
+    "nomeExibicao": "Google Updater Service (GoogleUpdaterService157.0.8089.0)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "gupdate",
+    "nomeExibicao": "Serviço do Google Update (gupdate)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "LPlatSvc",
+    "nomeExibicao": "Lenovo Platform Service",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "MapsBroker",
+    "nomeExibicao": "Gerenciador de Mapas Baixados",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "SamsungInternetUpdaterInternalService136.0.0.20",
+    "nomeExibicao": "Samsung Internet Updater Internal Service (SamsungInternetUpdaterInternalService136.0.0.20)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "SamsungInternetUpdaterService136.0.0.20",
+    "nomeExibicao": "Samsung Internet Updater Service (SamsungInternetUpdaterService136.0.0.20)",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "sppsvc",
+    "nomeExibicao": "Proteção de Software",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "TrustedInstaller",
+    "nomeExibicao": "Instalador de Módulos do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "localSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "WbioSrvc",
+    "nomeExibicao": "Serviço de Biometria do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "CodexSandboxService.OpenAI.Codex",
+    "nomeExibicao": "ChatGPT",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   }
+  ],
+  "itensInicializacao": [
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-19\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-20\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Edgemin",
+    "comando": "<comando>",
+    "origem": "Startup"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_F051A690BAA67B3401A30F8EB7BB491E",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDrive",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "electron.app.Notion",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Spotify",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "IDMan",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "electron.app.Bitwarden",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Steam",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "WallpaperEngine",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Docker Desktop",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "BackgroundSwitcher",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Nextcloud",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "FluxDown",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_8698A41C832BEB5A0481FE22CAD7C02D",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-4289773345-3941996834-3639829539-1005\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "AnyDesk ClientTec",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "AnyDesk",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "Brother iPSMonitor",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "RustDesk Tray",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "Tailscale",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "SecurityHealth",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "GLPI-AgentMonitor",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Logi Download Assistant",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "Nearby Share",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   }
+  ],
+  "resumo": {
+   "totalProcessos": 468,
+   "servicosAutomaticosParados": 16,
+   "itensInicializacao": 25,
+   "memoriaPressaoAlta": true
+  },
+  "avisos": []
+ }
+}
