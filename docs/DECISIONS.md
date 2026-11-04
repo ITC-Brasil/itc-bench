@@ -458,3 +458,107 @@ Comandos do app rodam de dentro de `app/` (`uv --directory app run …`); os da 
 depois deste módulo (desligar o `push` do deploy antes da troca do remote; README apontando para
 cá); arquivamento é do responsável. Com `paths`, um PR só de docs não roda os testes do app nem da
 API; se algum dia esses checks virarem obrigatórios por branch protection, isso precisa de ajuste.
+
+---
+
+## ADR-013 — Login do técnico pela API, sessão de 12 h e offline de 7 dias com DPAPI de máquina
+
+**Status:** Accepted
+**Date:** 2026-11-04
+**Module:** 04
+
+**Context**
+O ADR-005 decidiu o login pelo GLPI através da API e deixou para o Módulo 04 o caminho até a
+API, as rotas, o escopo DPAPI e a pasta protegida do ADR-011. A borda exige o service token do
+Cloudflare Access (TA-ADR-007) e o instalador só pode levar o endereço da API (ADR-008). Desenho
+proposto e aprovado com ajustes em `.conversa/` em 04/11/2026.
+
+**Decision**
+1. **Borda.** Rotas do Bench sob `/v1/bench/` (`login`, `logout`, `sessao`, `saude`; cadastros no
+   05). Uma aplicação do Cloudflare Access no mesmo hostname, caminho `/v1/bench/`, política
+   Bypass; o resto (`/v1/relatorio`, `/v1/saude`) continua atrás do service token. Exceção ao
+   TA-ADR-007 só para esse prefixo. Verificação com `curl`: `/v1/relatorio`,
+   `/v1/bench/../relatorio`, `/v1/bench/%2e%2e/relatorio`, `//v1/relatorio` e `/v1/benchx` sem
+   service token têm de ser barrados pelo Access ou cair em 404 na API.
+   - **Proteção principal: o limite no SQLite** (item 3). A regra de rate limiting do plano Free
+     só permite janela de 10 s e bloqueio de 10 s (Cloudflare WAF docs, *Rate limiting
+     parameters*, consultado em 2026-11-04); ela fica como reforço: `/v1/bench/login`, por IP,
+     5 requisições em 10 s → bloqueio 10 s.
+   - IP do cliente: `CF-Connecting-IP`, lido só em `/v1/bench/*`; sem o cabeçalho, o IP da
+     conexão. Confiável porque a porta só escuta em `127.0.0.1` (TA-ADR-009) e o único caminho é
+     o túnel.
+2. **GLPI.** API v2 (`/api.php`), OAuth2 grant `password` com o cliente OAuth cadastrado no GLPI;
+   lê o usuário e os grupos e descarta o token. A legada (`initSession` + `App-Token`) fica como
+   reserva atrás da mesma interface, só se a v2 falhar no servidor. Arquivo único
+   `api/app/services/glpi.py`: `autenticar(settings, usuario, senha, transport) -> Tecnico`, levanta
+   `CredenciaisInvalidas` ou `GlpiIndisponivel`. Grupo pelo id (`GLPI_GRUPO_TECNICOS_ID`).
+   **`GLPI_URL` é interna** (o próprio servidor ou a rede do Docker), nunca rota pela internet,
+   porque o GLPI 11 está sem HTTPS: a API recusa no arranque `http://` para host que não seja
+   `localhost`, IP privado, nome sem ponto ou `.internal`/`.local`/`.lan`/`.invalid` (log de erro e
+   login em `503`).
+3. **Rotas e dados.** `POST /v1/bench/login` → `200 {sessao, expira_em, tecnico}`,
+   `401 credenciais_invalidas`, `403 fora_do_grupo` (só com senha certa), `429 limite_excedido`
+   com `Retry-After`, `503 glpi_indisponivel` (inclui timeout e GLPI não configurado),
+   `422 requisicao_invalida`. `POST /v1/bench/logout` → `204`. `GET /v1/bench/sessao` → `200` ou
+   `401`. Sessão `itcbs_` + 43 caracteres, só SHA-256 no banco, validade **absoluta de 12 h**,
+   sem renovação. Migração `0004`: `bench_sessoes`, `bench_login_tentativas`,
+   `bench_login_auditoria`, sem coluna de senha. Limite em janela fixa de 15 min: 5 falhas por
+   usuário e 20 por IP, conferido antes de chamar o GLPI; sucesso zera o usuário; `503` não conta.
+   - **Usuário que pode ser senha:** auditoria e alerta ntfy gravam o usuário por extenso só
+     quando o GLPI o reconhece (`ok` ou `fora_do_grupo`). Nos outros casos, e sempre na chave do
+     limite, vai `HMAC-SHA256(BENCH_LOGIN_HMAC_KEY, usuario_normalizado)` (16 hex).
+   - **Deploy sem parada:** toda variável nova tem padrão; com `GLPI_*` ou a chave HMAC vazios a
+     API sobe e o login responde `503 glpi_indisponivel`.
+4. **Token da carreta.** Separado: `itcbs_` diz quem, `itcta_` diz qual carreta. Proposta para
+   o 06 (ADR próprio): `/v1/relatorio` aceitar a sessão e tirar o `itcta_` dos notebooks.
+5. **Cliente.** `servicos/api.py`, stdlib (`urllib.request` + `ssl.create_default_context()`),
+   timeout 15 s, **sem seguir redirecionamento**. Endereço: `HKLM\SOFTWARE\ITC\Bench\ApiUrl`
+   (instalador, Módulo 15); em `--dev`, `ITC_BENCH_API_URL` antes. Resposta que não for JSON
+   (302, HTML do Access) é `ErroApi`; um 403 em HTML nunca vira `fora_do_grupo`; 429 sem
+   `Retry-After` tem mensagem genérica.
+6. **Offline 7 dias.** Liberam o offline: sem conexão (DNS, recusa, timeout, TLS), 502, 503, 504
+   e 530 da borda, e `503 glpi_indisponivel`. Nunca liberam: 401, 403, 429; 401/403 apagam a
+   entrada do técnico. Guardado por técnico: login, nome, `scrypt(senha, sal 16 B, n=2^15, r=8,
+   p=1, maxmem=64 MiB)`, último login online, maior horário visto, falhas offline. Expira 7 dias
+   depois do último online; relógio voltado mais de 5 min recusa; 5 senhas erradas seguidas
+   apagam a entrada.
+   - **DPAPI escopo de máquina** (`CRYPTPROTECT_LOCAL_MACHINE`): o Bench roda elevado com contas
+     de Windows diferentes; no escopo de usuário o offline sumiria a cada conta. Qualquer
+     usuário local decifra DPAPI de máquina, por isso a proteção real é o ACL da pasta.
+   - **Pasta protegida** `%ProgramData%\ITC\Bench\protegido\` (arquivo `logins.dpapi`), SDDL
+     `O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)`. Em toda execução elevada o Bench cria a pasta se
+     faltar e, se já existir, **reaplica o ACL e confere o dono**, com a recusa de reparse antes e
+     depois do ADR-011. Isto substitui, para a pasta protegida, a linha "leia-se 05" do ADR-012
+     (que não é editado): a pasta nasce no 04 e o 05 a reusa.
+   - **`--dev` sem administrador:** sem pasta protegida não há offline; o Bench avisa na tela
+     Entrar, registra no log e não grava nada fora dela.
+7. **Sessão na UI.** Sessão só em memória. Bloqueio após 15 min sem tecla, clique ou roda.
+   - **Destravar:** o mesmo técnico destrava pelo verificador local (sem rede); outro técnico, ou
+     o mesmo sem verificador (`--dev`), faz login completo. Tarefa em andamento continua e vai ao
+     log.
+   - **Sessão vencida em uso:** um `401` da API volta à tela Entrar; tarefa em andamento continua.
+   - Logout no rodapé da barra lateral (`POST logout` em segundo plano).
+8. **Log.** Formato `%(asctime)s %(levelname)s [%(tecnico)s] %(name)s: %(message)s`; `-` antes do
+   login e depois do logout; offline sai como `login (offline)`.
+9. **Senha.** `Sensivel` no Bench (ADR-011), `SecretStr` na API; o 422 não ecoa; `glpi.py` só
+   registra status HTTP e tipo do erro.
+
+**Riscos aceitos (responsável, 04/11/2026)**
+- Técnico desligado no GLPI, sem rede, mantém o offline por até 7 dias naquela máquina.
+- Senha trocada no GLPI continua valendo offline por até 7 dias até o próximo login online.
+
+**Alternatives considered**
+- Service token no instalador (compartilhado ou por máquina) — segredo extraível do EXE; fere o
+  ADR-008.
+- API legada do GLPI como primeira escolha — obsoleta; a troca para o 12 a obrigaria de novo.
+- Grupo por nome — renomear o grupo abriria ou fecharia acesso.
+- Sessão deslizante — sessão roubada viveria indefinidamente.
+- SHA-256 puro ou PBKDF2 no offline — força bruta rápida; scrypt resiste melhor a GPU.
+- DPAPI escopo de usuário — some ao trocar a conta do Windows na bancada.
+- httpx/requests no app — dependência e peso no EXE para quatro chamadas JSON.
+- Suspender o bloqueio durante tarefas — máquina aberta durante instalações longas.
+
+**Consequences**
+O responsável faz, nesta ordem: deploy → `.env` (`GLPI_*`, `BENCH_LOGIN_HMAC_KEY`) → `restart` →
+Access Bypass e rate limiting na Cloudflare → verificação com `curl`. A bancada precisa da
+chave `ApiUrl` até o instalador existir.
