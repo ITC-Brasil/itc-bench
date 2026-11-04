@@ -18,7 +18,7 @@ import winreg
 from dataclasses import dataclass
 from email.message import Message
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from itc_bench.nucleo.log import log
 from itc_bench.servicos.executor import Sensivel
@@ -48,6 +48,13 @@ class Recusado(Exception):
 
 class ErroApi(Exception):
     """Resposta inesperada: outro código, corpo que não é JSON da API, redirecionamento."""
+
+
+class CadastrosIndisponivel(Exception):
+    """`503 cadastros_indisponivel`: a API está no ar, o NocoDB não (ADR-014).
+
+    Não é `SemConexao`: não libera nada do login e não mexe na sessão; o Bench fica com o cache.
+    """
 
 
 @dataclass(frozen=True)
@@ -95,8 +102,9 @@ def _chamar(
     caminho: str,
     corpo: dict[str, Any] | None = None,
     sessao: Sensivel | None = None,
+    extras: dict[str, str] | None = None,
 ) -> tuple[int, Message, dict[str, Any] | None]:
-    cabecalhos = {"Accept": "application/json", "User-Agent": "itc-bench"}
+    cabecalhos = {"Accept": "application/json", "User-Agent": "itc-bench", **(extras or {})}
     dados = None
     if corpo is not None:
         cabecalhos["Content-Type"] = "application/json"
@@ -118,7 +126,7 @@ def _chamar(
         motivo = getattr(erro, "reason", erro)
         log.warning("API inalcançável em %s %s (%s).", metodo, caminho, type(motivo).__name__)
         raise SemConexao(type(motivo).__name__) from None
-    if status == 204:
+    if status in (204, 304):
         return status, headers, None
     if "application/json" not in (headers.get("Content-Type") or ""):
         if status in STATUS_SEM_SERVIDOR:
@@ -172,6 +180,30 @@ def sessao_valida(base: str, token: Sensivel) -> bool:
 
 def sair(base: str, token: Sensivel) -> None:
     _chamar(base, "POST", "/v1/bench/logout", sessao=token)
+
+
+def cadastros(
+    base: str, token: Sensivel, versao: str | None, unidade: str | None
+) -> dict[str, Any] | None:
+    """Corpo do `200`, ou None no `304` (versão igual). O caminho não leva segredo: a unidade
+    é um código de `Unidades`."""
+    caminho = "/v1/bench/cadastros" + (f"?{urlencode({'unidade': unidade})}" if unidade else "")
+    extras = {"If-None-Match": f'"{versao}"'} if versao else None
+    status, _, dados = _chamar(base, "GET", caminho, sessao=token, extras=extras)
+    erro = (dados or {}).get("erro")
+    if status == 200 and dados:
+        return dados
+    if status == 304:
+        return None
+    if status == 401:
+        raise Recusado(401, "nao_autorizado")
+    if status == 422 and erro == "unidade_invalida":
+        raise Recusado(422, erro)
+    if status == 503 and erro == "cadastros_indisponivel":
+        raise CadastrosIndisponivel(erro)
+    if status in STATUS_SEM_SERVIDOR:
+        raise SemConexao(erro or f"http_{status}")
+    raise ErroApi(f"Resposta inesperada do servidor ({status}).")
 
 
 def saude(base: str) -> bool:

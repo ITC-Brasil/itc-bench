@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (
 
 from itc_bench import __version__
 from itc_bench.nucleo.log import definir_tecnico, log
-from itc_bench.servicos import api
+from itc_bench.servicos import api, cadastros
+from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
 from itc_bench.servicos.login import Entrada
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
@@ -32,6 +33,7 @@ from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
 
 TEXTO_AJUDA = "Instruções desta tela em breve"
+SINCRONIA_MS = 30 * 60 * 1000  # ADR-014: a cada 30 min com sessão online
 
 
 class PopupAjuda(QWidget):
@@ -156,10 +158,22 @@ class Janela(QMainWindow):
         base: str | None = None,
         cofre: Cofre | None = None,
         maquina: str | None = None,
+        armazem: Armazem | None = None,
+        admin: bool = False,
     ) -> None:
         super().__init__()
         self.base = base
+        self.admin = admin
         self.entrada: Entrada | None = None
+        # Cache dos cadastros (ADR-014): sem administrador, só em memória.
+        self.armazem = armazem or Armazem(None)
+        self.cadastros: Cadastros | None = self.armazem.carregar()
+        self.cadastros_offline = False
+        try:
+            self.unidade = cadastros.unidade_da_maquina()
+        except OSError as erro:
+            log.error("Unidade da máquina ilegível no registro: %s", erro)
+            self.unidade = None
         self.setWindowTitle("ITC Bench")
         self.setWindowIcon(tema.icone_janela())
         self.resize(1180, 720)
@@ -228,13 +242,58 @@ class Janela(QMainWindow):
         self.validade = QTimer(self)
         self.validade.setSingleShot(True)
         self.validade.timeout.connect(self.sessao_expirada)
+        self.sincronia = QTimer(self)
+        self.sincronia.setInterval(SINCRONIA_MS)
+        self.sincronia.timeout.connect(self.sincronizar)
+        self._atualizar_rodape()
         self.entrar.verificar_api()
 
     def _atualizar_rodape(self) -> None:
         quem = self.entrada.rotulo_log if self.entrada else getpass.getuser()
         # Rich text por causa do <br>: login e hostname escapados.
         nome = html.escape(f"{socket.gethostname()} · {quem}")
-        self.rodape.setText(f"{nome}<br>Bench {__version__}")
+        cad = html.escape(
+            f"Unidade {self.codigo_unidade()} · "
+            f"{cadastros.rotulo(self.cadastros, self.cadastros_offline)}"
+        )
+        self.rodape.setText(f"{nome}<br>{cad}<br>Bench {__version__}")
+        if hasattr(self, "entrar"):
+            self.entrar.definir_unidade(self.codigo_unidade())
+
+    def codigo_unidade(self) -> str:
+        """A unidade gravada só aparece se for uma Unidade ativa do cache; senão, "—"."""
+        if self.cadastros is not None and self.cadastros.unidade_por_codigo(self.unidade):
+            return str(self.unidade)
+        return "—"
+
+    def sincronizar(self) -> None:
+        """Em segundo plano, com If-None-Match. Só com sessão online (login offline não tenta)."""
+        sessao = self.entrada.sessao if self.entrada else None
+        if sessao is None or not self.base or self.entrada is None:
+            return
+        base, token, por, unidade = self.base, sessao.token, self.entrada.login, self.unidade
+        armazem = self.armazem
+        # ponytail: o arquivo do cache não tem lock; sincronização e troca de unidade raramente
+        # se cruzam, e a escrita é atômica (o pior caso é a última gravação vencer).
+        tarefa.iniciar(
+            lambda: cadastros.sincronizar(base, token, armazem, por, unidade),
+            self._sincronizou,
+            self._sincronizacao_falhou,
+        )
+
+    def _sincronizou(self, resultado: Sincronizacao) -> None:
+        if resultado.estado == "sessao":
+            self.sessao_expirada()
+            return
+        self.cadastros = resultado.cadastros
+        self.cadastros_offline = resultado.estado not in ("ok", "igual")
+        if self.armazem.aviso:
+            log.info("Cache dos cadastros: %s.", self.armazem.aviso)
+        self._atualizar_rodape()
+
+    def _sincronizacao_falhou(self, _motivo: str) -> None:
+        self.cadastros_offline = True
+        self._atualizar_rodape()
 
     def _entrou(self, entrada: Entrada) -> None:
         anterior = self.entrada
@@ -250,6 +309,12 @@ class Janela(QMainWindow):
             # QTimer aceita int32 (~24 dias); a sessão é de 12 h, o teto só evita OverflowError.
             ms = int(restante.total_seconds() * 1000)
             self.validade.start(min(max(0, ms), 2**31 - 1))
+            self.sincronia.start()
+            self.sincronizar()
+        else:
+            self.sincronia.stop()
+            self.cadastros_offline = True
+            self._atualizar_rodape()
         self._mostrar_conteudo()
 
     def _destravou(self) -> None:
@@ -282,8 +347,10 @@ class Janela(QMainWindow):
         self._encerrar("")
 
     def _encerrar(self, motivo: str) -> None:
+        # O cache dos cadastros fica: é da máquina, não do técnico (ADR-014).
         self.entrada = None
         self.validade.stop()
+        self.sincronia.stop()
         self.ocioso.relogio.stop()
         definir_tecnico(None)
         self._atualizar_rodape()
