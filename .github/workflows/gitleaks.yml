@@ -1,0 +1,36 @@
+name: gitleaks
+
+# Whole history on every run, no paths filter: GitHub Free has no secret scanning
+# (TA-ADR-012, ADR-012).
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-24.04
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      # sha256 of gitleaks_8.30.1_linux_x64.tar.gz, from gitleaks_8.30.1_checksums.txt of the
+      # official release (github.com/gitleaks/gitleaks/releases/tag/v8.30.1), checked 2026-11-03.
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # The binary from the release, not gitleaks-action: the action needs a paid license
+      # for organization repositories.
+      - name: install gitleaks
+        run: |
+          file="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLo "$file" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${file}"
+          echo "${GITLEAKS_SHA256}  ${file}" | sha256sum -c -
+          tar -xzf "$file" gitleaks
+
+      - name: scan history
+        run: ./gitleaks git . --redact --verbose --exit-code 1

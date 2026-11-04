@@ -1,13 +1,13 @@
 # APP-FLOW — ITC Bench
 
 Fluxo de telas conforme `docs/design/itc-bench-identidade-telas.html`. Implementação: planejada
-a partir do Módulo 01 (navegação) e 03 (Entrar).
+a partir do Módulo 01 (navegação) e 04 (Entrar).
 
 ## Abertura
 
 ```
 Atalho → UAC (admin do Windows) → Entrar
-  ├─ online:  usuário/senha GLPI → API valida → sessão → baixa cadastros (Módulo 04) → Início
+  ├─ online:  usuário/senha GLPI → API valida → sessão → baixa cadastros (Módulo 05) → Início
   ├─ offline: técnico logou nesta máquina há ≤ 7 dias → hash DPAPI confere → Início (cadastros do cache)
   └─ falha:   mensagem; limite de tentativas aplicado pela API
 Parado 15 min → volta para Entrar
