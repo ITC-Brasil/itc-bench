@@ -147,3 +147,49 @@ def test_sistema32_ignora_systemroot_do_ambiente(monkeypatch):
     r = powershell("$env:PSModulePath")
     assert "falso" not in r.saida.lower()
     assert r.saida.strip().lower().endswith(r"\windowspowershell\modules")
+
+
+def test_cancelar_encerra_processo_e_filho():
+    import threading
+
+    marca = f"itc-cancela-{time.monotonic_ns()}"
+    evento = threading.Event()
+    threading.Timer(1.0, evento.set).start()
+    r = powershell(
+        "Start-Process -NoNewWindow $env:ITC_PING -ArgumentList '-n','60',$env:ITC_MARCA;"
+        " Start-Sleep 60",
+        timeout=60,
+        cancelar=evento,
+        ping=sistema32("PING.EXE"),
+        marca=marca,
+    )
+    assert (r.cancelado, r.esgotado, r.codigo, r.ok) == (True, False, None, False)
+    assert r.duracao < 10
+    time.sleep(0.5)
+    vivos = powershell(
+        "@(Get-CimInstance Win32_Process -Filter \"Name='PING.EXE'\" |"
+        ' Where-Object CommandLine -like "*$env:ITC_MARCA*").Count',
+        marca=marca,
+    )
+    assert vivos.saida.strip() == "0"
+
+
+def test_cancelar_sem_sinal_termina_normal_e_respeita_timeout():
+    import threading
+
+    evento = threading.Event()
+    r = powershell("Write-Output 'oi'", cancelar=evento)
+    assert (r.ok, r.saida.strip(), r.cancelado) == (True, "oi", False)
+    r = powershell("Start-Sleep 30", timeout=2, cancelar=evento)
+    assert (r.esgotado, r.cancelado) == (True, False)
+
+
+def test_cancelar_com_entrada_no_stdin():
+    import threading
+
+    r = executar(
+        [PS, "-NoProfile", "-Command", "$input | Write-Output"],
+        entrada="linha",
+        cancelar=threading.Event(),
+    )
+    assert r.saida.strip() == "linha"
