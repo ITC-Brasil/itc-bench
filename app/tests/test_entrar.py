@@ -148,3 +148,13 @@ def test_senha_ausente_do_bench_log(qtbot, monkeypatch, tmp_path):
             h.close()
             modulo_log.log.removeHandler(h)
         modulo_log.definir_tecnico(None)
+
+
+def test_nome_do_glpi_nunca_vira_html(qtbot, monkeypatch, tmp_path):
+    j = montar(qtbot, monkeypatch, tmp_path)
+    from itc_bench.servicos.login import Entrada
+
+    j._entrou(Entrada("<b>x</b>", "<img src=x>Ana", None))
+    j.bloquear()
+    assert j.entrar.subtitulo.textFormat() == Qt.TextFormat.PlainText
+    assert "&lt;b&gt;" in j.rodape.text()

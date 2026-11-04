@@ -1,5 +1,6 @@
 """Tela Entrar (docs/design, Tela 0) e o relógio de 15 minutos parado (ADR-013)."""
 
+import html
 import platform
 import socket
 import winreg
@@ -134,9 +135,13 @@ class TelaEntrar(QWidget):
         self.botao.setDefault(True)
         self.mensagem = QLabel()
         self.mensagem.setObjectName("entrarErro")
+        # Texto puro: nome do GLPI e mensagens nunca são interpretados como HTML.
+        for rotulo in (self.subtitulo, self.mensagem):
+            rotulo.setTextFormat(Qt.TextFormat.PlainText)
         self.mensagem.setWordWrap(True)
         self.estado = QLabel()
         self.estado.setObjectName("entrarEstado")
+        self.estado.setTextFormat(Qt.TextFormat.PlainText)
         nota = QLabel("Sem internet, entra quem já fez login nesta máquina nos últimos 7 dias.")
         nota.setObjectName("entrarNota")
         nota.setWordWrap(True)
@@ -185,7 +190,8 @@ class TelaEntrar(QWidget):
     def _rodape(self, estado_api: str) -> None:
         # Unidade vem do cadastro (Módulo 05); até lá, "—".
         self.rodape.setText(
-            f"{socket.gethostname()} · Unidade —<br>{versao_windows()}<br>"
+            f"{html.escape(socket.gethostname())} · Unidade —<br>"
+            f"{html.escape(versao_windows())}<br>"
             f"Bench {__version__}<br>API: {estado_api}"
         )
 

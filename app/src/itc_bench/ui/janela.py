@@ -1,6 +1,7 @@
 """Janela principal: barra lateral com os 7 grupos e uma tela vazia por item."""
 
 import getpass
+import html
 import socket
 from datetime import UTC, datetime
 
@@ -231,7 +232,9 @@ class Janela(QMainWindow):
 
     def _atualizar_rodape(self) -> None:
         quem = self.entrada.rotulo_log if self.entrada else getpass.getuser()
-        self.rodape.setText(f"{socket.gethostname()} · {quem}<br>Bench {__version__}")
+        # Rich text por causa do <br>: login e hostname escapados.
+        nome = html.escape(f"{socket.gethostname()} · {quem}")
+        self.rodape.setText(f"{nome}<br>Bench {__version__}")
 
     def _entrou(self, entrada: Entrada) -> None:
         anterior = self.entrada
