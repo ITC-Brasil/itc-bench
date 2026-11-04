@@ -8,12 +8,14 @@ serializes them. No log line carries a value, a SSID, the URL with its query or 
 """
 
 import logging
+import re
 import time
 
 import httpx
 from pydantic import SecretStr
 
 log = logging.getLogger("tecnico.cadastros")
+SHA256 = re.compile(r"[0-9a-f]{64}")
 
 LIMITE_PAGINA = 1000
 MAXIMO_PAGINAS = 20
@@ -154,12 +156,17 @@ def servidor(linha: dict) -> dict:
 
 
 def instalador(linha: dict) -> dict:
+    sha256 = texto(linha.get("SHA256")).lower()
+    if sha256 and not SHA256.fullmatch(sha256):
+        # Empty, not free text: the Bench refuses to run an installer without a hash (module 10).
+        log.warning("cadastro instaladores Id %s: sha256_invalido", linha.get("Id"))
+        sha256 = ""
     return {
         "id": linha.get("Id"),
         "programa": texto(linha.get("Programa")),
         "versao": texto(linha.get("Versao")),
         "arquivo": texto(linha.get("Arquivo")),
-        "sha256": texto(linha.get("SHA256")).lower(),
+        "sha256": sha256,
         "link": texto(linha.get("Link")),
         "observacao": texto(linha.get("Observacao")),
     }

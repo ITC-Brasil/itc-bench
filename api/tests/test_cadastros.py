@@ -386,3 +386,9 @@ def test_log_de_acesso_do_uvicorn_sem_corpo_nem_etag(app_, caplog):
     assert "/v1/bench/cadastros" in acesso and "304" in acesso
     for marcador in (etag.strip('"'), MARCADOR_WIFI, MARCADOR_SERVIDOR, SESSAO):
         assert marcador not in acesso
+
+
+def test_sha256_invalido_vira_vazio(settings, fake):
+    fake.dados["mIns"].append({"Id": 2, "Programa": "Outro", "SHA256": "<b>nao-hex</b>", "Ativo": True})
+    dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert [i["sha256"] for i in dados["instaladores"]] == ["ab" * 32, ""]

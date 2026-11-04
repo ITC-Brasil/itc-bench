@@ -3,6 +3,7 @@
 Editar é no NocoDB. Segredo (`Sensivel`) aparece sempre como `••••••••`, sem botão de revelar.
 """
 
+import re
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
@@ -24,6 +25,7 @@ from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.executor import Sensivel
 
 MASCARA = "••••••••"
+HEX = re.compile(r"[0-9a-f]{64}")
 SEM_UNIDADE = "— bancada (todas as unidades)"
 
 AJUDA = (
@@ -104,8 +106,9 @@ class PainelConfiguracoes(QWidget):
         for i, linha in enumerate(linhas):
             for j, valor in enumerate(linha[: tabela.columnCount()]):
                 item = QTableWidgetItem(_texto(valor))
-                if j in dicas:
-                    item.setToolTip(_texto(linha[dicas[j]]))
+                # Dica do Qt é rich text: só vai se for hex (dado do NocoDB, validado na API).
+                if j in dicas and HEX.fullmatch(dica := _texto(linha[dicas[j]])):
+                    item.setToolTip(dica)
                 tabela.setItem(i, j, item)
 
     def mostrar(

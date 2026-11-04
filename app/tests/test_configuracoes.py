@@ -105,3 +105,18 @@ def test_trocar_unidade_online_ressincroniza_filtrado(qtbot, monkeypatch, tmp_pa
     assert pedidos[1] == (None, "UM-01")
     assert [r.id for r in j.cadastros.redes] == [10]
     assert j.configuracoes.botao_sincronizar.isEnabled()
+
+
+def test_dica_do_sha256_nunca_e_rich_text(qtbot, monkeypatch, tmp_path):
+    def com_html(*_a):
+        c = corpo()
+        c["instaladores"][0]["sha256"] = "<img src=x>" + "a" * 60
+        return c
+
+    armazem = Armazem(tmp_path / "c.dpapi")
+    j = montar(qtbot, monkeypatch, armazem)
+    monkeypatch.setattr(api, "cadastros", com_html)
+    cadastros.sincronizar("b", Sensivel("t"), armazem, "ana", None)
+    j.cadastros = armazem.carregar()
+    j._atualizar_rodape()
+    assert j.configuracoes.instaladores.item(0, 3).toolTip() == ""
