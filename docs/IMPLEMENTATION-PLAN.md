@@ -54,9 +54,10 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [ ] Depois do merge (responsável): deploy da API, `.env`, Bypass e rate limiting na Cloudflare, `curl`, login real, teste com conta comum
 
 ### 05 — Cadastros via API com cache DPAPI · `feat/modulo-05-cadastros`
-- [ ] Rotas dos 4 cadastros em `api/`; ADR que revisa o TA-ADR-005 (nota do ADR-006)
-- [ ] Cliente e cache cifrado; indicação "sincronizado HH:MM"; modo offline
-- [ ] Tela Configurações (leitura; edição continua no NocoDB)
+- [x] Rotas dos 4 cadastros em `api/`; ADR que revisa o TA-ADR-005 (nota do ADR-006)
+- [x] Cliente e cache cifrado; indicação "sincronizado HH:MM"; modo offline
+- [x] Tela Configurações (leitura; edição continua no NocoDB)
+- [ ] Depois do merge (responsável): `Publico` em Servidores, usuários Viewer e Editor no NocoDB, base separada do espelho, deploy, `.env`, cadastros reais na bancada, conta comum sem leitura de `cadastros.dpapi`
 
 ### 06 — Diagnóstico · `feat/modulo-06-diagnostico`
 - [ ] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python. O pendrive não veio para o monorepo: a referência é `pendrive/` no repo `ITC-Brasil/tecnico-assistente` arquivado (até `0bc5620`), incluindo `pendrive/SCHEMA.md` (cópia em `docs/api/SCHEMA.md`)

@@ -16,6 +16,7 @@ from itc_bench.nucleo import acl, caminhos, elevacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import api
+from itc_bench.servicos.cadastros import Armazem
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tema
 from itc_bench.ui.janela import Janela
@@ -90,7 +91,12 @@ def main() -> int:
     cofre = Cofre(caminhos.protegida() / "logins.dpapi") if admin and not erro_acl else None
     if cofre is None:
         log.info("Login offline desligado (sem administrador ou sem pasta protegida).")
-    janela = Janela(tela, base, cofre)
+    # Cache dos cadastros (ADR-014): na pasta protegida; sem ela, só em memória.
+    protegida_ok = admin and not erro_acl
+    armazem = Armazem(caminhos.protegida() / "cadastros.dpapi" if protegida_ok else None)
+    if not protegida_ok:
+        log.info("Cache dos cadastros só em memória (sem administrador ou sem pasta protegida).")
+    janela = Janela(tela, base, cofre, armazem=armazem, admin=admin)
     janela.show()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")

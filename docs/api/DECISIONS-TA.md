@@ -963,3 +963,33 @@ da requisição compatível com OpenAI.
   compara o laudo com o anterior.
 - Se o provedor ou um modelo futuro recusar o campo, `OPENCODE_GO_REASONING_EFFORT=` (vazio)
   volta ao comportamento anterior sem mudar código.
+
+---
+
+## TA-ADR-027 — NocoDB como fonte dos cadastros do Bench, lido pela API
+
+**Status:** Accepted (revisa o TA-ADR-005, sem editá-lo)
+**Date:** 2026-11-04
+**Module:** 05 do ITC Bench
+
+**Context**
+O TA-ADR-005 fez do SQLite a fonte da verdade e do NocoDB um espelho só de ida dos
+diagnósticos. O ADR-006 do Bench fez do NocoDB a fonte da verdade de Servidores, Instaladores,
+WiFi e Unidades, entregues pela API (ADR-014 do Bench).
+
+**Decision**
+Para esses quatro cadastros o NocoDB é a fonte da verdade e a API só lê, com um token de
+usuário Viewer só na base "ITC Bench" (`NOCODB_CADASTROS_TOKEN`). Diagnósticos e relatórios
+continuam com o SQLite como fonte e espelho só de ida, com token próprio (Editor, só na base
+dos relatórios, separada da "ITC Bench"). A API não guarda cadastros no SQLite: cópia só em
+memória. O Bench e as carretas continuam sem acesso ao NocoDB. O espelho dos relatórios é
+ligado no deploy do Módulo 05 (decisão do responsável, 04/11/2026).
+
+**Alternatives considered**
+- Copiar os cadastros para o SQLite — segredo em mais um disco e duas fontes em conflito.
+- Editar cadastros no SQLite com tela própria — fere o TA-ADR-008.
+- Um token para espelho e leitura — o de escrita leria os segredos de Wi-Fi.
+
+**Consequences**
+NocoDB fora do ar não derruba relatório nem login; derruba só a renovação dos cadastros,
+coberta pela cópia defasada na API (até 24 h) e pelo cache do Bench (7 dias).

@@ -38,7 +38,8 @@ def test_cada_item_abre_sua_tela_com_modulo(qtbot):
             tela = j.telas[item.chave]
             assert j.pilha.currentWidget() is tela
             assert tela.titulo.text() == item.titulo
-            assert item.modulo in tela.modulo.text()
+            if item.chave != "config":  # Configurações já tem conteúdo (Módulo 05)
+                assert item.modulo in tela.modulo.text()
 
 
 def test_botao_ajuda_abre_e_fecha_popup(qtbot):
