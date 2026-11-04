@@ -12,7 +12,7 @@ Endereços, porta, usuário e diretório reais **não** ficam aqui: estão nos s
 |---|---|---|
 | `.github/workflows/api-ci.yml` | PR e push em `develop`/`main` que mudem `api/**`; chamado pelo deploy | pytest dentro de `python:3.12.14-slim-trixie` (comando do `AGENTS.md`) |
 | `.github/workflows/gitleaks.yml` | Todo PR e push em `develop`/`main` | gitleaks 8.30.1 (binário da release, SHA-256 conferido) no histórico inteiro |
-| `.github/workflows/api-deploy.yml` | Manual (`workflow_dispatch`) na `main`. O gatilho de `push` em `api/**` volta depois do primeiro deploy validado (ADR-012) | Job `test` (o `api-ci.yml` por `workflow_call`); job `deploy` no environment `producao`, só depois dele verde |
+| `.github/workflows/api-deploy.yml` | Push na `main` que mude `api/**`; manual (`workflow_dispatch`) na `main` (ADR-012) | Job `test` (o `api-ci.yml` por `workflow_call`); job `deploy` no environment `producao`, só depois dele verde |
 | `.github/dependabot.yml` | Semanal | PRs para a `develop`: `pip` em `/api`, `uv` em `/app`, actions |
 
 Todas as `uses:` estão fixadas por SHA completo, com a versão em comentário.
@@ -140,8 +140,8 @@ Ordem obrigatória. Entre o passo 1 e o 7, nenhum merge na `main` do tecnico-ass
 7. **Primeiro deploy:** Actions → `api-deploy` → Run workflow na `main`.
 8. **Verificação:** tabela abaixo, inclusive o relatório de teste.
 9. **Depois de tudo verde:** PR aqui devolvendo o gatilho de `push` em `api/**` ao
-   `api-deploy.yml`; PR no TA trocando o README para apontar este repositório. Arquivamento do TA
-   é do responsável.
+   `api-deploy.yml` (feito em 2026-11-04); PR no TA trocando o README para apontar este
+   repositório, depois da troca da pasta de deploy. Arquivamento do TA é do responsável.
 
 ## Verificação pós-deploy
 

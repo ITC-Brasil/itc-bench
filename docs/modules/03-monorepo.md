@@ -77,23 +77,43 @@ squash apagaria os commits importados.
 | CI no GitHub, 1ª execução | PR #8, `app-ci` | falhou: 2 testes de acento supunham OEM 850; o runner é en-US (437) |
 | CI no GitHub, depois da correção | PR #8: `app-ci`, `api-ci`, `gitleaks` | verdes; `app-ci` com 87 passed, 1 skipped (`test_acento_cmd`, motivo: OEM sem "ã"); `--teste` código 0 |
 
-## Transição no servidor e no TA (aguarda aprovação)
+## Transição no servidor e no TA (2026-11-04)
 
-Procedimento completo em `docs/api/DEPLOY.md`, seção "Transição". Nada disso foi executado.
+Procedimento em `docs/api/DEPLOY.md`, seção "Transição". Executada pelo responsável; host,
+usuário, caminho e porta reais ficam fora deste documento.
 
 | Passo | Quem | Resultado real |
 |---|---|---|
-| 1. PR no TA: `deploy.yml` só com `workflow_dispatch` | agente, após aprovação | a preencher |
-| 2. Environment `producao` + 7 secrets; deploy key só leitura; `ssh -T git@github.com` | responsável | a preencher |
-| 3. Caminho do banco (`printenv DATABASE_PATH`) | responsável | a preencher |
-| 4. Backup fora do volume; SHA-256 | responsável | a preencher |
-| 5. `git check-ignore -v api/.env` antes e depois | responsável | a preencher |
-| 6. `set-url`, `fetch`, `checkout -B main origin/main` | responsável | a preencher |
-| 7. `api-deploy` por `workflow_dispatch` | responsável | a preencher |
-| 8. Tabela de verificação pós-deploy, com relatório de teste | responsável + agente | a preencher |
-| 9. `push` em `api/**` de volta; README do TA | agente, após o 8 | a preencher |
+| 1. PR no TA: `deploy.yml` só com `workflow_dispatch` | agente | TA PR #31 mergeado e levado à `main` de lá (`a80111d`); nenhum run do `deploy` do TA depois disso |
+| 2. Environment `producao` + 7 secrets; deploy key só leitura com apelido `github-itc-bench` | responsável | feito; `ssh -T git@github-itc-bench` autenticou; host key do GitHub conferida |
+| 3. Caminho do banco (`printenv DATABASE_PATH`) | responsável | padrão, `/data/tecnico.db` |
+| 4. Backup fora do volume; SHA-256 | responsável | 303 104 bytes; SHA-256 `ab41cec6dc06b7def46856c14b64521acff0f20af79c5186ab42d30730859432`; `integrity_check` = `ok`; modo 600; cópia dentro de `/data` apagada |
+| 5. `git check-ignore -v api/.env` antes e depois | responsável | antes: regra do `.gitignore` do TA; depois: `.gitignore:22:.env` do itc-bench; `.env` intacto (600) |
+| 6. `set-url`, `fetch`, `checkout -B main origin/main` | responsável | SHA anterior em produção `0bc5620d303fea2a0b56a27b03a6df3d2f0ae976`; `fetch` com "forced update" (esperado, históricos diferentes); `HEAD` = `9bc90146f72c931f9da7654fa92c271dcdf3d2e5`; `status` limpo antes e depois |
+| 7. `api-deploy` por `workflow_dispatch` | responsável | 2026-11-04 00:16 UTC; job `test` 151 passed; `deploy`: imagem igual, `Container tecnico-api Running` (não recriado, sem parada); `healthy after 1 attempt(s), commit 9bc9014…`; log sem host, usuário, porta nem chave |
+| 8. Verificação pós-deploy | responsável + agente | tabela abaixo |
+| 9. `push` em `api/**` de volta | agente | este PR; README do TA fica para depois da troca da pasta de deploy |
+
+### Verificação pós-deploy
+
+| Cenário | Resultado real |
+|---|---|
+| Workflow verde | `test` e `deploy` verdes; `healthy after 1 attempt(s), commit 9bc9014…` |
+| Commit no servidor | `9bc90146f72c931f9da7654fa92c271dcdf3d2e5` |
+| Remote | `git@github-itc-bench:ITC-Brasil/itc-bench.git` |
+| Mesmo container e volume | `tecnico-api`, volume `tecnico-assistente_tecnico-data` |
+| Porta só em loopback | só `127.0.0.1` |
+| Saúde local | `{"status":"ok"}` |
+| Saúde pelo túnel, com service token | **não feito** (pendente) |
+| Borda sem service token | **não feito** (pendente) |
+| Migrações | `[1, 2, 3]`, as três do repo; nenhuma nova |
+| Relatório de teste | carreta `TESTE-MONOREPO`: 1ª chamada `503 ia_timeout` (informativo: o OpenCode Go passou do limite de 90 s; latência do provedor, não da migração); 2ª `200` em 39 s com laudo; token revogado pelo responsável |
+| Espelho no NocoDB | não se aplica: desligado desde o deploy inicial do TA (`NOCODB_ENABLED=false`, tabela não configurada); 4 relatórios `pendente` com 0 tentativas, inclusive o de teste (id 4). Não é efeito da migração |
 
 ## Pendências
 
-- Os passos acima; o módulo só fecha de vez com eles preenchidos.
+- Teste de borda pelo túnel, com e sem service token.
+- Fora do módulo: espelho do NocoDB desligado (4 relatórios `pendente`). Ligar o espelho ou
+  decidir por ADR que ele não é mais necessário, no Módulo 05 (Cadastros).
+- Troca da pasta de deploy no servidor para `itc-bench` e README do TA (ver `docs/PROGRESS.md`).
 - Do 01: UAC real manual (cenário 7).

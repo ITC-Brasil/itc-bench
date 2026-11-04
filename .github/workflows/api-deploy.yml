@@ -1,8 +1,10 @@
 name: api-deploy
 
-# Manual only during module 03 (ADR-012): the push trigger on api/** comes back in a small PR
-# after the first deploy from this repository is validated.
+# Push to main touching api/** deploys; workflow_dispatch stays for manual runs (ADR-012).
 on:
+  push:
+    branches: [main]
+    paths: ["api/**"]
   workflow_dispatch:
 
 permissions:
