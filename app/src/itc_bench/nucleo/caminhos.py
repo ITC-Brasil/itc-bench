@@ -18,6 +18,11 @@ def dados() -> Path:
     return _base("PROGRAMDATA")
 
 
+def protegida() -> Path:
+    r"""%ProgramData%\ITC\Bench\protegido: só SYSTEM e Administradores (ADR-013)."""
+    return dados() / "protegido"
+
+
 def logs() -> Path:
     return dados() / "logs"
 
@@ -38,4 +43,5 @@ def inicializar(admin: bool = False) -> None:
     for pasta in (dados(), logs(), preferencias()):
         pasta.mkdir(parents=True, exist_ok=True)
     if admin:
-        acl.proteger(raiz)
+        # Também quando a pasta já existe: reaplica o ACL e confere dono e DACL (ADR-013).
+        acl.proteger_segredos(raiz, protegida())

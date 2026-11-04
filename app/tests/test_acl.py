@@ -105,3 +105,58 @@ def test_sem_admin_nao_mexe_no_acl(tmp_path, monkeypatch):
         caminhos.inicializar(admin=False)
     proteger.assert_not_called()
     assert (tmp_path / "pd" / "ITC" / "Bench" / "logs").is_dir()
+
+
+@so_admin
+def test_pasta_protegida_nunca_fica_legivel_para_usuarios(tmp_path, monkeypatch):
+    raiz = tmp_path / "ITC"
+    protegida = raiz / "Bench" / "protegido"
+    (raiz / "Bench" / "logs").mkdir(parents=True)
+    (raiz / "Bench" / "logs" / "bench.log").write_text("x")
+    acl.proteger_segredos(raiz, protegida)
+    (protegida / "logins.dpapi").write_text("x")
+    vistos = []
+    original = acl._definir
+
+    def espiar(alvo, *a, **k):
+        resultado = original(alvo, *a, **k)
+        # Depois de cada passo do reset da árvore, a protegida continua sem Usuários.
+        vistos.append(_sddl(protegida / "logins.dpapi"))
+        return resultado
+
+    monkeypatch.setattr(acl, "_definir", espiar)
+    acl.proteger_segredos(raiz, protegida)  # segunda execução: pasta já existe
+    assert vistos and all("BU" not in v for v in vistos)
+    assert acl.sddl_atual(protegida) == acl.SDDL_PROTEGIDO
+    assert _sddl(protegida / "logins.dpapi").endswith("D:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)")
+    # O resto da árvore fica como no ADR-011.
+    assert _sddl(raiz / "Bench" / "logs" / "bench.log").endswith(
+        "D:AI(A;ID;FA;;;SY)(A;ID;FA;;;BA)(A;ID;0x1200a9;;;BU)"
+    )
+    assert _sddl(raiz / "Bench").endswith(
+        "D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;0x1200a9;;;BU)"
+    )
+
+
+@so_admin
+def test_pasta_protegida_com_acl_alterado_e_refeita(tmp_path):
+    raiz = tmp_path / "ITC"
+    protegida = raiz / "Bench" / "protegido"
+    acl.proteger_segredos(raiz, protegida)
+    subprocess.run(
+        [r"C:\Windows\System32\icacls.exe", str(protegida), "/grant", "*S-1-5-32-545:R"],
+        check=True,
+        capture_output=True,
+    )
+    acl.proteger_segredos(raiz, protegida)
+    assert acl.sddl_atual(protegida) == acl.SDDL_PROTEGIDO
+
+
+def test_junction_na_pasta_protegida_e_recusada(tmp_path):
+    raiz = tmp_path / "ITC"
+    (raiz / "Bench").mkdir(parents=True)
+    alvo = tmp_path / "alvo"
+    alvo.mkdir()
+    _winapi.CreateJunction(str(alvo), str(raiz / "Bench" / "protegido"))
+    with pytest.raises(acl.PontoDeReparse):
+        acl.proteger_segredos(raiz, raiz / "Bench" / "protegido")
