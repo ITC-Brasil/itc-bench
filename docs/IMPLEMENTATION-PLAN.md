@@ -60,11 +60,11 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [ ] Depois do merge (responsável): `Publico` em Servidores, usuários Viewer e Editor no NocoDB, base separada do espelho, deploy, `.env`, cadastros reais na bancada, conta comum sem leitura de `cadastros.dpapi`
 
 ### 06 — Diagnóstico · `feat/modulo-06-diagnostico`
-- [ ] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python. O pendrive não veio para o monorepo: a referência é `pendrive/` no repo `ITC-Brasil/tecnico-assistente` arquivado (até `0bc5620`), incluindo `pendrive/SCHEMA.md` (cópia em `docs/api/SCHEMA.md`)
+- [x] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python. O pendrive não veio para o monorepo: a referência é `pendrive/` no repo `ITC-Brasil/tecnico-assistente` arquivado (até `0bc5620`), incluindo `pendrive/SCHEMA.md` (cópia em `docs/api/SCHEMA.md`)
 - [ ] Coleta e laudo, Histórico; envio à API existente
-- [ ] Token da carreta (`itcta_`) guardado com DPAPI em escopo de máquina, em `%ProgramData%\ITC\Bench`; nunca no repositório nem no instalador (ADR-008)
-- [ ] Definir e documentar como o token chega à máquina (hoje é gravado no pendrive)
-- Se o login do técnico tornar o token da carreta desnecessário, isso é ADR novo, fora do escopo do 06.
+- ~~Token da carreta (`itcta_`) guardado com DPAPI em escopo de máquina~~ — não se aplica: envio pela sessão do técnico (ADR-016)
+- ~~Definir e documentar como o token chega à máquina~~ — não se aplica (ADR-016)
+- O login do técnico tornou o token da carreta desnecessário nos notebooks: trazido para o 06 por decisão do responsável (ADR-016, ADR-015 e TA-ADR-028). O `itcta_` continua só nas carretas.
 
 ### 07 — Contas · `feat/modulo-07-contas`
 - [ ] Migrar `backend/contas.py` + `aba_usuarios.py`/`aba_admin.py`; SID `S-1-5-32-544`; fim do `wmic`
