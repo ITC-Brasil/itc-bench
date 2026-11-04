@@ -39,7 +39,7 @@ pydantic==2.14.2
     #   pydantic-settings
 pydantic-core==2.50.2
     # via pydantic
-pydantic-settings==2.15.0
+pydantic-settings==2.16.2
     # via -r requirements.in
 python-dotenv==1.2.3
     # via pydantic-settings
@@ -51,6 +51,7 @@ typing-extensions==4.16.0
     #   fastapi
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.4
