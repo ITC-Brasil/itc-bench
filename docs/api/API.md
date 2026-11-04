@@ -8,6 +8,8 @@ completo, no módulo que a implementa.
 | `GET /v1/saude` | pública | 01 |
 | `POST /v1/relatorio` | token da carreta | 03 (autenticação no 02) |
 | `GET /v1/historico/{hostname}` | token da carreta | 03 (autenticação no 02) |
+| `POST /v1/bench/relatorio` | sessão do técnico | 06 do Bench |
+| `GET /v1/bench/historico/{hostname}` | sessão do técnico | 06 do Bench |
 
 A documentação interativa (`/docs`, `/redoc`, `/openapi.json`) só existe com
 `APP_ENABLE_DOCS=true`. Com o padrão (`false`), as três rotas respondem `404`
@@ -250,3 +252,43 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
 - Auditoria `bench_cadastros_entregas` (migração `0005`): uma linha por `200` (sessão, usuário,
   unidade, horário, 12 caracteres da versão), apagada depois de 90 dias. O log da API tem as
   contagens e a versão curta; nunca valor, SSID, link, observação ou o `If-None-Match`.
+
+### POST /v1/bench/relatorio
+
+**Módulo:** 06 do Bench · **Arquivo:** `api/app/routes/bench_relatorio.py` · **ADR:** ADR-016,
+TA-ADR-028
+
+Diagnóstico do Bench com a sessão do técnico (`Authorization: Bearer itcbs_…`), sem token de
+carreta. Mesma normalização, prompt e chamada à IA de `POST /v1/relatorio` (função comum
+`gerar_laudo` em `routes/relatorio.py`).
+
+Body: o da rota da carreta (`sessao`, `modulos`; contrato 1.3 em `docs/api/SCHEMA.md`) mais:
+
+- `envio_id` (obrigatório): UUID gerado pelo Bench por coleta; repetido, a rota é idempotente.
+- `unidade` (opcional, até 32): código da unidade da máquina. A API confere contra as Unidades
+  ativas (cópia dos cadastros); fora da lista, grava nulo e registra no log sem o valor.
+
+Ordem: sessão → limite por técnico (`BENCH_RELATORIO_LIMITE_HORA`, padrão 30 por hora cheia UTC,
+contado em `bench_relatorio_uso`) → corpo. Grava `carreta = 'BANCADA'`, `bench_usuario` (login
+GLPI da sessão), `bench_sessao_id` (id da linha em `bench_sessoes`), `unidade`, `envio_id`.
+
+| Status | Corpo | Quando |
+|---|---|---|
+| `200` | o mesmo de `POST /v1/relatorio` | Laudo gerado, ou já gravado para este `envio_id` (devolve o gravado sem chamar a IA) |
+| `401` | `{"erro": "nao_autorizado"}` | Sessão ausente, vencida, revogada, ou token de carreta |
+| `409` | `{"erro": "em_processamento"}` | Mesmo `envio_id` com a IA em andamento há menos de 120 s |
+| `422` | `{"erro": "requisicao_invalida"}` | Corpo fora do schema ou `envio_id` que não é UUID |
+| `429` | `{"erro": "limite_excedido"}` + `Retry-After` | Acima do limite do técnico na hora (todas as sessões dele somam) |
+| `502`/`503` | `{"erro": "ia_*"}` | Como na rota da carreta; o diagnóstico fica gravado com `falha` e um novo envio com o mesmo `envio_id` tenta a IA de novo na mesma linha |
+
+`coletadoPor` (sessão) e `bench_usuario` nunca vão ao prompt (`FORA_DO_PROMPT`). Em 1.3 os grupos
+do Event Log chegam sem classificação e a API classifica pela base (`classificar_eventos`).
+
+### GET /v1/bench/historico/{hostname}
+
+**Módulo:** 06 do Bench · **Arquivo:** `api/app/routes/bench_relatorio.py`
+
+Sessão do técnico. Mesmo padrão de hostname e mesmos 20 itens de `GET /v1/historico/{hostname}`,
+mais `bench_usuario`, `unidade`, e em `relatorio` também `relatorio_md` e `chamado_descricao`.
+Qualquer técnico com sessão lê qualquer hostname (risco aceito no ADR-016). `401` sem sessão;
+`422` para hostname fora do padrão.

@@ -314,6 +314,30 @@ espelhadas em `sessao.json > correcoes`.
 
 A regra de incremento está no TA-ADR-018 (`docs/DECISIONS.md`).
 
+### 1.3 (Módulo 06 do ITC Bench)
+
+Gerado pelo Bench (`app/src/itc_bench/servicos/diagnostico.py`), nunca pelo pendrive. Envelope e
+nomes de campo iguais aos do 1.2, com estas diferenças (ADR-015, TA-ADR-028):
+
+| Arquivo | Campo | Mudança |
+|---|---|---|
+| `sessao` | `origem` | Novo: `"bench"` |
+| `sessao` | `coletadoPor` | Novo: login GLPI do técnico que coletou (fora do prompt) |
+| `sessao` | `usuarioExecucao` | Removido; `usuarioSessao` sempre `null` |
+| `sessao` | `projeto`, `subPerfil`, `politicaLimpeza` | `null` ou ausente: o Bench não pergunta perfil de uso |
+| `sessao` | `ferramentaVersao` | `ITC Bench <versão>` |
+| corpo | `envio_id`, `unidade` | Fora da sessão, no primeiro nível do corpo de `POST /v1/bench/relatorio` |
+| `disco` | `itensLimpeza`, `tiers`, totais de limpeza no `resumo` | Removidos (Limpeza no Módulo 13, local) |
+| `disco` | `maioresArquivos[]` | `{pasta, extensao, bytes, ultimaModificacao}`: sem nome de arquivo |
+| `disco` | `maioresPastasPerfil[]` | Sem `usuario` e sem `tier`; `caminho` como `%PERFIL%\<pasta>` |
+| `disco` | `unidadeFerramenta` | `null` |
+| `eventlog` | `grupos[]` | Sem `conhecido`, `apelido`, `peso`, `descricao`: a API classifica pela base |
+| `processos` | `itensInicializacao[].usuario` | Removido |
+| `processos` | `servicosAutomaticosParados[].contaLogon` | Conta fora de `LocalSystem`, `NT AUTHORITY\*` e `NT SERVICE\*` vira `<conta>` |
+| `rede` | `portasEmEscuta` | Uma linha por porta, em ordem (o 1.2 perdia portas ao acaso: `Sort-Object -Unique` do PS 5.1) |
+| todos | strings | `<letra>:\Users\<perfil>\` vira `%PERFIL%\`; nome de perfil ou conta local vira `<usuario>` (palavra inteira) |
+| `bateria` | `arquivoRelatorio` | Removido: o `batteryreport.html` é apagado depois de lido |
+
 ### 1.2 (Módulo 07)
 
 | Arquivo | Campo | Mudança |

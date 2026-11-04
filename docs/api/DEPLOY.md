@@ -184,3 +184,35 @@ docker compose start
 
 **Migrações não são desfeitas** (`api/app/db.py` só aplica para a frente). Uma migração que remova
 ou renomeie precisa de ADR com o plano de volta.
+
+## Módulo 06 do Bench: backup antes da migração `0006`
+
+A `0006` reconstrói `diagnosticos` (TA-ADR-028) numa transação: mantém ids e
+`relatorios.diagnostico_id`, mas um defeito só se desfaz pelo backup. Antes do deploy, como o
+usuário de deploy:
+
+```
+docker exec tecnico-api python -c "import sqlite3; s=sqlite3.connect('<banco>'); d=sqlite3.connect('/data/tecnico-antes-0006.db'); s.backup(d); d.close()"
+docker cp tecnico-api:/data/tecnico-antes-0006.db ~/backup/tecnico-antes-0006.db
+chmod 600 ~/backup/tecnico-antes-0006.db
+docker exec tecnico-api rm /data/tecnico-antes-0006.db
+sha256sum ~/backup/tecnico-antes-0006.db
+python3 -c "import sqlite3,os; print(sqlite3.connect(os.path.expanduser('~/backup/tecnico-antes-0006.db')).execute('PRAGMA integrity_check').fetchone())"
+```
+
+Depois do deploy: `PRAGMA integrity_check` = `ok`, `PRAGMA foreign_key_check` vazio,
+`SELECT count(*) FROM diagnosticos` igual ao de antes, migrações `[1..6]`.
+
+**Restauração** (código anterior de volta e banco do backup, com o container parado; dono `app`,
+uid 10001):
+
+```
+cd <diretório de deploy>
+git checkout <SHA anterior ao merge>
+sha256sum ~/backup/tecnico-antes-0006.db          # confere com o anotado
+cd api && docker compose stop
+docker run --rm -v tecnico-assistente_tecnico-data:/data -v ~/backup:/b:ro python:3.12.14-slim-trixie \
+  sh -c 'rm -f <banco>-wal <banco>-shm && cp /b/tecnico-antes-0006.db <banco> && chown 10001 <banco>'
+docker compose up -d --build
+curl -fsS http://127.0.0.1:<APP_PORT>/v1/saude
+```

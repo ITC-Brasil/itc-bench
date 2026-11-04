@@ -61,7 +61,8 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 
 ### 06 — Diagnóstico · `feat/modulo-06-diagnostico`
 - [x] Decidir em ADR: chamar os `.ps1` do pendrive ou portar para Python. O pendrive não veio para o monorepo: a referência é `pendrive/` no repo `ITC-Brasil/tecnico-assistente` arquivado (até `0bc5620`), incluindo `pendrive/SCHEMA.md` (cópia em `docs/api/SCHEMA.md`)
-- [ ] Coleta e laudo, Histórico; envio à API existente
+- [x] Coleta e laudo, Histórico; envio pela sessão do técnico em `/v1/bench/` (ADR-016)
+- [ ] Depois do merge (responsável): backup do SQLite, deploy (`0006`), `curl` das rotas novas, coleta real com laudo pela borda, fila e reenvio na bancada
 - ~~Token da carreta (`itcta_`) guardado com DPAPI em escopo de máquina~~ — não se aplica: envio pela sessão do técnico (ADR-016)
 - ~~Definir e documentar como o token chega à máquina~~ — não se aplica (ADR-016)
 - O login do técnico tornou o token da carreta desnecessário nos notebooks: trazido para o 06 por decisão do responsável (ADR-016, ADR-015 e TA-ADR-028). O `itcta_` continua só nas carretas.
