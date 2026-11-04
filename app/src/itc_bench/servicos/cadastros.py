@@ -267,6 +267,8 @@ def sincronizar(
         corpo = api.cadastros(base, token, versao or None, unidade)
     except (api.SemConexao, api.CadastrosIndisponivel) as erro:
         log.info("Cadastros sem sincronizar (%s); usando o cache.", erro)
+        if unidade is not None and atual is not None and atual.unidade != unidade:
+            atual = armazem.filtrar(unidade)  # unidade trocada sem rede: só o Wi-Fi dela fica
         return Sincronizacao("offline", atual)
     except api.Recusado as erro:
         log.warning("Cadastros recusados pela API (%s).", erro.codigo)

@@ -272,3 +272,12 @@ def test_rotulo(armazem, chamadas, relogio):
     assert cadastros.rotulo(c, True, AGORA).startswith("offline · dados de ")
     outro_dia = cadastros.rotulo(c, False, AGORA + timedelta(days=2))
     assert outro_dia == f"sincronizado {c.sincronizado_em.astimezone():%d/%m %H:%M}"
+
+
+def test_unidade_trocada_e_api_fora_filtra_o_cache(armazem, chamadas):
+    fila, _ = chamadas
+    fila += [corpo(), api.SemConexao("x")]
+    sincronizar("b", TOKEN, armazem, "ana", None)
+    r = sincronizar("b", TOKEN, armazem, "ana", "UM-01")
+    assert r.estado == "offline" and r.cadastros.unidade == "UM-01"
+    assert [w.id for w in armazem.carregar().redes] == [10]

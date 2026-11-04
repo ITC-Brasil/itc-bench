@@ -28,6 +28,8 @@ from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
 from itc_bench.servicos.login import Entrada
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
+from itc_bench.ui.configuracoes import AJUDA as AJUDA_CONFIGURACOES
+from itc_bench.ui.configuracoes import PainelConfiguracoes
 from itc_bench.ui.entrar import Ocioso, TelaEntrar
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
@@ -207,6 +209,7 @@ class Janela(QMainWindow):
         self._atualizar_rodape()
 
         self._log_na_tela(handler_tela)
+        self._configuracoes()
         self.abrir("inicio")
 
         centro = QWidget()
@@ -259,6 +262,71 @@ class Janela(QMainWindow):
         self.rodape.setText(f"{nome}<br>{cad}<br>Bench {__version__}")
         if hasattr(self, "entrar"):
             self.entrar.definir_unidade(self.codigo_unidade())
+        if hasattr(self, "configuracoes"):
+            self.configuracoes.mostrar(
+                self.cadastros,
+                cadastros.rotulo(self.cadastros, self.cadastros_offline),
+                self._avisos_cadastros(),
+                self.unidade,
+                self.entrada is not None and self.entrada.sessao is not None and bool(self.base),
+            )
+
+    def _avisos_cadastros(self) -> list[str]:
+        avisos = []
+        if self.cadastros is None:
+            if self.armazem.aviso == "vencido":
+                avisos.append(
+                    "Cadastros vencidos (mais de 7 dias): conecte a máquina e sincronize."
+                )
+            elif self.armazem.aviso == "corrompido":
+                avisos.append("A cópia dos cadastros estava danificada e foi apagada. Sincronize.")
+            else:
+                avisos.append("Sem cadastros nesta máquina. Entre online para sincronizar.")
+        else:
+            if self.cadastros.defasado:
+                avisos.append("O cadastro central está fora do ar; a API mandou a última cópia.")
+            descartados = sum(len(v) for v in self.cadastros.descartados.values())
+            if descartados:
+                avisos.append(
+                    f"{descartados} linha(s) com problema no cadastro central foram ignoradas "
+                    "(sem nome ou com unidade inexistente). Corrija no NocoDB."
+                )
+        if self.armazem.arquivo is None:
+            avisos.append("Sem administrador: os cadastros ficam só em memória nesta sessão.")
+        return avisos
+
+    def escolher_unidade(self, codigo: str | None) -> None:
+        """Grava em HKLM (com admin) e ressincroniza filtrado; sem rede, filtra o cache."""
+        if codigo == self.unidade:
+            return
+        self.unidade = codigo
+        log.info("Unidade desta máquina: %s.", codigo or "nenhuma (bancada)")
+        if self.admin:
+            try:
+                cadastros.gravar_unidade(codigo)
+            except OSError as erro:
+                log.error("Não foi possível gravar a unidade no registro: %s", erro)
+        else:
+            log.info("Sem administrador: a unidade vale só nesta sessão.")
+        if self.entrada is not None and self.entrada.sessao is not None and self.base:
+            self.sincronizar()
+        else:
+            self.cadastros = self.armazem.filtrar(codigo)
+            self.cadastros_offline = True
+        self._atualizar_rodape()
+
+    def _configuracoes(self) -> None:
+        tela = self.telas["config"]
+        while tela.corpo.count():
+            item = tela.corpo.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+        self.configuracoes = PainelConfiguracoes()
+        self.configuracoes.sincronizar.connect(self.sincronizar)
+        self.configuracoes.unidade_escolhida.connect(self.escolher_unidade)
+        tela.corpo.addWidget(self.configuracoes, 1)
+        tela.ajuda.texto.setText(AJUDA_CONFIGURACOES)
 
     def codigo_unidade(self) -> str:
         """A unidade gravada só aparece se for uma Unidade ativa do cache; senão, "—"."""
