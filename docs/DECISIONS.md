@@ -415,9 +415,13 @@ precisam de rotas novas na API, e manter dois repos para um só produto dobra PR
    volta num PR pequeno depois do primeiro deploy validado.
 6. **Acesso do servidor ao itc-bench por deploy key SSH só de leitura** (chave própria no
    servidor, diferente da `DEPLOY_SSH_KEY`), com o host do GitHub fixado no `known_hosts` do
-   servidor pelas impressões digitais publicadas pelo GitHub. Sem PAT.
+   servidor pelas impressões digitais publicadas pelo GitHub. Sem PAT. O acesso usa o apelido
+   de host `github-itc-bench` no `~/.ssh/config` (`HostName github.com`, `IdentityFile` da chave,
+   `IdentitiesOnly yes`), porque o servidor hospeda outros projetos com deploy key própria: um
+   bloco `Host github.com` genérico mudaria a chave usada por eles. Remote:
+   `git@github-itc-bench:ITC-Brasil/itc-bench.git`.
 7. **Transição do clone, manual e única:** `git remote set-url origin
-   git@github.com:ITC-Brasil/itc-bench.git`, `git fetch origin main`, `git checkout -B main
+   git@github-itc-bench:ITC-Brasil/itc-bench.git`, `git fetch origin main`, `git checkout -B main
    origin/main`. O `pull --ff-only` do workflow vale a partir do deploy seguinte. Rollback também
    manual (o `workflow_dispatch` do TA puxaria o remote novo). Passos em `docs/api/DEPLOY.md`.
 8. **Renumeração do plano** (o ADR-011 não é editado; onde ele diz Módulo 04 para a subpasta

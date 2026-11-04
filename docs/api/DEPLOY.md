@@ -55,7 +55,11 @@ os mesmos do tecnico-assistente, mais `DEPLOY_DIR`.
 - **`.env`:** só no servidor, em `api/.env`, mantido à mão; ignorado pelo `.gitignore` da raiz.
 - **Banco:** `DATABASE_PATH` do `api/.env` (padrão `/data/tecnico.db` em `api/app/config.py`), no
   volume. É a fonte da verdade (TA-ADR-005).
-- **Acesso ao GitHub:** deploy key SSH só de leitura, própria do servidor (ADR-012).
+- **Acesso ao GitHub:** deploy key SSH só de leitura, própria do servidor, pelo apelido
+  `github-itc-bench` (ADR-012).
+- **O servidor hospeda outros projetos com deploy key própria.** Nunca crie um bloco
+  `Host github.com` genérico no `~/.ssh/config` nem mude o `core.sshCommand` de outros
+  repositórios: cada deploy key tem o seu apelido de host.
 
 ## Acesso do servidor ao itc-bench (deploy key) — responsável, uma vez
 
@@ -64,7 +68,7 @@ No servidor, como o usuário de deploy:
 ```
 ssh-keygen -t ed25519 -N "" -C "glpi-srv itc-bench deploy (somente leitura)" -f ~/.ssh/itc_bench_deploy
 cat >> ~/.ssh/config <<'EOF'
-Host github.com
+Host github-itc-bench
     HostName github.com
     User git
     IdentityFile ~/.ssh/itc_bench_deploy
@@ -74,7 +78,8 @@ EOF
 chmod 600 ~/.ssh/config
 ```
 
-Se o `~/.ssh/config` já tiver um bloco `Host github.com`, ajuste esse bloco em vez de acrescentar.
+O apelido `github-itc-bench` vale só para este repositório; os outros projetos do servidor
+continuam com a configuração deles. Não acrescente nem altere bloco `Host github.com`.
 
 Host key do GitHub fixada: grave em `~/.ssh/known_hosts` a linha `github.com ssh-ed25519 ...`
 copiada da página oficial "GitHub's SSH key fingerprints" (docs.github.com) e confira:
@@ -83,13 +88,15 @@ copiada da página oficial "GitHub's SSH key fingerprints" (docs.github.com) e c
 ssh-keygen -lf ~/.ssh/known_hosts -F github.com
 ```
 
+A busca é por `github.com` (o `HostName`), não pelo apelido: o ssh confere a host key pelo nome real.
+
 A impressão digital SHA256 mostrada precisa ser igual à publicada pelo GitHub para ED25519.
 
 Cadastre `~/.ssh/itc_bench_deploy.pub` em itc-bench → Settings → Deploy keys → Add deploy key,
 **sem** "Allow write access". Teste:
 
 ```
-ssh -T git@github.com
+ssh -T git@github-itc-bench
 ```
 
 Esperado: `Hi ITC-Brasil/itc-bench! You've successfully authenticated, but GitHub does not provide shell access.`
@@ -122,7 +129,7 @@ Ordem obrigatória. Entre o passo 1 e o 7, nenhum merge na `main` do tecnico-ass
    ```
    cd <diretório de deploy>
    git rev-parse HEAD                      # anote: SHA do TA em produção, para rollback
-   git remote set-url origin git@github.com:ITC-Brasil/itc-bench.git
+   git remote set-url origin git@github-itc-bench:ITC-Brasil/itc-bench.git
    git fetch origin main
    git checkout -B main origin/main
    git status --short                      # vazio; api/.env não aparece
@@ -142,7 +149,7 @@ Ordem obrigatória. Entre o passo 1 e o 7, nenhum merge na `main` do tecnico-ass
 |---|---|---|
 | Workflow verde | Aba Actions, run do `api-deploy` | `test` e `deploy` verdes; `healthy after N attempt(s), commit <sha>` |
 | Commit no servidor | `git -C <diretório de deploy> rev-parse HEAD` | SHA da `main` do itc-bench |
-| Remote | `git -C <diretório de deploy> remote -v` | `git@github.com:ITC-Brasil/itc-bench.git` |
+| Remote | `git -C <diretório de deploy> remote -v` | `git@github-itc-bench:ITC-Brasil/itc-bench.git` |
 | Mesmo container e volume | `docker inspect tecnico-api --format '{{range .Mounts}}{{.Name}}{{end}}'` | `tecnico-assistente_tecnico-data` |
 | Porta só em loopback | `docker port tecnico-api` | `<APP_PORT>/tcp -> 127.0.0.1:<APP_PORT>` |
 | Saúde local | `curl -s http://127.0.0.1:<APP_PORT>/v1/saude` | `{"status":"ok"}` |
@@ -157,7 +164,7 @@ Só manual: depois da troca do remote, o `workflow_dispatch` do TA puxaria o rem
 
 ```
 cd <diretório de deploy>
-git remote set-url origin <remote anterior do TA>
+git remote set-url origin <remote anterior do TA>   # o que estava antes do passo 6, sem o apelido
 git fetch origin main
 git checkout -B main origin/main          # ou o SHA anotado no passo 6
 cd api && docker compose up -d --build
