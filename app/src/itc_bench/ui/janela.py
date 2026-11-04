@@ -1,10 +1,13 @@
 """Janela principal: barra lateral com os 7 grupos e uma tela vazia por item."""
 
 import getpass
+import html
 import socket
+from datetime import UTC, datetime
 
-from PySide6.QtCore import QEvent, QObject, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QFrame,
     QHBoxLayout,
@@ -19,7 +22,12 @@ from PySide6.QtWidgets import (
 )
 
 from itc_bench import __version__
-from itc_bench.ui import tema
+from itc_bench.nucleo.log import definir_tecnico, log
+from itc_bench.servicos import api
+from itc_bench.servicos.login import Entrada
+from itc_bench.servicos.offline import Cofre
+from itc_bench.ui import tarefa, tema
+from itc_bench.ui.entrar import Ocioso, TelaEntrar
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
 
@@ -142,8 +150,16 @@ class Tela(QWidget):
 
 
 class Janela(QMainWindow):
-    def __init__(self, handler_tela: HandlerTela) -> None:
+    def __init__(
+        self,
+        handler_tela: HandlerTela,
+        base: str | None = None,
+        cofre: Cofre | None = None,
+        maquina: str | None = None,
+    ) -> None:
         super().__init__()
+        self.base = base
+        self.entrada: Entrada | None = None
         self.setWindowTitle("ITC Bench")
         self.setWindowIcon(tema.icone_janela())
         self.resize(1180, 720)
@@ -167,9 +183,14 @@ class Janela(QMainWindow):
             for item in itens:
                 lat.addWidget(self._item(grupo, item))
         lat.addStretch()
-        rodape = QLabel(f"{socket.gethostname()} · {getpass.getuser()}<br>Bench {__version__}")
-        rodape.setObjectName("rodape")
-        lat.addWidget(rodape)
+        self.rodape = QLabel()
+        self.rodape.setObjectName("rodape")
+        lat.addWidget(self.rodape)
+        self.botao_sair = QPushButton("Sair")
+        self.botao_sair.setObjectName("nav")
+        self.botao_sair.clicked.connect(self.sair)
+        lat.addWidget(self.botao_sair)
+        self._atualizar_rodape()
 
         self._log_na_tela(handler_tela)
         self.abrir("inicio")
@@ -188,7 +209,86 @@ class Janela(QMainWindow):
         rolagem.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         h.addWidget(rolagem)
         h.addWidget(self.pilha, 1)
-        self.setCentralWidget(centro)
+
+        # Entrar cobre tudo antes do login e no bloqueio; o conteúdo (e as tarefas) seguem vivos.
+        self.entrar = TelaEntrar(base, cofre, maquina or socket.gethostname())
+        self.entrar.entrou.connect(self._entrou)
+        self.entrar.destravou.connect(self._destravou)
+        self.raiz = QStackedWidget()
+        self.raiz.addWidget(self.entrar)
+        self.raiz.addWidget(centro)
+        self.setCentralWidget(self.raiz)
+        self.conteudo = centro
+
+        self.ocioso = Ocioso()
+        self.ocioso.venceu.connect(self.bloquear)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self.ocioso)
+        self.validade = QTimer(self)
+        self.validade.setSingleShot(True)
+        self.validade.timeout.connect(self.sessao_expirada)
+        self.entrar.verificar_api()
+
+    def _atualizar_rodape(self) -> None:
+        quem = self.entrada.rotulo_log if self.entrada else getpass.getuser()
+        # Rich text por causa do <br>: login e hostname escapados.
+        nome = html.escape(f"{socket.gethostname()} · {quem}")
+        self.rodape.setText(f"{nome}<br>Bench {__version__}")
+
+    def _entrou(self, entrada: Entrada) -> None:
+        anterior = self.entrada
+        if anterior is not None and anterior.login != entrada.login:
+            log.info("Troca de técnico: %s → %s.", anterior.login, entrada.login)
+        self.entrada = entrada
+        definir_tecnico(entrada.rotulo_log)
+        log.info("Técnico %s entrou%s.", entrada.login, " offline" if entrada.offline else "")
+        self._atualizar_rodape()
+        self.validade.stop()
+        if entrada.sessao is not None:
+            restante = datetime.fromisoformat(entrada.sessao.expira_em) - datetime.now(UTC)
+            # QTimer aceita int32 (~24 dias); a sessão é de 12 h, o teto só evita OverflowError.
+            ms = int(restante.total_seconds() * 1000)
+            self.validade.start(min(max(0, ms), 2**31 - 1))
+        self._mostrar_conteudo()
+
+    def _destravou(self) -> None:
+        log.info("Bench destravado por %s.", self.entrada.login if self.entrada else "-")
+        self._mostrar_conteudo()
+
+    def _mostrar_conteudo(self) -> None:
+        self.raiz.setCurrentWidget(self.conteudo)
+        self.ocioso.relogio.start()
+
+    def bloquear(self) -> None:
+        """15 minutos sem uso: Entrar cobre a janela; sessão e tarefas continuam (ADR-013)."""
+        if self.entrada is None or self.raiz.currentWidget() is self.entrar:
+            return
+        log.info("Bloqueado após 15 minutos sem uso.")
+        self.entrar.bloquear(self.entrada)
+        self.raiz.setCurrentWidget(self.entrar)
+
+    def sessao_expirada(self) -> None:
+        """Sessão de 12 h vencida (ou 401 da API em uso): login completo; tarefas continuam."""
+        log.info("Sessão expirou; login de novo.")
+        self._encerrar("Sessão expirada. Entre de novo.")
+
+    def sair(self) -> None:
+        sessao, base = (self.entrada.sessao if self.entrada else None), self.base
+        log.info("Logout.")
+        if sessao is not None and base:
+            token = sessao.token
+            tarefa.iniciar(lambda: api.sair(base, token), lambda _: None, lambda _: None)
+        self._encerrar("")
+
+    def _encerrar(self, motivo: str) -> None:
+        self.entrada = None
+        self.validade.stop()
+        self.ocioso.relogio.stop()
+        definir_tecnico(None)
+        self._atualizar_rodape()
+        self.entrar.reiniciar(motivo)
+        self.raiz.setCurrentWidget(self.entrar)
 
     def abrir(self, chave: str) -> None:
         self.nav[chave].setChecked(True)
