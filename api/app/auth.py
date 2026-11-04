@@ -85,3 +85,38 @@ def exigir_token(request: Request) -> str:
         retry_after = 3600 - (now.minute * 60 + now.second)
         raise Refusal(429, "limite_excedido", {"Retry-After": str(retry_after)})
     return carreta
+
+
+# Bench session (ADR-013): a different prefix, so neither token is ever accepted for the other.
+SESSAO_PREFIX = "itcbs_"
+SESSAO_FORMAT = re.compile(re.escape(SESSAO_PREFIX) + r"[A-Za-z0-9_-]{43}")
+
+
+def iso(momento: datetime) -> str:
+    return momento.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def exigir_sessao(request: Request) -> dict:
+    """Dependency: Authorization: Bearer itcbs_... of a session neither expired nor revoked.
+
+    Every other case gets the same 401. Returns id, usuario, nome and expira_em.
+    """
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not SESSAO_FORMAT.fullmatch(token):
+        raise unauthorized()
+    digest = hash_token(token)
+    agora = iso(utcnow())
+    conn = db.connect(request.app.state.settings.database_path)
+    try:
+        with db.immediate(conn):
+            row = conn.execute(
+                "SELECT id, token_hash, usuario, nome, expira_em FROM bench_sessoes"
+                " WHERE token_hash = ? AND revogada_em IS NULL AND expira_em > ?",
+                (digest, agora),
+            ).fetchone()
+            if row is None or not hmac.compare_digest(row[1], digest):
+                raise unauthorized()
+            conn.execute("UPDATE bench_sessoes SET ultimo_uso = ? WHERE id = ?", (agora, row[0]))
+    finally:
+        conn.close()
+    return {"id": row[0], "usuario": row[2], "nome": row[3], "expira_em": row[4]}

@@ -10,8 +10,8 @@ from app import db, tarefas
 from app.auth import Refusal, refusal_handler
 from app.body_limit import BodyLimit
 from app.config import Settings
-from app.routes import relatorio, saude
-from app.services import nocodb
+from app.routes import bench, relatorio, saude
+from app.services import glpi, nocodb
 
 log = logging.getLogger("tecnico")
 
@@ -30,6 +30,9 @@ def create_app(settings: Settings | None = None, transports: dict | None = None,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         db.migrate(settings.database_path)
+        if settings.glpi_url and not glpi.url_interna(settings.glpi_url):
+            # ADR-013: GLPI 11 has no HTTPS; the password must not cross the internet in clear.
+            log.error("GLPI_URL recusada: http:// só para host interno; login do Bench responde 503")
         repetir = asyncio.create_task(repetir_espelho(app)) if nocodb.configurado(settings) else None
         yield
         if repetir:
@@ -51,6 +54,7 @@ def create_app(settings: Settings | None = None, transports: dict | None = None,
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.include_router(saude.router)
     app.include_router(relatorio.router)
+    app.include_router(bench.router)
     return app
 
 

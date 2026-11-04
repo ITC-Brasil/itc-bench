@@ -154,3 +154,55 @@ do mais novo para o mais antigo, sem a sessão completa:
 ```
 
 Response 422: `{"erro": "requisicao_invalida"}` para hostname fora do padrão.
+
+## Bench (login do técnico)
+
+Rotas do ITC Bench (ADR-013). O prefixo `/v1/bench/` passa pela borda **sem** o service token
+do Cloudflare Access (aplicação Access com Bypass só nesse caminho); a proteção é a sessão e o
+limite de tentativas no SQLite. A integração com o GLPI fica só em `app/services/glpi.py`
+(API v2: `POST /api.php/token` com grant `password`, depois `GET /api.php/v2/session`; acesso
+pelo campo `profiles`, todos os perfis do usuário em qualquer entidade).
+
+O IP do cliente vem do `CF-Connecting-IP` (lido só nestas rotas; confiável porque a porta escuta
+só em `127.0.0.1`, TA-ADR-009). Sem o cabeçalho, ou malformado, vale o IP da conexão.
+
+### POST /v1/bench/login
+
+```json
+{"usuario": "login do GLPI", "senha": "...", "maquina": "NB-EXEMPLO-01"}
+```
+
+`usuario` é normalizado (sem espaços nas pontas, minúsculas); `maquina` segue a regra de hostname
+do `/v1/relatorio`. Campos a mais → `422`.
+
+| Código | Corpo | Quando |
+|---|---|---|
+| 200 | `{"sessao": "itcbs_…", "expira_em": "AAAA-MM-DDTHH:MM:SSZ", "tecnico": {"login", "nome"}}` | Senha certa e o usuário tem o perfil `GLPI_PERFIL_TECNICOS_ID` em qualquer entidade |
+| 401 | `{"erro": "credenciais_invalidas"}` | Senha errada, usuário inexistente ou inativo (mesma resposta) |
+| 403 | `{"erro": "fora_do_perfil"}` | Senha certa, sem o perfil de técnicos em nenhuma entidade |
+| 429 | `{"erro": "limite_excedido"}` + `Retry-After` (s) | 5 falhas do usuário ou 20 do IP na janela fixa de 15 min; conferido antes do GLPI |
+| 503 | `{"erro": "glpi_indisponivel"}` | GLPI fora, lento (`GLPI_TIMEOUT_SECONDS`), resposta fora do formato, ou `GLPI_*`/`BENCH_LOGIN_HMAC_KEY` vazios, ou `GLPI_URL` `http://` para host público |
+| 422 | `{"erro": "requisicao_invalida"}` | Corpo inválido; nada da entrada volta na resposta |
+
+Contam como falha só `401` e `403`; o login certo zera as falhas do usuário; `503` não conta.
+A sessão vale **12 h** (`BENCH_SESSAO_HORAS`), sem renovação; no banco só o SHA-256.
+
+Auditoria (`bench_login_auditoria`): uma linha por tentativa e por logout. O usuário por extenso
+só aparece quando o GLPI o reconheceu (`ok`, `fora_do_perfil`, `logout`); nos outros casos, e na
+chave do limite, `h:` + 16 hex do `HMAC-SHA256(BENCH_LOGIN_HMAC_KEY, usuario)`. Senha nunca.
+Ao bater o limite, alerta ntfy com o HMAC e o IP. Linhas de auditoria e sessões vencidas há
+mais de 90 dias são apagadas a cada login certo.
+
+### GET /v1/bench/sessao
+
+`Authorization: Bearer itcbs_…` → `200 {"tecnico": {"login", "nome"}, "expira_em"}`; ausente,
+malformada, vencida ou revogada → `401 {"erro": "nao_autorizado"}`. Um token `itcta_` não vale
+aqui, e uma sessão `itcbs_` não vale nas rotas da carreta.
+
+### POST /v1/bench/logout
+
+`Authorization: Bearer itcbs_…` → `204` sempre; revoga a sessão se ela for válida.
+
+### GET /v1/bench/saude
+
+Igual a `GET /v1/saude`, no prefixo que passa pela borda sem service token.
