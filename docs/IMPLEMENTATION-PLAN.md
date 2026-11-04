@@ -42,8 +42,9 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] `api/` importada com histórico (filter-repo + replace-text, fonte `0bc5620`); varredura de segredos
 - [x] Workflows por parte com `paths`; gitleaks; `dependabot.yml`; deploy só manual, environment `producao`, `DEPLOY_DIR`
 - [x] `docs/api/` (API, TOKENS, SCHEMA, DEPLOY, TA-ADRs); regras da API no `AGENTS.md`
-- [ ] Transição no servidor e no TA, em `docs/api/DEPLOY.md` (aguarda aprovação): desligar `push` no TA, backup, deploy key, troca do remote, primeiro deploy, relatório de teste
-- [ ] Depois do deploy validado: `push` em `api/**` de volta no `api-deploy.yml`; README do TA apontando para cá
+- [x] Transição no servidor e no TA, em `docs/api/DEPLOY.md`: desligar `push` no TA, backup, deploy key, troca do remote, primeiro deploy, relatório de teste
+- [x] Depois do deploy validado: `push` em `api/**` de volta no `api-deploy.yml`
+- [ ] Pasta de deploy no servidor renomeada para `itc-bench` (`mv`, `DEPLOY_DIR`, novo deploy; compose, volume e container mantêm os nomes); depois, README do TA apontando para cá (arquivamento do TA é do responsável)
 
 ### 04 — Login e sessão · `feat/modulo-04-login`
 - [ ] Rotas de login em `api/`, integração GLPI isolada em um arquivo, grupo de técnicos, limite de tentativas; ADR

@@ -2,23 +2,24 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/modulo-03-monorepo-v2`, PR #9 para `develop` (merge commit), aguardando revisão.
-  Substitui o PR #8, fechado sem merge porque um commit trazia hosts reais em dois docs.
-  `develop` e `main` têm os Módulos 01 e 02 (PR #6 e PR #7 mergeados).
-- **Feito:** Módulo 03, parte do repositório — monorepo `app/` + `api/` (ADR-012), API importada
-  com histórico do tecnico-assistente em `0bc5620`, CI por parte, docs em `docs/api/`, plano
-  renumerado (03–16).
-- **Pela metade:** a transição no glpi-srv e no tecnico-assistente (`docs/api/DEPLOY.md`, seção
-  "Transição"), que aguarda aprovação. O `api-deploy.yml` está só com `workflow_dispatch`.
-- **Próximo passo:** merge do #9 e release `develop` → `main`; PR #31 do TA (deploy só manual) mergeado e levado à `main` de lá antes da troca do remote; o responsável
-  cria o environment `producao`, os 7 secrets e a deploy key; depois backup, troca do remote,
-  primeiro deploy e relatório de teste. Em seguida, Módulo 04 — login e sessão (rotas em `api/`).
-- **Pendências externas:** passos do responsável no GitHub e no servidor; UAC real do 01 (cenário 7).
+- **Branch:** `docs/modulo-03-deploy-result`, PR para `develop` com o resultado da transição e o
+  gatilho de `push` de volta no `api-deploy.yml`.
+- **Feito:** Módulo 03 concluído. A API roda no glpi-srv a partir deste repositório
+  (`9bc9014`), mesmo container e volume, migrações `[1, 2, 3]`, relatório de teste `200`.
+- **Pela metade:** nada no código.
+- **Próximo passo:** Módulo 04 — login e sessão (rotas em `api/`).
+- **Tarefas futuras:** trocar a pasta de deploy no servidor para `itc-bench` (`mv`, atualizar
+  `DEPLOY_DIR`, novo deploy; projeto do compose, volume e container ficam com os nomes atuais);
+  depois, PR no TA trocando o README para apontar este repositório (arquivamento é do
+  responsável). Teste de borda pelo túnel (com e sem service token). Espelho do NocoDB desligado:
+  ligar ou decidir por ADR no Módulo 05.
+- **Pendências externas:** UAC real do 01 (cenário 7).
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-04 | 03 — Transição | Servidor passou a puxar do itc-bench (apelido `github-itc-bench`); backup com SHA-256 registrado; primeiro `api-deploy` verde sem recriar o container; volume, loopback, saúde e migrações iguais; relatório de teste `200` (um `503 ia_timeout` antes, latência do provedor). `push` em `api/**` de volta no `api-deploy.yml`. Pendentes: borda pelo túnel, pasta de deploy, README do TA; NocoDB desligado vai para o 05. Módulo 03 concluído. |
 | 2026-11-03 | 03 — Monorepo | `app/` (programa Windows, `git mv`) + `api/` importada com histórico (filter-repo `--path api/` + `--replace-text`, fonte `0bc5620`, merge por `--allow-unrelated-histories`). Hosts reais do histórico reescritos antes do merge; regex e gitleaks limpos na cópia e na branch. Workflows `app-ci`, `api-ci`, `api-deploy` (manual, environment `producao`, `DEPLOY_DIR`), `gitleaks`; dependabot com `uv`. `docs/api/` com TA-ADRs. Plano 03–16 sem [TA]. App 87 testes, API 151. Auditoria só com informativos. ADR-012. Transição no servidor pendente. |
 | 2026-11-03 | 02 — Executor | `executar()`/`powershell()` com lista de argumentos, caminho absoluto pela API, dados em `ITC_*` ou stdin, `Sensivel` mascarado (inclusive no CLIXML), Job Object no timeout, saída `auto` (UTF-8/OEM). Ruff `TID251` + teste de AST contra processo fora do executor. `ui/tarefa.py`. ACL SDDL em `%ProgramData%\ITC` com recusa de reparse e retry com privilégios. 87 testes; auditoria sem achado aberto acima de informativo; achado médio do 01 fechado. ADR-011. |
 | 2026-11-03 | 01 — Esqueleto | Python 3.13 + PySide6 6.12 com uv (ADR-010). `src/itc_bench/` com `nucleo/` sem Qt, `ui/`, `recursos/` (Archivo e Inter OFL, 20 ícones, símbolo). UAC/`--dev`/`--teste`, log 1 MiB × 5 com queda para `%LOCALAPPDATA%` sem permissão, janela com 7 grupos e 20 telas vazias com "?". 14 testes; auditoria com 1 achado médio (ACL do ProgramData) planejado no 02. |

@@ -411,8 +411,8 @@ precisam de rotas novas na API, e manter dois repos para um só produto dobra PR
    domínio e mesmo diretório no glpi-srv; muda só o remote do clone. Secrets no environment
    `producao` do GitHub, restrito à `main`: os seis do TA mais **`DEPLOY_DIR`**, porque o caminho
    do clone revela o usuário de deploy. O script remoto recebe o diretório como argumento.
-   Neste módulo o `api-deploy.yml` só tem `workflow_dispatch`; o gatilho de `push` em `api/**`
-   volta num PR pequeno depois do primeiro deploy validado.
+   Durante a transição o `api-deploy.yml` ficou só com `workflow_dispatch`; depois do primeiro
+   deploy validado (2026-11-04) voltou o gatilho de `push` na `main` em `api/**`, mantido o manual.
 6. **Acesso do servidor ao itc-bench por deploy key SSH só de leitura** (chave própria no
    servidor, diferente da `DEPLOY_SSH_KEY`), com o host do GitHub fixado no `known_hosts` do
    servidor pelas impressões digitais publicadas pelo GitHub. Sem PAT. O acesso usa o apelido
