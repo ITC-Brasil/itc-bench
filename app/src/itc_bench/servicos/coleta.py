@@ -278,7 +278,7 @@ def rede(cru: dict[str, Any]) -> dict[str, Any]:
         }
         for t in lista(cru.get("testes"))[:10]
     ]
-    portas = []
+    portas: list[dict[str, Any]] = []
     vistas: set[int | None] = set()
     # Uma linha por porta (a do pendrive saía ao acaso: Sort-Object -Unique do PS 5.1).
     brutas = sorted(
