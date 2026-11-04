@@ -993,3 +993,40 @@ ligado no deploy do Módulo 05 (decisão do responsável, 04/11/2026).
 **Consequences**
 NocoDB fora do ar não derruba relatório nem login; derruba só a renovação dos cadastros,
 coberta pela cópia defasada na API (até 24 h) e pelo cache do Bench (7 dias).
+
+---
+
+## TA-ADR-028 — Diagnóstico do Bench sem token de carreta, com limite por técnico e envio idempotente
+
+**Status:** Accepted (revisa o TA-ADR-023 para `origem: "bench"`)
+**Date:** 2026-11-04
+**Module:** 06 do ITC Bench
+
+**Context**
+O ADR-016 do Bench manda o diagnóstico pela sessão do técnico. A tabela `diagnosticos` exige
+`token_id` e `carreta`. O laudo leva até ~75 s e o túnel corta em ~100 s: um corte depois de
+gravado faz o Bench reenviar.
+
+**Decision**
+- Migração `0006` reconstrói `diagnosticos` numa transação: `carreta` e `token_id` aceitam nulo
+  (CHECK: `token_id` ou `bench_usuario`), colunas `bench_usuario`, `bench_sessao_id`, `unidade`,
+  `envio_id` (UNIQUE) e `processando_desde`. Ids e `relatorios.diagnostico_id` mantidos; nenhuma
+  coluna removida ou renomeada.
+- `POST /v1/bench/relatorio`: sessão; `envio_id` UUID (`422` se não for); limite por técnico em
+  `bench_relatorio_uso` (upsert do TA-ADR-021); `unidade` validada contra as Unidades ativas da
+  cópia de cadastros, senão nula com log; `carreta = 'BANCADA'`.
+- **Idempotência:** mesmo `envio_id` com relatório → devolve o gravado; com `falha` → nova
+  tentativa da IA na mesma linha; em processamento há menos de 120 s → `409 em_processamento`
+  sem chamar a IA; mais antigo → falha presumida, nova tentativa.
+- **Fora do prompt:** `coletadoPor` e `bench_usuario` entram em `FORA_DO_PROMPT`.
+- **Revisão do TA-ADR-023:** para `origem: "bench"` os caminhos de perfil chegam como
+  `%PERFIL%\…` e sem nome de arquivo, porque a Limpeza (Módulo 13 do Bench) lê os nomes
+  localmente. A carreta segue como está.
+
+**Alternatives considered**
+- Linha-sentinela em `carretas_tokens` — "token" falso em `tokens list`.
+- Limite por sessão — novo login zeraria.
+- Lock em memória por `envio_id` — não sobrevive a restart nem a vários workers.
+
+**Consequences**
+Backup do SQLite antes do deploy, com restauração documentada em `docs/api/DEPLOY.md`.
