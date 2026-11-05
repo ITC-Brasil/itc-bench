@@ -813,6 +813,10 @@ O Configurador gerencia contas por dois caminhos: `backend/contas.py` (PowerShel
    com esse nome sendo RID 500 ou conta Microsoft, também recusa. "Aplicar" cria (administrador,
    ativa, senha não expira) ou troca a senha, ativa e garante o 544. O Bench não guarda qual
    senha aplicou.
+   **Emenda (05/11/2026, responsável):** com a Suporte logada, "Aplicar" é permitido; a
+   confirmação avisa "Você está nesta conta. Senhas salvas no Windows desta conta (cofre de
+   credenciais) serão perdidas." É a segunda exceção à regra da conta logada; as ações manuais
+   continuam recusando a Suporte.
 6. **Ações em lote** (preparação e manutenção):
    - *Tornar todos administradores:* contas locais ativas (fora RID 500/501/503/504 e contas
      Microsoft) entram no 544.
@@ -825,7 +829,9 @@ O Configurador gerencia contas por dois caminhos: `backend/contas.py` (PowerShel
    removida e depois `Remove-CimInstance` do `Win32_UserProfile` (falha vira aviso); tamanho do
    perfil com teto de tempo, senão "não calculado".
 8. **Log:** técnico, ação, nome das contas afetadas e resultado. O log é local e o nome já é
-   visível a qualquer usuário da máquina. Nunca senha nem caminho de perfil.
+   visível a qualquer usuário da máquina. Nunca senha nem caminho de perfil: falha e aviso vão ao
+   log só pelo código (`ERRO|codigo`, tipo do `AVISO`, HResult do perfil); a mensagem do Windows,
+   que costuma ter `C:\Users\<nome>`, só vai para a tela (emenda de 05/11/2026).
 
 **Alternatives considered**
 - Senha Suporte digitada pelo técnico — uma senha por máquina, sem rotação central.

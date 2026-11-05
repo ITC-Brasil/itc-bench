@@ -71,7 +71,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] Migrar `backend/contas.py` + `aba_usuarios.py`/`aba_admin.py`; SID `S-1-5-32-544`; fim do `wmic` (ADR-017)
 - [x] Ajuda da tela a partir do manual
 - [x] Conta Suporte por Servidores (`Conta Suporte`/`usuario` e `senha`); ações em lote para o 13
-- [ ] Depois do merge (responsável): linhas `Conta Suporte` no NocoDB, troca da senha Suporte, cenários V1–V8 em VM (pt-BR e en-US)
+- [ ] Depois do merge (responsável): linhas `Conta Suporte` no NocoDB, troca da senha Suporte, cenários V1–V8 em máquina real, com o instalador
 
 ### 08 — Identificação e Wi-Fi · `feat/modulo-08-identificacao-wifi`
 - [ ] `sistema.py` (renomear PC sem interpolação), `wifi.py` com dados do cache; ajuda escrita

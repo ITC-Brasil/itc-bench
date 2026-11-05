@@ -31,15 +31,18 @@ de todos"), conta logada também sem troca de senha, Suporte protegida pelo nome
 - **A tela lê as contas ao abrir**, não ao montar a janela (a leitura roda PowerShell).
 - **Membros de domínio/AzureAD** do grupo Administradores aparecem numa linha só leitura e ficam
   como estão nas duas ações em lote (fora do escopo, ADR-017).
-- **"Aplicar conta Suporte" com a Suporte logada** recusa (regra da conta logada). Para trocar a
-  senha Suporte, o técnico entra com outra conta.
+- **"Aplicar conta Suporte" com a Suporte logada** é permitido (emenda do ADR-017); a confirmação
+  avisa que as senhas salvas no Windows dessa conta se perdem.
+- **Log sem mensagem do Windows:** falha vai ao log pelo código, aviso pelo tipo (perfil com o
+  HResult); a mensagem completa, que pode ter caminho de perfil, só aparece na tela.
 
 ## Verificação
 
-App: 310 testes (2 pulados: ciclo real da VM e lista local de nomes), ruff e mypy limpos,
+App: 313 testes (2 pulados: ciclo real que altera contas e lista local de nomes), ruff e mypy limpos,
 `itc-bench --teste --dev` com código 0. Máquina de desenvolvimento (Windows 11, administrador) só para
 leitura e para o teste de lista de processos; nada foi criado nem apagado nela. Os cenários que
-alteram contas ficam para a VM de teste (`ITC_TESTE_CONTAS=1` roda `test_ciclo_real_em_vm`).
+alteram contas ficam para uma máquina real com o Bench instalado, junto das bancadas do 04–06
+(sem VM, decisão do responsável); falhas viram correções em PR próprio.
 
 | # | Cenário | Como | Resultado |
 |---|---|---|---|
@@ -60,18 +63,20 @@ alteram contas ficam para a VM de teste (`ITC_TESTE_CONTAS=1` roda `test_ciclo_r
 | E1 | Excluir: nome digitado exato | `test_exclusao_exige_nome_exato` | Botão só com o nome igual (maiúsculas contam) |
 | E2 | Excluir com perfil que falha | `test_excluir_perfil_que_falhou_e_aviso` | Conta excluída, aviso "use a Limpeza" |
 | E3 | Tamanho do perfil com teto | `test_tamanho_perfil` | Soma correta; teto estourado → "não calculado" |
+| M0 | Caminho de perfil fora do log (aviso do perfil, erro do Windows, aviso do lote) | `test_caminho_de_perfil_fora_do_log` | Só código/HResult no log; mensagem completa na tela |
+| S3 | Aplicar Suporte com a Suporte logada | `test_aplicar_suporte_com_a_suporte_logada` | Permitido, aviso do cofre na confirmação; ações manuais seguem recusando |
 | M1 | Senha fora do script, do log e da mensagem | `test_senha_so_no_ambiente_e_como_sensivel` | Só em `ITC_SENHA` como `Sensivel` |
 | M2 | Senha fora da lista de processos | `test_senha_fora_da_lista_de_processos` (PowerShell real procura o marcador em `Win32_Process.CommandLine`) | 0 processos |
 | M3 | Sem `wmic`, `net user`, `shell=True` ou `subprocess` fora do executor | `test_sem_wmic_net_user_no_src`, `test_sem_shell.py` | Passa |
 | M4 | Trechos dentro do limite do executor | `test_scripts_cabem_no_limite` | Todos abaixo de 12 000 caracteres |
-| V1 | Criar padrão e admin, com e sem senha, senha não expira | VM, `test_ciclo_real_em_vm` + tela | **Pendente (VM de teste)** |
-| V2 | Tornar admin e padrão, trocar e remover senha | VM | **Pendente (VM de teste)** |
-| V3 | Tentar nativo, logada, Suporte e último admin na máquina real | VM | **Pendente (VM de teste)** |
-| V4 | Excluir com e sem perfil, com perfil carregado | VM (entrar com a conta e trocar de usuário) | **Pendente (VM de teste)** |
-| V5 | Clone de grupos | VM (conta de origem em "Usuários da área de trabalho remota") | **Pendente (VM de teste)** |
-| V6 | Windows em inglês (grupo por SID) | VM en-US | **Pendente (VM de teste)** |
-| V7 | Conta Suporte com e sem rede (cache) | VM com Bench logado, cadastro "Conta Suporte" | **Pendente (responsável: cadastro no NocoDB)** |
-| V8 | Marcador fora do `bench.log` e da lista de processos durante criar/trocar senha | VM | **Pendente (VM de teste)** |
+| V1 | Criar padrão e admin, com e sem senha, senha não expira | Tela, contas `Teste01`/`Teste02` (roteiro) | **Pendente (máquina real, com o instalador)** |
+| V2 | Tornar admin e padrão, trocar e remover senha | Tela (roteiro, passo 6 para V8) | **Pendente (máquina real, com o instalador)** |
+| V3 | Tentar nativo, logada, Suporte e último admin na máquina real | Tela (roteiro, passo 6 para V8) | **Pendente (máquina real, com o instalador)** |
+| V4 | Excluir com e sem perfil, com perfil carregado | Tela (entrar com `Teste01` e trocar de usuário) | **Pendente (máquina real, com o instalador)** |
+| V5 | Clone de grupos | Tela (origem em "Usuários da área de trabalho remota") | **Pendente (máquina real, com o instalador)** |
+| V6 | Windows em inglês (grupo por SID) | Máquina em inglês, se houver | **Pendente (máquina real, com o instalador)** |
+| V7 | Conta Suporte com e sem rede (cache) | Bench logado, cadastro "Conta Suporte", rede ligada e desligada | **Pendente (máquina real, com o instalador, e cadastro no NocoDB)** |
+| V8 | Marcador fora do `bench.log` e da lista de processos durante criar/trocar senha | Tela (roteiro, passo 6 para V8) | **Pendente (máquina real, com o instalador)** |
 
 ## Passos do responsável
 
@@ -80,7 +85,24 @@ alteram contas ficam para a VM de teste (`ITC_TESTE_CONTAS=1` roda `test_ciclo_r
    desmarcado, `Ativo`). Uma linha de cada.
 2. Trocar a senha Suporte que estava no `segredos.json` do Configurador e aplicá-la em cada
    notebook com "Aplicar conta Suporte".
-3. VM Windows 11 pt-BR (e uma en-US) para V1–V8.
+3. V1–V8 numa máquina real com o instalador (roteiro abaixo).
+
+## Roteiro do teste em máquina real (V1–V8)
+
+1. Use um notebook reserva, nunca o de uso diário. Instale o Bench e entre online.
+2. Antes de tudo, confira em Contas que a Suporte existe, está ativa e é administradora (se não,
+   "Aplicar conta Suporte").
+3. Crie as contas de teste `Teste01` (padrão, com senha) e `Teste02` (administrador, sem senha).
+   Rode as ações de tipo, senha, clone e exclusão **só nelas**, incluindo excluir com e sem pasta
+   e excluir `Teste01` com sessão aberta (troca rápida de usuário).
+4. Tente as recusas sem confirmar nada: Administrador nativo, a conta em uso, a Suporte, o último
+   administrador.
+5. Lote: "Tornar todos administradores" e depois "Remover administrador de todos (exceto
+   Suporte)"; confira que a Suporte continua administradora.
+6. Durante uma troca de senha, a lista de processos (`Get-CimInstance Win32_Process`, coluna
+   `CommandLine`) não mostra a senha; ao fim, a senha usada não aparece no `bench.log`.
+7. Se houver máquina em inglês, repita 3 e 5 nela.
+8. Exclua `Teste01` e `Teste02` ao terminar.
 
 Sem `.env`, deploy ou mudança na API.
 
