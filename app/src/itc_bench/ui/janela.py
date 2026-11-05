@@ -32,6 +32,8 @@ from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
 from itc_bench.ui.configuracoes import AJUDA as AJUDA_CONFIGURACOES
 from itc_bench.ui.configuracoes import PainelConfiguracoes
+from itc_bench.ui.contas import AJUDA as AJUDA_CONTAS
+from itc_bench.ui.contas import PainelContas
 from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO, PainelColeta, PainelHistorico
 from itc_bench.ui.entrar import Ocioso, TelaEntrar
 from itc_bench.ui.log_qt import HandlerTela
@@ -216,6 +218,7 @@ class Janela(QMainWindow):
         self._log_na_tela(handler_tela)
         self._configuracoes()
         self._diagnostico()
+        self._contas()
         self.abrir("inicio")
 
         centro = QWidget()
@@ -334,6 +337,18 @@ class Janela(QMainWindow):
         self.configuracoes.unidade_escolhida.connect(self.escolher_unidade)
         tela.corpo.addWidget(self.configuracoes, 1)
         tela.ajuda.texto.setText(AJUDA_CONFIGURACOES)
+
+    def _contas(self) -> None:
+        """Contas (ADR-017): a lista é lida ao abrir; ações só com administrador."""
+        tela = self.telas["contas"]
+        while tela.corpo.count():
+            item = tela.corpo.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+        self.contas = PainelContas(self.admin, lambda: self.cadastros)
+        tela.corpo.addWidget(self.contas, 1)
+        tela.ajuda.texto.setText(AJUDA_CONTAS)
 
     def sessao_online(self) -> tuple[str, Sensivel, str] | None:
         if self.entrada is None or self.entrada.sessao is None or not self.base:

@@ -762,3 +762,90 @@ seria "ADR novo, fora do escopo do 06"; o responsável aprovou trazê-lo para o 
 
 **Consequences**
 Regras da API no TA-ADR-028. Deploy com backup obrigatório (migração `0006`).
+
+---
+
+## ADR-017 — Contas locais pelo executor, por SID, com conta Suporte vinda de Servidores
+
+**Status:** Accepted
+**Date:** 2026-11-05
+**Module:** 07
+
+**Context**
+O Configurador gerencia contas por dois caminhos: `backend/contas.py` (PowerShell com dados em
+`ITC_*`, padrão a seguir) e `backend/usuarios.py` (`net user` com `shell=True`, `wmic`, grupo
+"Administradores" pelo nome, senha temporária fixa no código). A senha da conta Suporte vem de
+`segredos.json` ao lado do EXE. Desenho proposto e aprovado com ajustes em `.conversa/` em
+05/11/2026.
+
+**Decision**
+1. **Operações** em `servicos/contas.py` (sem Qt, o 13 reusa): listar, criar (com clone só de
+   grupos), tornar administrador/padrão, trocar e remover senha, excluir (com ou sem perfil),
+   aplicar conta Suporte, tornar todos administradores e remover administrador de todos (exceto
+   Suporte). Saem: fluxo antigo de `usuarios.py`, cópia de pastas pessoais, `AutoAdminLogon` e
+   chaves de OOBE (12/13 se pedidos).
+2. **Execução:** só `executor.powershell()` (PS 5.1, `-EncodedCommand`), trechos fixos em
+   `recursos/contas/*.ps1`; nome, SID e senha por `ITC_*`, senha como `Sensivel`. Grupos pelo
+   SID (`S-1-5-32-544`, `S-1-5-32-545`); `Set-LocalUser -PasswordNeverExpires` no lugar do
+   `wmic`. Membros do grupo por `Get-LocalGroupMember`, com fallback ADSI `WinNT://` (pelo nome
+   do grupo resolvido do SID) quando ele falha com SID órfão/AzureAD. Timeouts: listagem 30 s,
+   alteração 60 s, lote 120 s. Sem administrador (`--dev`): só leitura.
+3. **Alvo por SID**, nunca por nome. Cada regra é checada em Python sobre uma leitura feita logo
+   antes e de novo dentro do trecho PS que altera (`ERRO|<codigo>|<mensagem>`):
+   - Administrador nativo (RID 500): nada.
+   - Conta logada (token do Bench, donos de `explorer.exe`, `Win32_ComputerSystem.UserName`):
+     não rebaixar, não excluir, não trocar nem remover senha (perderia o cofre de credenciais e
+     as chaves EFS).
+   - Suporte: o nome cadastrado **e** `Suporte`, sem diferenciar maiúsculas; só "Aplicar conta
+     Suporte" mexe nela.
+   - Último administrador local ativo: não rebaixar nem excluir. Membros de domínio/AzureAD não
+     contam.
+   - Perfil carregado: não excluir.
+   - Contas Microsoft e membros de domínio/AzureAD: só leitura. RIDs 501/503/504 não aparecem.
+4. **Nome** validado em Python: 1–20 caracteres, `^[\w][\w .-]{0,19}$`, sem ponto ou espaço no
+   fim; reservados `Administrador`, `Administrator`, `Convidado`, `Guest`, `DefaultAccount`,
+   `WDAGUtilityAccount`, `SYSTEM`, `Suporte` e o nome Suporte cadastrado, `CON`, `PRN`, `AUX`,
+   `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`; o PS recusa nome de conta, grupo ou computador existente.
+   Força de senha: a da política do Windows (o erro dele vai para a tela).
+5. **Conta Suporte** em Servidores (ADR-014): contrato `Servico = "Conta Suporte"`,
+   `Papel = "usuario"` com `Publico = true` e `Papel = "senha"` com `Publico` falso. Sem cache ou
+   sem a senha, a ação recusa (ADR-008). Mais de uma linha ativa para o mesmo papel, ou a conta
+   com esse nome sendo RID 500 ou conta Microsoft, também recusa. "Aplicar" cria (administrador,
+   ativa, senha não expira) ou troca a senha, ativa e garante o 544. O Bench não guarda qual
+   senha aplicou.
+   **Emenda (05/11/2026, responsável):** com a Suporte logada, "Aplicar" é permitido; a
+   confirmação avisa "Você está nesta conta. Senhas salvas no Windows desta conta (cofre de
+   credenciais) serão perdidas." É a segunda exceção à regra da conta logada; as ações manuais
+   continuam recusando a Suporte.
+6. **Ações em lote** (preparação e manutenção):
+   - *Tornar todos administradores:* contas locais ativas (fora RID 500/501/503/504 e contas
+     Microsoft) entram no 544.
+   - *Remover administrador de todos (exceto Suporte):* tira do 544 e garante o 545 em todas as
+     contas locais menos a Suporte e o RID 500. Recusa se a Suporte não existir, estiver
+     desativada ou fora do 544. **Exceção à regra da conta logada:** a conta logada também é
+     rebaixada (vale na próxima entrada; a confirmação avisa).
+   Confirmação com a lista de quem muda.
+7. **Excluir:** digitar o nome; caixa "apagar a pasta" desmarcada; perfil carregado recusa; conta
+   removida e depois `Remove-CimInstance` do `Win32_UserProfile` (falha vira aviso); tamanho do
+   perfil com teto de tempo, senão "não calculado".
+8. **Log:** técnico, ação, nome das contas afetadas e resultado. O log é local e o nome já é
+   visível a qualquer usuário da máquina. Nunca senha nem caminho de perfil: falha e aviso vão ao
+   log só pelo código (`ERRO|codigo`, tipo do `AVISO`, HResult do perfil); a mensagem do Windows,
+   que costuma ter `C:\Users\<nome>`, só vai para a tela (emenda de 05/11/2026).
+
+**Alternatives considered**
+- Senha Suporte digitada pelo técnico — uma senha por máquina, sem rotação central.
+- Rota própria na API para a Suporte — mesmo segredo, mais rota, e sem cache offline próprio.
+- Senha aleatória por máquina (tipo LAPS) — precisa de cofre na API para o suporte recuperar.
+- Cópia de pastas com senha temporária ou `CreateProfile` — dado pessoal copiado sem uso na
+  preparação; nunca testada no Configurador.
+- Proteger a conta "ITC" — não existe nas máquinas do Grupo (responsável).
+- Hash do nome da conta no log — tira a trilha sem esconder nada de quem usa a máquina.
+
+**Riscos aceitos (responsável, 05/11/2026)**
+- A senha Suporte é a mesma em todos os notebooks; admin local com o cache a lê (como RustDesk e
+  AnyDesk no ADR-014).
+
+**Consequences**
+O responsável cadastra as duas linhas `Conta Suporte` e troca a senha atual. O 13 chama
+`servicos/contas.py` e, no fim da Preparação completa, pergunta se remove os administradores.

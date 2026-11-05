@@ -57,6 +57,9 @@ o laudo da IA com aviso "revise antes de abrir chamado". Histórico da máquina 
 
 ## Ações destrutivas
 
-Confirmação com resumo antes de executar; para exclusão de conta, digitar o nome. Regras herdadas
-de `backend/contas.py`: não mexer no Administrador nativo, na conta logada, nas contas ITC e
-Suporte; não rebaixar o último administrador.
+Confirmação com resumo antes de executar; para exclusão de conta, digitar o nome. Regras do
+ADR-017 (herdadas de `backend/contas.py`): não mexer no Administrador nativo nem em conta
+Microsoft/domínio; a conta Suporte só muda por "Aplicar conta Suporte"; a conta logada não é
+rebaixada, excluída nem tem a senha trocada (exceto em "Remover administrador de todos", que a
+rebaixa); não rebaixar nem excluir o último administrador ativo; não excluir conta com sessão
+aberta.
