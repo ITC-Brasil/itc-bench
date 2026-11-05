@@ -849,3 +849,76 @@ O Configurador gerencia contas por dois caminhos: `backend/contas.py` (PowerShel
 **Consequences**
 O responsável cadastra as duas linhas `Conta Suporte` e troca a senha atual. O 13 chama
 `servicos/contas.py` e, no fim da Preparação completa, pergunta se remove os administradores.
+
+---
+
+## ADR-018 — Identificação por `Rename-Computer` no executor e Wi-Fi pela `wlanapi.dll`, sem senha em disco
+
+**Status:** Accepted
+**Date:** 2026-11-05
+**Module:** 08
+
+**Context**
+O Configurador renomeia com `Rename-Computer "{n}"` interpolado e instala Wi-Fi gravando um XML
+com a senha em claro em `%TEMP%` e chamando `netsh wlan add profile` com `shell=True`; lê os
+perfis pelo texto localizado do `netsh` e testa a internet com `ping 8.8.8.8`. Desenho proposto
+e aprovado em `.conversa/` em 05/11/2026.
+
+**Decision**
+1. **Inventário.** Entram renomear e instalar Wi-Fi, reescritos. Saem a lista de redes local
+   (ADR-014), o popup "sem internet" e o `ping`, e a leitura de perfis pelo `netsh`. Remover o
+   Windows Terminal vai para o 10; reinício com retomada e contas por turno (`<PC>-<sufixo>`), para
+   o 13.
+2. **Nome do computador** (`servicos/identificacao.py`, sem Qt): o técnico digita o nome inteiro,
+   sem padrão, aviso nem sugestão. Validação em Python: 1–15 caracteres, só `A–Z`, `0–9` e `-`,
+   sem `-` no começo ou no fim, não só dígitos, fora da lista de nomes reservados da Microsoft,
+   diferente de conta ou grupo local; convertido para maiúsculas. Igual ao ativo ou ao pendente:
+   nada a fazer.
+3. **Renomear** com `Rename-Computer -NewName $env:ITC_NOME -Force` pelo executor (decisão do
+   responsável: o padrão do resto do Bench, com o erro do Windows legível). O trecho confere de
+   novo o domínio e a conta/grupo com o mesmo nome. Domínio ou Azure AD
+   (`Win32_ComputerSystem.PartOfDomain`, ou subchave em
+   `HKLM\SYSTEM\CurrentControlSet\Control\CloudDomainJoin\JoinInfo`) recusa, sem ler texto do
+   `dsregcmd`.
+   Nome pendente lido de `...\ComputerName\ComputerName` contra `...\ActiveComputerName`; a tela
+   mostra os dois e oferece "Reiniciar agora" (`shutdown.exe /r /t 10`, argumentos fixos) ou
+   "Depois". A retomada fica no 13.
+4. **O que depende do hostname:** o histórico do diagnóstico (ADR-016) passa ao nome novo depois
+   do reinício; a ajuda manda renomear antes do diagnóstico. `HKLM\SOFTWARE\ITC\Bench\Unidade`,
+   o cache DPAPI de máquina e o login offline não dependem do nome.
+5. **`Unidades.Codigo`** = sigla do programa + número da UM com dois dígitos
+   (`^[A-Z]{1,6}[0-9]{2}$`, até 8), o mesmo de `WiFi.Unidade`. Só documentado no
+   `BACKEND-SCHEMA.md`; a API não muda (já recusa código fora das Unidades ativas).
+6. **Wi-Fi pela `wlanapi.dll` por ctypes** (`nucleo/wlan.py`, lógica em `servicos/wifi.py`, os
+   dois sem Qt), como `nucleo/dpapi.py`: listar interfaces e perfis, ler o perfil, gravar
+   (`WlanSetProfile`, `dwFlags = 0` = todos os usuários, sobrescreve) e conectar. Sem processo,
+   arquivo, argumento ou `ITC_*`: a senha sai do `Sensivel` só para a chamada.
+7. **XML do perfil** montado com `xml.etree.ElementTree`; SSID em `<hex>` (UTF-8) e `<name>`;
+   só `WPA2PSK`/`AES` (WPA3 fora: incompatível com os notebooks, decisão do responsável).
+   Senha: 8–63 ASCII imprimíveis (`passPhrase`) ou 64 hexadecimais (`networkKey`); vazia ou fora
+   disso é erro de cadastro e a rede não é instalada (todas as redes têm senha).
+8. **Situação** por rede: igual, senha diferente, ausente, senha não conferida (sem admin), senha
+   inválida no cadastro. A comparação lê o perfil com `WLAN_PROFILE_GET_PLAINTEXT_KEY` (só com
+   admin) e compara com `hmac.compare_digest` na mesma função; a chave lida não sai dela.
+9. **Tela Wi-Fi:** filtros esta unidade / todas / instaladas no Windows; "Instalar N redes"
+   (cancelamento entre redes, ADR-015) e "Testar conexão" (`WlanConnect`, até 20 s, depois
+   `api.saude()`). Sem cache: "conecte por cabo ou por uma rede do Windows, entre e sincronize",
+   com "Abrir redes do Windows" (`explorer.exe ms-availablenetworks:`). O Bench não tem campo de
+   SSID nem de senha.
+10. **Log:** nome do computador sim (antigo → novo); Wi-Fi só por `Id` do cadastro, contagens e
+    código Win32; nunca SSID, senha ou XML. `--dev` sem admin: as duas telas só leem.
+
+**Alternatives considered**
+- `SetComputerNameExW` por ctypes — mesmo efeito, mas foge do padrão do executor.
+- Validar o formato de `Unidades.Codigo` na API — um erro de digitação sumiria com a unidade.
+- XML em `protegido\` apagado em `finally` — fica no disco se o Bench morrer no meio.
+- PowerShell `Add-Type` com C# — compila com `csc.exe` e grava fontes em `%TEMP%`.
+- Hash da senha dentro do PS, ou não comparar — `netsh key=clear` é texto localizado; sem
+  comparar, o técnico não vê a senha antiga.
+- Popup do Bench com SSID/senha digitados — repete o painel do Windows e passa a senha pelo Bench.
+- `ping 8.8.8.8` — ICMP filtrado dá falso negativo; o que importa é falar com a API.
+- Senha vazia = rede aberta — todas as redes do Grupo têm senha (responsável).
+
+**Consequences**
+O responsável preenche `Unidades` no NocoDB no formato acordado e usa os mesmos códigos em
+`WiFi.Unidade`. O 13 chama `servicos/identificacao.py` e `servicos/wifi.py`.
