@@ -67,6 +67,10 @@ sempre).
 `Servidores.Valor` misturava público e segredo: resolvido pela coluna `Publico` (ADR-014). Linhas
 com `Ativo` diferente de `true` são filtradas na API.
 
+Contrato da conta Suporte (ADR-017): `Servico = "Conta Suporte"`, `Papel = "usuario"` (nome da
+conta, `Publico` marcado) e `Papel = "senha"` (`Publico` desmarcado). Uma linha ativa de cada;
+duplicada, o Bench recusa. Sem `usuario`, o nome é `Suporte`.
+
 ## API (rotas)
 
 Existentes na API (`docs/api/API.md`): `GET /v1/saude`,
