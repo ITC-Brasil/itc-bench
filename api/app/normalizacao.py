@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-VERSOES = ("1.0", "1.1", "1.2")
+VERSOES = ("1.0", "1.1", "1.2", "1.3")
 MODULOS = ("disco", "eventlog", "rede", "processos", "bateria")
 
 # Copy of pendrive/config/eventlog-conhecidos.json (ADR-022); CI fails if they differ.
@@ -43,6 +43,8 @@ def normalizar(entrada: dict) -> tuple[dict, list[str]]:
 
     if sessao["versaoSchema"] == "1.0":
         de_1_0(sessao, modulos, avisos)
+    elif sessao["versaoSchema"] == "1.3":
+        classificar_eventos(modulos)
 
     # 1.0 and 1.1: usuarioLogado is $env:USERNAME, the account that elevated the tool, not
     # the user of the machine. Kept under its 1.2 name (usuarioExecucao), never prompted;
@@ -83,14 +85,8 @@ def de_1_0(sessao: dict, modulos: dict, avisos: list[str]) -> None:
             de_1_0_smart(fisico)
         avisos.append(AVISO_PENDRIVE_1_0)
 
-    eventlog = dados(modulos, "eventlog")
-    if eventlog is not None:
-        grupos = lista(eventlog, "grupos")
-        for grupo in grupos:
-            reclassificar(grupo)
-        grupos.sort(key=lambda g: (ORDEM_NIVEL.get(g.get("nivel"), 3), -(g.get("ocorrencias") or 0)))
-        eventlog["grupos"] = grupos
-        eventlog["gruposDesconhecidos"] = sum(1 for g in grupos if not g["conhecido"])
+    if dados(modulos, "eventlog") is not None:
+        classificar_eventos(modulos)
         avisos.append(AVISO_EVENTOS_1_0)
 
     for adaptador in lista(dados(modulos, "rede"), "adaptadores"):
@@ -100,6 +96,19 @@ def de_1_0(sessao: dict, modulos: dict, avisos: list[str]) -> None:
 
     if sessao.get("ultimaAtualizacao") is None:
         sessao["ultimaAtualizacao"] = aproximar_fim(sessao.get("inicio"), sessao.get("duracaoSegundos"))
+
+
+def classificar_eventos(modulos: dict) -> None:
+    """1.0 (wrong classification) and 1.3 (the Bench sends none): the base decides (ADR-020)."""
+    eventlog = dados(modulos, "eventlog")
+    if eventlog is None:
+        return
+    grupos = lista(eventlog, "grupos")
+    for grupo in grupos:
+        reclassificar(grupo)
+    grupos.sort(key=lambda g: (ORDEM_NIVEL.get(g.get("nivel"), 3), -(g.get("ocorrencias") or 0)))
+    eventlog["grupos"] = grupos
+    eventlog["gruposDesconhecidos"] = sum(1 for g in grupos if not g["conhecido"])
 
 
 def de_1_0_smart(fisico: dict) -> None:

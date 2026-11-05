@@ -1,0 +1,539 @@
+{
+ "bench": {
+  "memoriaTotalKB": 15542712,
+  "memoriaLivreKB": 1273536,
+  "processos": [],
+  "servicos": [
+   {
+    "nome": "programa-16",
+    "nomeExibicao": "programa-16",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-17",
+    "nomeExibicao": "programa-17",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-18",
+    "nomeExibicao": "programa-18",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-19",
+    "nomeExibicao": "programa-19",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-20",
+    "nomeExibicao": "programa-20",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-21",
+    "nomeExibicao": "programa-21",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-22",
+    "nomeExibicao": "programa-22",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-23",
+    "nomeExibicao": "programa-23",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "LPlatSvc",
+    "nomeExibicao": "Lenovo Platform Service",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "MapsBroker",
+    "nomeExibicao": "Gerenciador de Mapas Baixados",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-24",
+    "nomeExibicao": "programa-24",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-25",
+    "nomeExibicao": "programa-25",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "sppsvc",
+    "nomeExibicao": "Proteção de Software",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "TrustedInstaller",
+    "nomeExibicao": "Instalador de Módulos do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "localSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "WbioSrvc",
+    "nomeExibicao": "Serviço de Biometria do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-26",
+    "nomeExibicao": "programa-26",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   }
+  ],
+  "inicializacao": [
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-19\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-20\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-1",
+    "comando": "<comando>",
+    "origem": "Startup"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_HASH",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDrive",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-2",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-3",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-4",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-5",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-6",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-7",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-8",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-9",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-10",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-11",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_HASH",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "AnyDesk ClientTec",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "AnyDesk",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "programa-12",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "RustDesk Tray",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "programa-13",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "SecurityHealth",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "GLPI-AgentMonitor",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-14",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-15",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   }
+  ],
+  "avisos": []
+ },
+ "pendrive": {
+  "memoria": {
+   "totalGB": 14.8,
+   "disponivelGB": 1.6,
+   "percentualEmUso": 89.2,
+   "pressaoAlta": true
+  },
+  "processosPorMemoria": [],
+  "processosPorCpu": [],
+  "servicosAutomaticosParados": [
+   {
+    "nome": "programa-16",
+    "nomeExibicao": "programa-16",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-17",
+    "nomeExibicao": "programa-17",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-18",
+    "nomeExibicao": "programa-18",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-19",
+    "nomeExibicao": "programa-19",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-20",
+    "nomeExibicao": "programa-20",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-21",
+    "nomeExibicao": "programa-21",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-22",
+    "nomeExibicao": "programa-22",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-23",
+    "nomeExibicao": "programa-23",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": true
+   },
+   {
+    "nome": "LPlatSvc",
+    "nomeExibicao": "Lenovo Platform Service",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "MapsBroker",
+    "nomeExibicao": "Gerenciador de Mapas Baixados",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "programa-24",
+    "nomeExibicao": "programa-24",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-25",
+    "nomeExibicao": "programa-25",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "sppsvc",
+    "nomeExibicao": "Proteção de Software",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "NT AUTHORITY\\NetworkService",
+    "atrasado": true
+   },
+   {
+    "nome": "TrustedInstaller",
+    "nomeExibicao": "Instalador de Módulos do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "localSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "WbioSrvc",
+    "nomeExibicao": "Serviço de Biometria do Windows",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   },
+   {
+    "nome": "programa-26",
+    "nomeExibicao": "programa-26",
+    "estado": "Stopped",
+    "inicio": "Auto",
+    "contaLogon": "LocalSystem",
+    "atrasado": false
+   }
+  ],
+  "itensInicializacao": [
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-19\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDriveSetup",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-20\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-1",
+    "comando": "<comando>",
+    "origem": "Startup"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_HASH",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "OneDrive",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-2",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-3",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-4",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-5",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-6",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-7",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-8",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-9",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-10",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-11",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "MicrosoftEdgeAutoLaunch_HASH",
+    "comando": "<comando>",
+    "origem": "HKU\\S-1-5-21-0-0-0-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "AnyDesk ClientTec",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "AnyDesk",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "programa-12",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "RustDesk Tray",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "programa-13",
+    "comando": "<comando>",
+    "origem": "Common Startup"
+   },
+   {
+    "nome": "SecurityHealth",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "GLPI-AgentMonitor",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-14",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   },
+   {
+    "nome": "programa-15",
+    "comando": "<comando>",
+    "origem": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+   }
+  ],
+  "resumo": {
+   "totalProcessos": 468,
+   "servicosAutomaticosParados": 16,
+   "itensInicializacao": 25,
+   "memoriaPressaoAlta": true
+  },
+  "avisos": []
+ }
+}

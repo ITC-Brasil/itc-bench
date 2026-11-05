@@ -1,0 +1,653 @@
+{
+ "bench": {
+  "volumes": [
+   {
+    "letra": "C",
+    "rotulo": "",
+    "sistemaArquivos": "NTFS",
+    "tipo": "Fixed",
+    "bytes": 510847348736,
+    "livres": 89516544000
+   },
+   {
+    "letra": "D",
+    "rotulo": "rotulo-1",
+    "sistemaArquivos": "NTFS",
+    "tipo": "Removable",
+    "bytes": 252841029632,
+    "livres": 225813147648
+   }
+  ],
+  "discos": [
+   {
+    "numero": "0",
+    "modelo": "SKHynix_HFS512GEJ4X113N",
+    "tipoMidia": "SSD",
+    "barramento": "NVMe",
+    "bytes": 512110190592,
+    "saude": "Healthy",
+    "estadoOperacional": "OK",
+    "contadores": {
+     "errosLeituraNaoCorrigidos": null,
+     "errosEscritaNaoCorrigidos": null,
+     "errosLeituraCorrigidos": null,
+     "errosEscritaCorrigidos": null,
+     "temperaturaC": 38,
+     "temperaturaMaximaC": 86,
+     "horasLigado": null,
+     "percentualDesgaste": 0
+    },
+    "erroContadores": null
+   },
+   {
+    "numero": "1",
+    "modelo": "Mass Storage Device",
+    "tipoMidia": "Unspecified",
+    "barramento": "USB",
+    "bytes": 252874588160,
+    "saude": "Healthy",
+    "estadoOperacional": "OK",
+    "contadores": {
+     "errosLeituraNaoCorrigidos": null,
+     "errosEscritaNaoCorrigidos": null,
+     "errosLeituraCorrigidos": null,
+     "errosEscritaCorrigidos": null,
+     "temperaturaC": 0,
+     "temperaturaMaximaC": 0,
+     "horasLigado": null,
+     "percentualDesgaste": 0
+    },
+    "erroContadores": null
+   }
+  ],
+  "avisos": []
+ },
+ "pendrive": {
+  "unidadeFerramenta": {
+   "letra": "C",
+   "discoNumero": "0",
+   "tipo": "Fixed",
+   "barramento": "NVMe",
+   "excluida": false
+  },
+  "volumes": [
+   {
+    "letra": "C",
+    "rotulo": "",
+    "sistemaArquivos": "NTFS",
+    "tipo": "Fixed",
+    "totalGB": 475.76,
+    "livreGB": 83.37,
+    "percentualLivre": 17.5,
+    "critico": false,
+    "atencao": true
+   },
+   {
+    "letra": "D",
+    "rotulo": "rotulo-1",
+    "sistemaArquivos": "NTFS",
+    "tipo": "Removable",
+    "totalGB": 235.48,
+    "livreGB": 210.3,
+    "percentualLivre": 89.3,
+    "critico": false,
+    "atencao": false
+   }
+  ],
+  "discosFisicos": [
+   {
+    "numero": "0",
+    "modelo": "SKHynix_HFS512GEJ4X113N",
+    "tipoMidia": "SSD",
+    "barramento": "NVMe",
+    "tamanhoGB": 476.9,
+    "saude": "Healthy",
+    "estadoOperacional": "OK",
+    "estadoSmart": "parcial",
+    "errosLeituraNaoCorrigidos": null,
+    "errosEscritaNaoCorrigidos": null,
+    "errosLeituraCorrigidos": null,
+    "errosEscritaCorrigidos": null,
+    "temperaturaC": 38,
+    "temperaturaMaximaC": 86,
+    "horasLigado": null,
+    "percentualDesgaste": 0,
+    "observacao": "Contadores não expostos pelo driver: errosLeituraNaoCorrigidos, errosEscritaNaoCorrigidos, errosLeituraCorrigidos, errosEscritaCorrigidos, horasLigado."
+   },
+   {
+    "numero": "1",
+    "modelo": "Mass Storage Device",
+    "tipoMidia": "Unspecified",
+    "barramento": "USB",
+    "tamanhoGB": 235.5,
+    "saude": "Healthy",
+    "estadoOperacional": "OK",
+    "estadoSmart": "parcial",
+    "errosLeituraNaoCorrigidos": null,
+    "errosEscritaNaoCorrigidos": null,
+    "errosLeituraCorrigidos": null,
+    "errosEscritaCorrigidos": null,
+    "temperaturaC": null,
+    "temperaturaMaximaC": null,
+    "horasLigado": null,
+    "percentualDesgaste": 0,
+    "observacao": "Contadores não expostos pelo driver: errosLeituraNaoCorrigidos, errosEscritaNaoCorrigidos, errosLeituraCorrigidos, errosEscritaCorrigidos, temperaturaC, temperaturaMaximaC, horasLigado."
+   }
+  ],
+  "itensLimpeza": [],
+  "maioresPastasPerfil": [
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive",
+    "usuario": "usuario-a",
+    "bytes": 409698256737,
+    "arquivos": 219188,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\AppData",
+    "usuario": "usuario-a",
+    "bytes": 142687475632,
+    "arquivos": 1072537,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Documents",
+    "usuario": "usuario-a",
+    "bytes": 13770464876,
+    "arquivos": 13804,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Downloads",
+    "usuario": "usuario-a",
+    "bytes": 10369285982,
+    "arquivos": 3685,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-1",
+    "usuario": "usuario-a",
+    "bytes": 10330677604,
+    "arquivos": 750,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-2",
+    "usuario": "usuario-a",
+    "bytes": 3339372234,
+    "arquivos": 30710,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Desktop",
+    "usuario": "usuario-a",
+    "bytes": 2837408363,
+    "arquivos": 928,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-3",
+    "usuario": "usuario-a",
+    "bytes": 1761576459,
+    "arquivos": 27540,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-4",
+    "usuario": "usuario-a",
+    "bytes": 1722628760,
+    "arquivos": 244,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-5",
+    "usuario": "usuario-a",
+    "bytes": 1104494847,
+    "arquivos": 730,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-6",
+    "usuario": "usuario-a",
+    "bytes": 1063611842,
+    "arquivos": 860,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-7",
+    "usuario": "usuario-a",
+    "bytes": 741206926,
+    "arquivos": 1092,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-b\\AppData",
+    "usuario": "usuario-b",
+    "bytes": 678369964,
+    "arquivos": 7242,
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-8",
+    "usuario": "usuario-a",
+    "bytes": 651062355,
+    "arquivos": 6990,
+    "tier": "revisar"
+   }
+  ],
+  "maioresArquivos": [
+   {
+    "caminho": "C:\\Users\\usuario-a\\AppData\\pasta-9\\pasta-10\\pasta-11\\pasta-12",
+    "bytes": 13828620288,
+    "extensao": ".vhdx",
+    "ultimaModificacao": "2026-11-04T19:37:16.1823199-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-13\\pasta-14\\pasta-15",
+    "bytes": 10990861056,
+    "extensao": ".mkv",
+    "ultimaModificacao": "2024-05-07T18:45:49.7485880-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\AppData\\pasta-9\\pasta-16\\pasta-17\\pasta-18\\pasta-19\\pasta-20\\pasta-21",
+    "bytes": 8601468928,
+    "extensao": ".img",
+    "ultimaModificacao": "2026-10-21T21:55:40.3822794-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\AppData\\pasta-22\\pasta-23\\pasta-24\\pasta-25",
+    "bytes": 8581545984,
+    "extensao": ".vhdx",
+    "ultimaModificacao": "2026-11-04T19:35:56.4166828-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-13\\pasta-14\\pasta-15",
+    "bytes": 5067952337,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2024-03-20T18:58:29.4774442-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-26\\pasta-27\\pasta-28\\pasta-29",
+    "bytes": 4681302016,
+    "extensao": ".iso",
+    "ultimaModificacao": "2011-10-12T19:22:38.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-26\\pasta-27\\pasta-28\\pasta-29",
+    "bytes": 4570578944,
+    "extensao": ".iso",
+    "ultimaModificacao": "2011-10-12T22:13:38.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\AppData\\pasta-9\\pasta-16\\pasta-17\\pasta-18\\pasta-30\\pasta-20\\pasta-21",
+    "bytes": 4306501632,
+    "extensao": ".img",
+    "ultimaModificacao": "2026-10-21T22:23:45.2325956-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-26\\pasta-27\\pasta-28\\pasta-31",
+    "bytes": 4215744668,
+    "extensao": ".nrg",
+    "ultimaModificacao": "2011-10-12T19:22:44.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-1\\pasta-32\\pasta-33",
+    "bytes": 3048079360,
+    "extensao": ".qcow2",
+    "ultimaModificacao": "2026-10-23T20:21:21.6890119-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 2896805872,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-19T07:29:31.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 2896805872,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-06T05:07:34.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-1\\pasta-32\\pasta-33\\pasta-36\\pasta-37",
+    "bytes": 2684420096,
+    "extensao": ".img",
+    "ultimaModificacao": "2026-10-21T22:26:32.2265806-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Downloads",
+    "bytes": 2339317760,
+    "extensao": ".iso",
+    "ultimaModificacao": "2026-10-30T12:03:36.4739260-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-1\\pasta-32\\pasta-38\\pasta-36\\pasta-37",
+    "bytes": 2147549184,
+    "extensao": ".img",
+    "ultimaModificacao": "2026-10-21T22:02:50.7999232-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-26\\pasta-27",
+    "bytes": 1969971803,
+    "extensao": ".MP4",
+    "ultimaModificacao": "2017-09-28T21:34:09.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1878935638,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-06T04:40:23.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1878935638,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-19T06:44:41.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1776420944,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-06T03:46:54.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1776420944,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-16T02:26:49.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-4\\pasta-39\\pasta-40",
+    "bytes": 1715777536,
+    "extensao": ".db",
+    "ultimaModificacao": "2026-10-21T20:49:57.8694034-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-1\\pasta-32\\pasta-38",
+    "bytes": 1676083200,
+    "extensao": ".qcow2",
+    "ultimaModificacao": "2026-10-21T22:26:20.6081203-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1648469110,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-20T12:56:46.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1648469110,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-06T05:26:06.0000000-03:00",
+    "tier": "revisar"
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive\\pasta-34\\pasta-35",
+    "bytes": 1622896599,
+    "extensao": ".mp4",
+    "ultimaModificacao": "2026-10-06T04:50:22.0000000-03:00",
+    "tier": "revisar"
+   }
+  ],
+  "resumo": {
+   "recuperavelSeguroBytes": 0,
+   "itensSeguroComConteudo": 0,
+   "revisarBytes": 0,
+   "itensRevisar": 0,
+   "limiarArquivoMB": 200,
+   "limiarPastaMB": 500
+  },
+  "tiers": {},
+  "avisos": []
+ },
+ "varredura": {
+  "pastas": [
+   {
+    "caminho": "C:\\Users\\usuario-a\\OneDrive",
+    "bytes": 409698256737,
+    "arquivos": 219188
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\AppData",
+    "bytes": 142706034316,
+    "arquivos": 1072519
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Documents",
+    "bytes": 13770464876,
+    "arquivos": 13804
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Downloads",
+    "bytes": 10369285982,
+    "arquivos": 3685
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-1",
+    "bytes": 10330677604,
+    "arquivos": 750
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-2",
+    "bytes": 3339372234,
+    "arquivos": 30710
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\Desktop",
+    "bytes": 2837408363,
+    "arquivos": 928
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-3",
+    "bytes": 1761576459,
+    "arquivos": 27540
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-4",
+    "bytes": 1722628760,
+    "arquivos": 244
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-5",
+    "bytes": 1104494847,
+    "arquivos": 730
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-6",
+    "bytes": 1063611842,
+    "arquivos": 860
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-7",
+    "bytes": 741206926,
+    "arquivos": 1092
+   },
+   {
+    "caminho": "C:\\Users\\usuario-b\\AppData",
+    "bytes": 678369964,
+    "arquivos": 7242
+   },
+   {
+    "caminho": "C:\\Users\\usuario-a\\pasta-8",
+    "bytes": 652656795,
+    "arquivos": 6990
+   }
+  ],
+  "arquivos": [
+   {
+    "pasta": "C:\\Users\\usuario-a\\AppData",
+    "extensao": ".vhdx",
+    "bytes": 13828620288,
+    "ultimaModificacao": "2026-11-04T19:52:16.194462-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mkv",
+    "bytes": 10990861056,
+    "ultimaModificacao": "2024-05-07T18:45:49.748588-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\AppData",
+    "extensao": ".img",
+    "bytes": 8601468928,
+    "ultimaModificacao": "2026-10-21T21:55:40.382279-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\AppData",
+    "extensao": ".vhdx",
+    "bytes": 8581545984,
+    "ultimaModificacao": "2026-11-04T19:35:56.416683-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 5067952337,
+    "ultimaModificacao": "2024-03-20T18:58:29.477444-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".iso",
+    "bytes": 4681302016,
+    "ultimaModificacao": "2011-10-12T19:22:38-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".iso",
+    "bytes": 4570578944,
+    "ultimaModificacao": "2011-10-12T22:13:38-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\AppData",
+    "extensao": ".img",
+    "bytes": 4306501632,
+    "ultimaModificacao": "2026-10-21T22:23:45.232596-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".nrg",
+    "bytes": 4215744668,
+    "ultimaModificacao": "2011-10-12T19:22:44-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\pasta-1",
+    "extensao": ".qcow2",
+    "bytes": 3048079360,
+    "ultimaModificacao": "2026-10-23T20:21:21.689012-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 2896805872,
+    "ultimaModificacao": "2026-10-19T07:29:31-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 2896805872,
+    "ultimaModificacao": "2026-10-06T05:07:34-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\pasta-1",
+    "extensao": ".img",
+    "bytes": 2684420096,
+    "ultimaModificacao": "2026-10-21T22:26:32.226581-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\Downloads",
+    "extensao": ".iso",
+    "bytes": 2339317760,
+    "ultimaModificacao": "2026-10-30T12:03:36.473926-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\pasta-1",
+    "extensao": ".img",
+    "bytes": 2147549184,
+    "ultimaModificacao": "2026-10-21T22:02:50.799923-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1969971803,
+    "ultimaModificacao": "2017-09-28T21:34:09-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1878935638,
+    "ultimaModificacao": "2026-10-19T06:44:41-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1878935638,
+    "ultimaModificacao": "2026-10-06T04:40:23-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1776420944,
+    "ultimaModificacao": "2026-10-16T02:26:49-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1776420944,
+    "ultimaModificacao": "2026-10-06T03:46:54-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\pasta-4",
+    "extensao": ".db",
+    "bytes": 1715777536,
+    "ultimaModificacao": "2026-10-21T20:49:57.869403-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\pasta-1",
+    "extensao": ".qcow2",
+    "bytes": 1676083200,
+    "ultimaModificacao": "2026-10-21T22:26:20.608120-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1648469110,
+    "ultimaModificacao": "2026-10-20T12:56:46-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1648469110,
+    "ultimaModificacao": "2026-10-06T05:26:06-03:00"
+   },
+   {
+    "pasta": "C:\\Users\\usuario-a\\OneDrive",
+    "extensao": ".mp4",
+    "bytes": 1622896599,
+    "ultimaModificacao": "2026-10-19T06:42:14-03:00"
+   }
+  ],
+  "avisos": []
+ }
+}

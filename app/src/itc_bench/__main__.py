@@ -17,6 +17,8 @@ from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import api
 from itc_bench.servicos.cadastros import Armazem
+from itc_bench.servicos.fila import NOME as NOME_FILA
+from itc_bench.servicos.fila import Fila
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tema
 from itc_bench.ui.janela import Janela
@@ -96,7 +98,9 @@ def main() -> int:
     armazem = Armazem(caminhos.protegida() / "cadastros.dpapi" if protegida_ok else None)
     if not protegida_ok:
         log.info("Cache dos cadastros só em memória (sem administrador ou sem pasta protegida).")
-    janela = Janela(tela, base, cofre, armazem=armazem, admin=admin)
+    # Fila dos diagnósticos não enviados (ADR-015): mesma regra do cache.
+    fila = Fila(caminhos.protegida() / NOME_FILA if protegida_ok else None)
+    janela = Janela(tela, base, cofre, armazem=armazem, admin=admin, fila=fila)
     janela.show()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")

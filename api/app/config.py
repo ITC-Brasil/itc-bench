@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     # Keys the ETag: the content holds secrets, so the version must not derive from it alone.
     # Empty: a random key per process (a restart invalidates the 304s).
     bench_cadastros_etag_key: SecretStr = SecretStr("")
+    # TA-ADR-028: Bench reports per technician per UTC hour.
+    bench_relatorio_limite_hora: int = Field(30, ge=1)
 
     @field_validator("opencode_go_model")
     @classmethod

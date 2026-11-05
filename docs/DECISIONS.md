@@ -661,3 +661,104 @@ aprovado com ajustes em `.conversa/` em 04/11/2026. A revisão do TA-ADR-005 est
 **Consequences**
 O responsável cria `Servidores.Publico` e o usuário Viewer no NocoDB e preenche o `.env`. Os
 módulos 08–10 leem por `servicos/cadastros.py` e recusam a ação quando falta cadastro (ADR-008).
+
+---
+
+## ADR-015 — Diagnóstico no Bench: coletores portados, laudo síncrono, fila DPAPI e renderização sem rich text
+
+**Status:** Accepted
+**Date:** 2026-11-04
+**Module:** 06
+
+**Context**
+O Módulo 06 traz o pendrive do Técnico Assistente para o Bench (ADR-003, ADR-012). Os
+coletores do pendrive são `.ps1` com menu, `Write-Host` e caminhos do pendrive; o ADR-011 já
+rejeitou `-File`. O laudo vem da IA em Markdown, e o Módulo 05 achou texto externo interpretado
+como rich text pelo Qt. Desenho aprovado com ajustes em `.conversa/` em 04/11/2026.
+
+**Decision**
+1. **Porte.** Cada coletor (processos, rede, eventlog, disco, bateria) é um trecho PowerShell
+   curto em `recursos/coletores/*.ps1`, empacotado no EXE e executado por `executor.powershell`
+   (`-EncodedCommand`, PS 5.1), que só coleta e devolve JSON compacto. Validação, ordenação,
+   resumos e regras (APIPA, faixas de desgaste, estado SMART, agrupamento do Event Log, parse do
+   `batteryreport.html`) ficam em Python. A varredura dos perfis em `C:\Users` é Python
+   (`os.scandir`). `powercfg.exe` roda por `executar` com caminho absoluto; o HTML é apagado
+   depois do parse. Catálogo de limpeza e correções ficam para o 13.
+2. **Saída de coletor é não confiável:** tipos e tamanhos validados, teto por lista; JSON
+   inválido, tempo esgotado ou cancelamento viram `status: "erro"` no módulo, sem derrubar a
+   coleta.
+3. **Formato `1.3`** (`docs/api/SCHEMA.md`): o envelope do 1.2 com `origem: "bench"`,
+   `coletadoPor`, `envioId` (UUID4) e `unidade`; sem `usuarioExecucao`, `usuarioSessao` nulo,
+   sem `itensLimpeza`. Grupos do Event Log saem sem classificação: a API classifica pela base
+   única `api/app/eventlog-conhecidos.json`; o Bench leva só a lista de pares provedor+id para
+   filtrar Avisos, conferida contra a base por teste.
+4. **Saneamento antes da fila e do envio** (função pura): caminho `<letra>:\Users\<perfil>\…`
+   vira `%PERFIL%\…`; nome de perfil local vira `<usuario>` só em palavra inteira, sem
+   diferenciar maiúsculas, excluídos `Public`, `Default`, `Default User`, `All Users` e perfis de
+   sistema; `contaLogon` fora de `LocalSystem`/`NT AUTHORITY\*`/`NT SERVICE\*` vira `<conta>`;
+   `usuario` de itens de inicialização sai; `maioresArquivos` sem nome de arquivo (pasta de 2º
+   nível, extensão, tamanho, data). Hostname, serial e MAC continuam (TA-ADR-023).
+5. **Tamanho:** corpo acima de 480 KB é cortado (mensagens de evento, grupos além de 100,
+   portas) com aviso. Um corpo 1.3 fica abaixo do 1.2 do pendrive, porque `itensLimpeza` e os
+   nomes de arquivo saem; os números medidos ficam em `docs/modules/06-diagnostico.md`.
+6. **Laudo síncrono** (TA-ADR-010/026): timeout de 105 s só nesta chamada. Idempotência por
+   `envio_id` (TA-ADR-028) cobre o `524` da borda e o cancelamento da espera; `409
+   em_processamento` faz o Bench esperar e tentar de novo.
+7. **Renderização:** o Markdown do laudo vira `QTextDocument` montado só com
+   `QTextCursor.insertText` (títulos, listas, parágrafos, negrito); nunca `setHtml`,
+   `setMarkdown` nem `QLabel` em rich text. Link e HTML aparecem como texto; imagem vira o alt.
+   Aviso fixo "Gerado por IA. Revise antes de abrir chamado."
+8. **Fila offline** `protegido\fila-diagnostico.dpapi` (DPAPI de máquina, ADR-013), escrita
+   atômica, `{"formato": 1, "itens": [...]}` com corpo já saneado; 10 itens e 14 dias; corrompida
+   vira `fila-diagnostico.corrompida`; é da máquina (logout não apaga); `--dev` sem admin, só em
+   memória. Reenvio depois do login online, a cada 30 min e por botão.
+9. **Executor (estende o ADR-011):** `cancelar: threading.Event | None`; a espera é feita em
+   fatias e, ao sinal, o job é encerrado como no timeout (`Resultado.cancelado`).
+10. **Histórico** só da API, só do hostname da máquina (`GetComputerNameExW`), mais a fila local.
+
+**Alternatives considered**
+- `.ps1` do pendrive por `-File` — política de execução ou assinatura (ADR-011).
+- WMI em Python (`wmi`/`comtypes`) — dependência nova, frágil para CIM de armazenamento.
+- Envio + consulta posterior do laudo — rota e estado a mais para um caso que cabe no limite.
+- `setMarkdown(MarkdownNoHTML)` — mantém links clicáveis e imagens que leem arquivo local.
+- Cópia da base de Event Log no app — fere a cópia única (ADR-012).
+- Apagar fila corrompida — perde a prova do defeito.
+
+**Consequences**
+O 13 reusa a varredura de disco e o envelope. Par novo na base de Event Log quebra o teste do
+app até a lista derivada ser regenerada.
+
+---
+
+## ADR-016 — Diagnóstico enviado pela sessão do técnico; o token da carreta não vai aos notebooks
+
+**Status:** Accepted (revisa o `IMPLEMENTATION-PLAN.md`, Módulo 06)
+**Date:** 2026-11-04
+**Module:** 06
+
+**Context**
+O item 4 do ADR-013 deixou para o 06 o envio do diagnóstico. `/v1/relatorio` exige o `itcta_`
+e o service token da borda, que o Bench não tem (ADR-013). O `itcta_` num notebook seria segredo
+de máquina, sem dono humano, legível por qualquer admin local. O plano dizia que tirar o token
+seria "ADR novo, fora do escopo do 06"; o responsável aprovou trazê-lo para o 06 (04/11/2026).
+
+**Decision**
+- `POST /v1/bench/relatorio` e `GET /v1/bench/historico/{hostname}` com `exigir_sessao`, sob o
+  Bypass já existente de `/v1/bench/`. Nada muda na Cloudflare nem nas rotas da carreta.
+- Limite de 30 envios por hora **por técnico** (`BENCH_RELATORIO_LIMITE_HORA`).
+- Auditoria: `diagnosticos.bench_usuario`, `bench_sessao_id`, `unidade` (validada pela API
+  contra as Unidades ativas) e `carreta = 'BANCADA'`.
+- O `itcta_` continua só nas carretas/pendrive. Os itens do plano 06 "token guardado com DPAPI"
+  e "como o token chega à máquina" deixam de existir (riscados no plano com remissão a este ADR).
+
+**Riscos aceitos (responsável, 04/11/2026)**
+- Qualquer técnico com sessão lê o histórico (inclusive `relatorio_md`) de qualquer hostname,
+  como a carreta hoje.
+
+**Alternatives considered**
+- `itcta_` em DPAPI no `protegido\` — distribuição e rotação por máquina, e ainda barrado pelo
+  service token na borda.
+- Service token no instalador — fere o ADR-008.
+
+**Consequences**
+Regras da API no TA-ADR-028. Deploy com backup obrigatório (migração `0006`).

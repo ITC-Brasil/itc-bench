@@ -1,0 +1,195 @@
+"""Paridade com o pendrive (ADR-015) sobre saídas gravadas na mesma máquina e anonimizadas.
+
+Cada `tests/gravacoes/<módulo>.json` tem o JSON cru do trecho do Bench (`bench`) e o do coletor
+do pendrive (`pendrive`), gravados em seguida por `scripts/gravar_paridade.py`. Compara só o que
+não muda entre as duas execuções (memória e carga, por exemplo, mudam).
+"""
+
+import ipaddress
+import json
+import os
+import re
+from pathlib import Path
+
+import pytest
+
+from itc_bench.servicos import coleta
+
+GRAVACOES = Path(__file__).parent / "gravacoes"
+DOCUMENTACAO = [
+    ipaddress.ip_network(r) for r in ("192.0.2.0/24", "198.51.100.0/24", "2001:db8::/32")
+]
+IPS_PERMITIDOS = {"0.0.0.0", "1.1.1.1", "8.8.8.8", "255.255.255.255", "::"}  # noqa: S104
+APIPA_FICTICIO = ipaddress.ip_network("169.254.0.0/24")
+MAC_FICTICIO = "02-00-5E-10-00-"
+PERFIS_FICTICIOS = re.compile(r"(?i)^(usuario-[a-z]|usuario-sessao|public|default)$")
+PASTAS_PADRAO = re.compile(
+    r"(?i)^(3d objects|appdata|contacts|desktop|documents|downloads|favorites|links|music"
+    r"|onedrive|onedrive-conta|pictures|saved games|searches|videos|pasta-\d+)$"
+)
+SID_FICTICIO = "S-1-5-21-0-0-0-1001"
+
+
+def gravacao(nome: str) -> dict:
+    return json.loads((GRAVACOES / f"{nome}.json").read_text("utf-8"))
+
+
+def textos() -> list[tuple[str, str]]:
+    arquivos = sorted(GRAVACOES.glob("*.json"))
+    assert {a.stem for a in arquivos} == set(coleta.ROTULOS)
+    return [(a.name, a.read_text("utf-8")) for a in arquivos]
+
+
+def palavra(valor: str) -> re.Pattern[str]:
+    return re.compile(r"(?<!\w)" + re.escape(valor) + r"(?!\w)", re.IGNORECASE)
+
+
+def test_gravacoes_anonimas():
+    proibidos = [v for v in (os.environ.get("COMPUTERNAME"), os.environ.get("USERNAME")) if v]
+    for nome, texto in textos():
+        for bruto in re.findall(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])", texto):
+            try:
+                ip = ipaddress.ip_address(bruto)
+            except ValueError:
+                continue  # versão de programa, não endereço
+            ok = bruto in IPS_PERMITIDOS or ip.is_loopback or ip in APIPA_FICTICIO
+            assert ok or any(ip in rede for rede in DOCUMENTACAO), f"{nome}: IP {bruto}"
+        for mac in re.findall(r"(?:[0-9A-Fa-f]{2}[-:]){5}[0-9A-Fa-f]{2}", texto):
+            assert mac.upper().startswith(MAC_FICTICIO), f"{nome}: MAC {mac}"
+        for sid in re.findall(r"S-1-5-21(?:-\d+)+", texto):
+            assert sid == SID_FICTICIO, f"{nome}: SID de conta"
+        # Hash longo em nome de item (EdgeAutoLaunch_*, sufixo de serviço por usuário).
+        assert not re.search(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{16,}(?![0-9A-Fa-f])", texto), nome
+        sem_escape = texto.replace("\\\\", "\\")  # JSON escapa a barra invertida
+        for caminho in re.findall(r"(?i)\\users\\([^\"]+)", sem_escape):
+            perfil, *pastas = caminho.split("\\")
+            assert PERFIS_FICTICIOS.match(perfil), f"{nome}: perfil"
+            assert all(re.fullmatch(r"pasta-\d+", p) for p in pastas[1:]), f"{nome}: 3º nível"
+            assert not pastas or PASTAS_PADRAO.match(pastas[0]), f"{nome}: 2º nível"
+        for valor in proibidos:
+            assert not palavra(valor).search(texto), f"{nome}: nome desta máquina ou conta"
+
+
+def test_nomes_proibidos_da_lista_local():
+    """Lista de nomes reais (perfis, pastas, programas) fora do repositório; pulado no CI."""
+    lista = os.environ.get("ITC_BENCH_PROIBIDOS")
+    if not lista:
+        pytest.skip("ITC_BENCH_PROIBIDOS não definida (lista local, fora do repo)")
+    nomes = [n.strip() for n in Path(lista).read_text("utf-8").splitlines() if n.strip()]
+    assert nomes
+    achados = [
+        f"{arquivo}: linha {i} da lista"
+        for arquivo, texto in textos()
+        for i, n in enumerate(nomes, 1)
+        if palavra(n).search(texto)
+    ]
+    assert not achados, achados
+
+
+def test_processos():
+    g = gravacao("processos")
+    bench, pendrive = coleta.processos(g["bench"]), g["pendrive"]
+    chave = lambda s: (s["nome"], s["contaLogon"], s["atrasado"])  # noqa: E731
+    assert sorted(map(chave, bench["servicosAutomaticosParados"])) == sorted(
+        map(chave, pendrive["servicosAutomaticosParados"])
+    )
+    item = lambda i: (i["nome"], i["origem"])  # noqa: E731
+    assert sorted(map(item, bench["itensInicializacao"])) == sorted(
+        map(item, pendrive["itensInicializacao"])
+    )
+    assert bench["memoria"]["totalGB"] == pendrive["memoria"]["totalGB"]
+
+
+def test_rede():
+    g = gravacao("rede")
+    bench, pendrive = coleta.rede(g["bench"]), g["pendrive"]
+    campos = (
+        "nome",
+        "status",
+        "macAddress",
+        "enderecosIPv4",
+        "gateway",
+        "servidoresDNS",
+        "dhcp",
+        "semIP",
+        "apipa",
+    )
+    assert [[a[c] for c in campos] for a in bench["adaptadores"]] == [
+        [a[c] for c in campos] for a in pendrive["adaptadores"]
+    ]
+    for chave in ("adaptadoresAtivos", "temIPValido", "internetOk", "dnsOk"):
+        assert bench["resumo"][chave] == pendrive["resumo"][chave], chave
+    # Portas não entram: Get-NetTCPConnection devolve conjuntos diferentes a cada chamada, e o
+    # pendrive ainda descartava portas ao acaso (Sort-Object -Unique do PS 5.1). Uma por porta:
+    portas = [p["porta"] for p in bench["portasEmEscuta"]]
+    assert portas == sorted(set(portas))
+
+
+def test_eventlog():
+    g = gravacao("eventlog")
+    bench = coleta.eventlog(g["bench"], coleta.pares_da_base())
+    pendrive = g["pendrive"]
+    campos = (
+        "log",
+        "provedor",
+        "id",
+        "nivel",
+        "ocorrencias",
+        "primeiraOcorrencia",
+        "ultimaOcorrencia",
+    )
+    # Empate de ocorrências: o Sort-Object do pendrive não é estável; compara sem a ordem.
+    chave = lambda x: [x[c] for c in campos] + [x["exemploMensagem"] is None]  # noqa: E731
+    assert sorted(map(chave, bench["grupos"])) == sorted(map(chave, pendrive["grupos"]))
+    nivel = [coleta.ORDEM_NIVEL[x["nivel"]] for x in bench["grupos"]]
+    assert nivel == sorted(nivel)
+    for chave in ("totalOcorrencias", "totalGrupos", "gruposCriticos"):
+        assert bench[chave] == pendrive[chave], chave
+
+
+def test_disco():
+    g = gravacao("disco")
+    bench = coleta.disco(g["bench"], g["varredura"], elevado=True)
+    pendrive = g["pendrive"]
+    volume = lambda v: (v["letra"], v["tipo"], v["totalGB"], v["sistemaArquivos"])  # noqa: E731
+    assert list(map(volume, bench["volumes"])) == list(map(volume, pendrive["volumes"]))
+    campos = (
+        "numero",
+        "modelo",
+        "barramento",
+        "tamanhoGB",
+        "estadoSmart",
+        "percentualDesgaste",
+        "errosLeituraNaoCorrigidos",
+    )
+    assert [[d[c] for c in campos] for d in bench["discosFisicos"]] == [
+        [d[c] for c in campos] for d in pendrive["discosFisicos"]
+    ]
+    assert {p["caminho"] for p in bench["maioresPastasPerfil"]} == {
+        p["caminho"] for p in pendrive["maioresPastasPerfil"]
+    }
+    # Arquivo grande: no Bench só a pasta de 2º nível (sem nome); no pendrive a gravação guarda a
+    # pasta onde o arquivo está. Mesmos tamanhos, e a pasta do pendrive fica dentro da do Bench.
+    bench_arq = sorted((a["bytes"], a["pasta"]) for a in bench["maioresArquivos"])
+    pend_arq = sorted((a["bytes"], a["caminho"]) for a in pendrive["maioresArquivos"])
+    assert [b for b, _ in bench_arq] == [b for b, _ in pend_arq]
+    pastas = {p for _, p in bench_arq}
+    assert all(any(c == p or c.startswith(p + "\\") for p in pastas) for _, c in pend_arq)
+
+
+def test_bateria():
+    g = gravacao("bateria")
+    bench = coleta.bateria(g["bench"], None, None)
+    pendrive = g["pendrive"]
+    assert bench["presente"] == pendrive["presente"]
+    assert [b["nome"] for b in bench["baterias"]] == [b["nome"] for b in pendrive["baterias"]]
+
+
+@pytest.mark.parametrize("nome", list(coleta.ROTULOS))
+def test_saneamento_das_gravacoes(nome):
+    """O corpo montado a partir da gravação não leva caminho de perfil nem nome fictício."""
+    from itc_bench.servicos import diagnostico
+
+    texto = json.dumps(diagnostico.sanear(gravacao(nome)["bench"], ["usuario-a", "usuario-b"]))
+    assert "usuario-a" not in texto and "usuario-b" not in texto
+    assert not re.search(r"(?i)[a-z]:\\\\users\\\\usuario-", texto)
