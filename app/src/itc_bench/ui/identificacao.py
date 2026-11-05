@@ -1,5 +1,6 @@
 """Tela Identificação (ADR-018). Regras e execução em `servicos/identificacao.py`; aqui só tela."""
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget
 
@@ -25,6 +26,13 @@ AJUDA = (
     "nome reservado do Windows.\n\n"
     "Sem administrador (modo de teste), a tela só mostra o nome."
 )
+
+
+def aviso(pai: QWidget, titulo: str, texto: str) -> None:
+    """Mensagem do Windows só como texto puro (ADR-015)."""
+    caixa = QMessageBox(QMessageBox.Icon.Warning, titulo, texto, parent=pai)
+    caixa.setTextFormat(Qt.TextFormat.PlainText)
+    caixa.exec()
 
 
 class PainelIdentificacao(QWidget):
@@ -129,7 +137,7 @@ class PainelIdentificacao(QWidget):
             if confirmar(self, "Renomear o computador", feito.mensagem + "\n\nReiniciar agora?"):
                 self._reiniciar(confirmado=True)
         else:
-            QMessageBox.warning(self, "Renomear o computador", feito.mensagem)
+            aviso(self, "Renomear o computador", feito.mensagem)
         self.carregar()
 
     def _reiniciar(self, confirmado: bool = False) -> None:
@@ -139,6 +147,6 @@ class PainelIdentificacao(QWidget):
             return
         feito = identificacao.reiniciar()
         if not feito.ok:
-            QMessageBox.warning(self, "Reiniciar", feito.mensagem)
+            aviso(self, "Reiniciar", feito.mensagem)
         else:
             self.situacao.setText(feito.mensagem)
