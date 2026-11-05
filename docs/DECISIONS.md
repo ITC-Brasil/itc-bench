@@ -891,8 +891,12 @@ e aprovado em `.conversa/` em 05/11/2026.
    `BACKEND-SCHEMA.md`; a API não muda (já recusa código fora das Unidades ativas).
 6. **Wi-Fi pela `wlanapi.dll` por ctypes** (`nucleo/wlan.py`, lógica em `servicos/wifi.py`, os
    dois sem Qt), como `nucleo/dpapi.py`: listar interfaces e perfis, ler o perfil, gravar
-   (`WlanSetProfile`, `dwFlags = 0` = todos os usuários, sobrescreve) e conectar. Sem processo,
-   arquivo, argumento ou `ITC_*`: a senha sai do `Sensivel` só para a chamada.
+   (`WlanSetProfile`, `dwFlags = 0` = todos os usuários, sobrescreve). Sem processo, arquivo,
+   argumento ou `ITC_*`: a senha sai do `Sensivel` só para a chamada.
+   **Exceção ao executor único do ADR-011.** Critério: chamar a API do Windows direto (ctypes)
+   só quando passar por um processo exporia um segredo (senha em arquivo, argumento ou
+   ambiente do filho); todo o resto continua no executor (o próprio renomear, item 3). Precedente:
+   `nucleo/dpapi.py`, que cifra e decifra o cache por ctypes pelo mesmo motivo.
 7. **XML do perfil** montado com `xml.etree.ElementTree`; SSID em `<hex>` (UTF-8) e `<name>`;
    só `WPA2PSK`/`AES` (WPA3 fora: incompatível com os notebooks, decisão do responsável).
    Senha: 8–63 ASCII imprimíveis (`passPhrase`) ou 64 hexadecimais (`networkKey`); vazia ou fora
@@ -901,8 +905,9 @@ e aprovado em `.conversa/` em 05/11/2026.
    inválida no cadastro. A comparação lê o perfil com `WLAN_PROFILE_GET_PLAINTEXT_KEY` (só com
    admin) e compara com `hmac.compare_digest` na mesma função; a chave lida não sai dela.
 9. **Tela Wi-Fi:** filtros esta unidade / todas / instaladas no Windows; "Instalar N redes"
-   (cancelamento entre redes, ADR-015) e "Testar conexão" (`WlanConnect`, até 20 s, depois
-   `api.saude()`). Sem cache: "conecte por cabo ou por uma rede do Windows, entre e sincronize",
+   (cancelamento entre redes, ADR-015). Sem "Testar conexão" (decisão do responsável na revisão
+   do PR #27): as redes cadastradas são as das carretas e os notebooks são preparados no
+   escritório, fora do alcance delas; a conexão é conferida na carreta, pelo Windows. Sem cache: "conecte por cabo ou por uma rede do Windows, entre e sincronize",
    com "Abrir redes do Windows" (`explorer.exe ms-availablenetworks:`). O Bench não tem campo de
    SSID nem de senha.
 10. **Log:** nome do computador sim (antigo → novo); Wi-Fi só por `Id` do cadastro, contagens e
@@ -916,7 +921,9 @@ e aprovado em `.conversa/` em 05/11/2026.
 - Hash da senha dentro do PS, ou não comparar — `netsh key=clear` é texto localizado; sem
   comparar, o técnico não vê a senha antiga.
 - Popup do Bench com SSID/senha digitados — repete o painel do Windows e passa a senha pelo Bench.
-- `ping 8.8.8.8` — ICMP filtrado dá falso negativo; o que importa é falar com a API.
+- `ping 8.8.8.8` — ICMP filtrado dá falso negativo.
+- "Testar conexão" no Bench (`WlanConnect` e checagem da API) — no escritório a rede da carreta
+  nunca está ao alcance (responsável).
 - Senha vazia = rede aberta — todas as redes do Grupo têm senha (responsável).
 
 **Consequences**
