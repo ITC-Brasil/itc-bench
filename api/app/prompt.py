@@ -5,8 +5,9 @@ from pathlib import Path
 
 SISTEMA = (Path(__file__).parent / "prompts" / "relatorio.md").read_text("utf-8")
 # Not needed to diagnose and not sent to the provider: the account that ran the tool
-# (ADR-016 data minimization), serial number and MAC addresses.
-FORA_DO_PROMPT = frozenset({"usuarioExecucao", "numeroSerie", "macAddress"})
+# (ADR-016 data minimization), serial number and MAC addresses; for the Bench, the GLPI login
+# of the technician (TA-ADR-028).
+FORA_DO_PROMPT = frozenset({"usuarioExecucao", "numeroSerie", "macAddress", "coletadoPor", "bench_usuario"})
 SEM_HISTORICO = "Sem diagnósticos anteriores deste hostname."
 
 

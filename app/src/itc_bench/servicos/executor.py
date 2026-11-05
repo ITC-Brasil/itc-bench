@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping, Sequence
@@ -23,6 +24,7 @@ from typing import Literal
 log = logging.getLogger("itc_bench.executor")
 
 TIMEOUT_PADRAO = 120.0
+FATIA = 0.25  # espera entre conferências do cancelamento
 MASCARA = "***"
 NOME_VARIAVEL = re.compile(r"ITC_[A-Z0-9_]+")
 # Linha de comando do Windows: 32 767 caracteres; base64 de UTF-16LE gasta 8/3 por caractere.
@@ -64,10 +66,11 @@ class Resultado:
     erros: str
     duracao: float
     esgotado: bool
+    cancelado: bool = False
 
     @property
     def ok(self) -> bool:
-        return self.codigo == 0 and not self.esgotado
+        return self.codigo == 0 and not self.esgotado and not self.cancelado
 
 
 def sistema32(nome: str) -> str:
@@ -86,8 +89,12 @@ def executar(
     timeout: float = TIMEOUT_PADRAO,
     codificacao: Codificacao = "auto",
     descricao: str | None = None,
+    cancelar: threading.Event | None = None,
 ) -> Resultado:
-    """Roda o programa e espera. Código ≠ 0 volta no `Resultado`; uso errado levanta exceção."""
+    """Roda o programa e espera (ou até `cancelar`, ADR-015).
+
+    Código ≠ 0 volta no `Resultado`; uso errado levanta exceção.
+    """
     if isinstance(argumentos, str | bytes):
         raise TypeError("O comando é uma lista de argumentos, nunca texto.")
     argumentos = list(argumentos)
@@ -121,28 +128,40 @@ def executar(
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
     job = _Job(processo.pid)
-    esgotado = False
+    esgotado = cancelado = False
+    limite = inicio + timeout
     try:
-        try:
-            saida, erros = processo.communicate(dados, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            esgotado = True
-            job.encerrar()
-            processo.kill()
-            saida, erros = processo.communicate()
+        while True:
+            fatia = limite - time.monotonic() if cancelar is None else FATIA
+            try:
+                # Entrada só na primeira chamada: depois de começar, o communicate a recusa.
+                saida, erros = processo.communicate(dados, timeout=max(fatia, 0))
+                break
+            except subprocess.TimeoutExpired:
+                dados = None
+                cancelado = cancelar is not None and cancelar.is_set()
+                esgotado = not cancelado and time.monotonic() >= limite
+                if cancelado or esgotado:
+                    job.encerrar()
+                    processo.kill()
+                    saida, erros = processo.communicate()
+                    break
     finally:
         job.fechar()
     duracao = time.monotonic() - inicio
 
     resultado = Resultado(
-        codigo=None if esgotado else processo.returncode,
+        codigo=None if esgotado or cancelado else processo.returncode,
         saida=_mascarar(_decodificar(saida, codificacao), segredos),
         erros=_mascarar(_clixml(_decodificar(erros, codificacao)), segredos),
         duracao=duracao,
         esgotado=esgotado,
+        cancelado=cancelado,
     )
     variaveis = ", ".join(sorted(ambiente)) or "nenhuma"
-    if esgotado:
+    if cancelado:
+        log.warning("Cancelado pelo técnico: %s [ITC_*: %s]", rotulo, variaveis)
+    elif esgotado:
         log.error("Tempo esgotado (%.0f s): %s [ITC_*: %s]", timeout, rotulo, variaveis)
     else:
         log.info(
@@ -158,7 +177,11 @@ def executar(
 
 
 def powershell(
-    script: str, *, timeout: float = TIMEOUT_PADRAO, **variaveis: str | Sensivel
+    script: str,
+    *,
+    timeout: float = TIMEOUT_PADRAO,
+    cancelar: threading.Event | None = None,
+    **variaveis: str | Sensivel,
 ) -> Resultado:
     """Script fixo no código; dados só por `ITC_<NOME>` (`nome="x"` vira `$env:ITC_NOME`)."""
     completo = ABERTURA_PS + script
@@ -170,6 +193,7 @@ def powershell(
         [programa, "-NoProfile", "-NonInteractive", "-EncodedCommand", codificado],
         ambiente={f"ITC_{k.upper()}": v for k, v in variaveis.items()},
         timeout=timeout,
+        cancelar=cancelar,
         codificacao="utf-8",
         descricao=f"PowerShell ({len(script)} caracteres): {script.strip().splitlines()[0][:80]}",
     )

@@ -1,0 +1,22 @@
+{
+  "origem": "api/app/eventlog-conhecidos.json (ADR-015: lista derivada, conferida por teste)",
+  "pares": [
+    "Application Error|1000",
+    "BugCheck|1001",
+    "disk|51",
+    "disk|7",
+    "EventLog|6008",
+    "Microsoft-Windows-Kernel-Power|41",
+    "Microsoft-Windows-NDIS|10317",
+    "Microsoft-Windows-WER-SystemErrorReporting|1001",
+    "Microsoft-Windows-WindowsUpdateClient|20",
+    "Ntfs|55",
+    "Service Control Manager|7000",
+    "Service Control Manager|7009",
+    "Service Control Manager|7011",
+    "Service Control Manager|7031",
+    "Service Control Manager|7034",
+    "volmgr|162",
+    "volmgr|46"
+  ]
+}

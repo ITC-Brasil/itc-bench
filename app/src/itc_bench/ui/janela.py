@@ -25,11 +25,14 @@ from itc_bench import __version__
 from itc_bench.nucleo.log import definir_tecnico, log
 from itc_bench.servicos import api, cadastros
 from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
+from itc_bench.servicos.executor import Sensivel
+from itc_bench.servicos.fila import Fila, Reenvio, reenviar
 from itc_bench.servicos.login import Entrada
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
 from itc_bench.ui.configuracoes import AJUDA as AJUDA_CONFIGURACOES
 from itc_bench.ui.configuracoes import PainelConfiguracoes
+from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO, PainelColeta, PainelHistorico
 from itc_bench.ui.entrar import Ocioso, TelaEntrar
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
@@ -162,8 +165,10 @@ class Janela(QMainWindow):
         maquina: str | None = None,
         armazem: Armazem | None = None,
         admin: bool = False,
+        fila: Fila | None = None,
     ) -> None:
         super().__init__()
+        self.fila = fila or Fila(None)
         self.base = base
         self.admin = admin
         self.entrada: Entrada | None = None
@@ -210,6 +215,7 @@ class Janela(QMainWindow):
 
         self._log_na_tela(handler_tela)
         self._configuracoes()
+        self._diagnostico()
         self.abrir("inicio")
 
         centro = QWidget()
@@ -248,6 +254,7 @@ class Janela(QMainWindow):
         self.sincronia = QTimer(self)
         self.sincronia.setInterval(SINCRONIA_MS)
         self.sincronia.timeout.connect(self.sincronizar)
+        self.sincronia.timeout.connect(self.reenviar_fila)
         self._atualizar_rodape()
         self.entrar.verificar_api()
 
@@ -328,6 +335,52 @@ class Janela(QMainWindow):
         tela.corpo.addWidget(self.configuracoes, 1)
         tela.ajuda.texto.setText(AJUDA_CONFIGURACOES)
 
+    def sessao_online(self) -> tuple[str, Sensivel, str] | None:
+        if self.entrada is None or self.entrada.sessao is None or not self.base:
+            return None
+        return self.base, self.entrada.sessao.token, self.entrada.login
+
+    def _diagnostico(self) -> None:
+        """Coleta e laudo, Histórico (ADR-015): os painéis trocam o conteúdo vazio das telas."""
+        self.coleta = PainelColeta(self.sessao_online, self.fila, self.admin, lambda: self.unidade)
+        self.historico = PainelHistorico(self.sessao_online, self.fila)
+        paineis: list[tuple[str, PainelColeta | PainelHistorico, str]] = [
+            ("diag", self.coleta, AJUDA_COLETA),
+            ("hist", self.historico, AJUDA_HISTORICO),
+        ]
+        for chave, painel, ajuda in paineis:
+            tela = self.telas[chave]
+            while tela.corpo.count():
+                item = tela.corpo.takeAt(0)
+                widget = item.widget() if item is not None else None
+                if widget is not None:
+                    widget.deleteLater()
+            tela.corpo.addWidget(painel, 1)
+            tela.ajuda.texto.setText(ajuda)
+            painel.sessao_expirada.connect(self.sessao_expirada)
+        self.coleta.fila_mudou.connect(lambda: self.historico.mostrar([], ""))
+
+    def reenviar_fila(self) -> None:
+        """Depois do login online e a cada 30 min: um pendente por vez (ADR-015)."""
+        sessao = self.sessao_online()
+        if sessao is None or not self.fila.itens():
+            return
+        base, token, _ = sessao
+        fila = self.fila
+        tarefa.iniciar(lambda: reenviar(fila, base, token), self._reenviou, lambda _m: None)
+
+    def _reenviou(self, resultado: Reenvio) -> None:
+        log.info(
+            "Fila de diagnósticos: %d enviado(s), %d pendente(s).",
+            resultado.enviados,
+            resultado.pendentes,
+        )
+        if resultado.sessao_expirada:
+            self.sessao_expirada()
+            return
+        self.coleta.atualizar_estado()
+        self.historico.atualizar()
+
     def codigo_unidade(self) -> str:
         """A unidade gravada só aparece se for uma Unidade ativa do cache; senão, "—"."""
         if self.cadastros is not None and self.cadastros.unidade_por_codigo(self.unidade):
@@ -379,10 +432,13 @@ class Janela(QMainWindow):
             self.validade.start(min(max(0, ms), 2**31 - 1))
             self.sincronia.start()
             self.sincronizar()
+            self.reenviar_fila()
         else:
             self.sincronia.stop()
             self.cadastros_offline = True
             self._atualizar_rodape()
+        self.coleta.atualizar_estado()
+        self.historico.atualizar()
         self._mostrar_conteudo()
 
     def _destravou(self) -> None:
@@ -422,6 +478,7 @@ class Janela(QMainWindow):
         self.ocioso.relogio.stop()
         definir_tecnico(None)
         self._atualizar_rodape()
+        self.coleta.atualizar_estado()
         self.entrar.reiniciar(motivo)
         self.raiz.setCurrentWidget(self.entrar)
 

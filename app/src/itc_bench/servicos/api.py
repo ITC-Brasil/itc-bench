@@ -18,12 +18,14 @@ import winreg
 from dataclasses import dataclass
 from email.message import Message
 from typing import Any
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 from itc_bench.nucleo.log import log
 from itc_bench.servicos.executor import Sensivel
 
 TIMEOUT = 15
+# Laudo síncrono (ADR-015): a IA leva até ~90 s no servidor e a borda corta em ~100 s.
+TIMEOUT_RELATORIO = 105
 CHAVE_REGISTRO = r"SOFTWARE\ITC\Bench"
 VARIAVEL_DEV = "ITC_BENCH_API_URL"
 # Borda da Cloudflare sem a origem (530: túnel caído) e a API sem o GLPI: liberam o offline.
@@ -48,6 +50,17 @@ class Recusado(Exception):
 
 class ErroApi(Exception):
     """Resposta inesperada: outro código, corpo que não é JSON da API, redirecionamento."""
+
+
+class IaFalhou(Exception):
+    """`502/503 ia_*`: a API recebeu a coleta e gravou o diagnóstico, a IA não respondeu.
+
+    Não é `SemConexao`: a coleta não volta para a fila; o laudo sai num novo envio.
+    """
+
+    def __init__(self, codigo: str) -> None:
+        super().__init__(codigo)
+        self.codigo = codigo
 
 
 class CadastrosIndisponivel(Exception):
@@ -103,6 +116,7 @@ def _chamar(
     corpo: dict[str, Any] | None = None,
     sessao: Sensivel | None = None,
     extras: dict[str, str] | None = None,
+    timeout: float = TIMEOUT,
 ) -> tuple[int, Message, dict[str, Any] | None]:
     cabecalhos = {"Accept": "application/json", "User-Agent": "itc-bench", **(extras or {})}
     dados = None
@@ -118,7 +132,7 @@ def _chamar(
         base + caminho, data=dados, headers=cabecalhos, method=metodo
     )
     try:
-        with _abridor.open(requisicao, timeout=TIMEOUT) as resposta:
+        with _abridor.open(requisicao, timeout=timeout) as resposta:
             status, headers, bruto = resposta.status, resposta.headers, resposta.read()
     except urllib.error.HTTPError as erro:
         status, headers, bruto = erro.code, erro.headers, erro.read()
@@ -203,6 +217,39 @@ def cadastros(
         raise CadastrosIndisponivel(erro)
     if status in STATUS_SEM_SERVIDOR:
         raise SemConexao(erro or f"http_{status}")
+    raise ErroApi(f"Resposta inesperada do servidor ({status}).")
+
+
+def relatorio(base: str, token: Sensivel, corpo: dict[str, Any]) -> dict[str, Any]:
+    """`POST /v1/bench/relatorio` (ADR-016). Mesmo `envio_id` repetido é seguro (TA-ADR-028)."""
+    status, headers, dados = _chamar(
+        base, "POST", "/v1/bench/relatorio", corpo, sessao=token, timeout=TIMEOUT_RELATORIO
+    )
+    erro = str((dados or {}).get("erro") or "")
+    if status == 200 and dados:
+        return dados
+    if status in (401, 409, 422):
+        raise Recusado(status, erro or "nao_autorizado")
+    if status == 429:
+        raise Recusado(429, "limite_excedido", _retry_after(headers))
+    if status in (502, 503) and erro.startswith("ia_"):
+        raise IaFalhou(erro)
+    if status in STATUS_SEM_SERVIDOR:
+        raise SemConexao(erro or f"http_{status}")
+    raise ErroApi(f"Resposta inesperada do servidor ({status}).")
+
+
+def historico(base: str, token: Sensivel, hostname: str) -> dict[str, Any]:
+    """`GET /v1/bench/historico/{hostname}`; o hostname vem do Windows, nunca da tela."""
+    status, _, dados = _chamar(
+        base, "GET", f"/v1/bench/historico/{quote(hostname, safe='')}", sessao=token
+    )
+    if status == 200 and dados:
+        return dados
+    if status == 401:
+        raise Recusado(401, "nao_autorizado")
+    if status in STATUS_SEM_SERVIDOR:
+        raise SemConexao(f"http_{status}")
     raise ErroApi(f"Resposta inesperada do servidor ({status}).")
 
 
