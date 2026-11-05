@@ -221,6 +221,29 @@ def _erro(resultado: executor.Resultado) -> str:
     return f"Falha do PowerShell (código {resultado.codigo})."
 
 
+def _codigo(resultado: executor.Resultado) -> str:
+    """Só o código da falha, para o log: a mensagem do Windows pode ter caminho de perfil."""
+    if resultado.esgotado:
+        return "tempo_esgotado"
+    for linha in _linhas(resultado):
+        if linha.startswith("ERRO|"):
+            return linha.split("|", 2)[1] or "erro"
+    return f"powershell_{resultado.codigo}"
+
+
+def _avisos_log(linhas: list[str]) -> str:
+    """`AVISO|tipo|...` → só o tipo (e o HResult do perfil); o detalhe fica na tela."""
+    resumo = []
+    for linha in linhas:
+        if linha.startswith("AVISO|"):
+            partes = linha.split("|")
+            tipo = partes[1] if len(partes) > 1 else "?"
+            resumo.append(
+                f"{tipo}: falhou ({partes[2]})" if tipo == "perfil" and len(partes) > 3 else tipo
+            )
+    return "; ".join(resumo)
+
+
 def _avisos(resultado: executor.Resultado) -> tuple[str, ...]:
     return tuple(
         linha.split("|", 1)[1] for linha in _linhas(resultado) if linha.startswith("AVISO|")
@@ -230,13 +253,18 @@ def _avisos(resultado: executor.Resultado) -> tuple[str, ...]:
 def _feito(acao: str, nome: str, resultado: executor.Resultado, sucesso: str) -> Feito:
     linhas = _linhas(resultado)
     alteradas = tuple(linha.split("|", 1)[1] for linha in linhas if linha.startswith("MUDOU|"))
+    avisos = _avisos_log(linhas)
     if resultado.ok and "OK" in linhas:
         log.info(
-            "Contas: %s %s: ok%s", acao, nome, f" ({', '.join(alteradas)})" if alteradas else ""
+            "Contas: %s %s: ok%s%s",
+            acao,
+            nome,
+            f" ({', '.join(alteradas)})" if alteradas else "",
+            f"; avisos: {avisos}" if avisos else "",
         )
         return Feito(True, sucesso, alteradas, _avisos(resultado))
     motivo = _erro(resultado)
-    log.error("Contas: %s %s: falhou: %s", acao, nome, motivo)
+    log.error("Contas: %s %s: falhou: %s", acao, nome, _codigo(resultado))
     return Feito(False, motivo, alteradas, _avisos(resultado))
 
 
@@ -279,9 +307,9 @@ def listar(*, rodar: Rodar = executor.powershell, cancelar: threading.Event | No
     r = rodar(script("listar"), timeout=TIMEOUT_LISTA, cancelar=cancelar)
     if r.esgotado or r.cancelado or r.codigo != 0:
         raise ErroContas("tempo esgotado" if r.esgotado else f"código {r.codigo}")
-    for aviso in r.erros.splitlines():
-        if aviso.startswith("AVISO|"):
-            log.warning("Contas: leitura com aviso: %s", aviso[6:])
+    avisos = _avisos_log(r.erros.splitlines())
+    if avisos:
+        log.warning("Contas: leitura com aviso: %s", avisos)
     return ler(r.saida)
 
 
@@ -410,7 +438,8 @@ def excluir(
     else:
         extra = " Não foi possível apagar a pasta; use a Limpeza."
     # A conta saiu mesmo se o perfil falhou: sucesso, com o aviso.
-    log.info("Contas: %s %s: ok%s", acao, conta.nome, extra)
+    avisos = _avisos_log(linhas)
+    log.info("Contas: %s %s: ok%s%s", acao, conta.nome, extra, f" ({avisos})" if avisos else "")
     return Feito(True, f"Conta {conta.nome} excluída.{extra}", (), _avisos(r))
 
 
@@ -424,16 +453,13 @@ def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powe
     existente = next((c for c in lista.contas if c.nome.lower() == nome.lower()), None)
     if existente is not None:
         motivo = (
-            "suporte_nativo"
-            if existente.nativo
-            else "microsoft"
-            if not existente.local
-            else ("logada" if existente.logada else None)
+            "suporte_nativo" if existente.nativo else "microsoft" if not existente.local else None
         )
         if motivo:
             log.warning("Contas: aplicar conta Suporte recusado: %s", motivo)
             return Feito(False, MENSAGENS[motivo])
     r = rodar(script("suporte"), timeout=TIMEOUT_ACAO, nome=nome, senha=senha)
+    # Com a Suporte logada, aplicar é permitido (emenda do ADR-017); a tela avisa do cofre.
     verbo = "criada" if "CRIADA" in _linhas(r) else "atualizada"
     return _feito(
         "aplicar conta Suporte",

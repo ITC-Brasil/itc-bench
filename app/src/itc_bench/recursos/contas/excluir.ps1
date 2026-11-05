@@ -5,6 +5,6 @@ try { Remove-LocalUser -SID $conta.SID } catch { Falhar 'excluir' $_.Exception.M
 Write-Output 'CONTA'
 if ($env:ITC_PERFIL -eq '1' -and $perfil) {
     try { Remove-CimInstance -InputObject $perfil; Write-Output 'PERFIL' }
-    catch { Write-Output ('AVISO|perfil|' + $_.Exception.Message) }
+    catch { Write-Output ('AVISO|perfil|0x{0:X8}|{1}' -f $_.Exception.HResult, $_.Exception.Message) }
 }
 Write-Output 'OK'

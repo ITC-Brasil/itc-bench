@@ -4,7 +4,6 @@ $segura = ConvertTo-SecureString $env:ITC_SENHA -AsPlainText -Force
 if ($conta) {
     if ($conta.SID.Value -match '-500$') { Falhar 'suporte_nativo' $nome }
     if (-not (Eh-Local $conta)) { Falhar 'microsoft' $nome }
-    if ((Sids-Logados) -contains $conta.SID.Value) { Falhar 'logada' $nome }
 }
 try {
     if ($conta) {

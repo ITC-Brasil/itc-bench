@@ -118,6 +118,24 @@ def marcas(c: Conta, prot: frozenset[str]) -> str:
     return ", ".join(m)
 
 
+AVISO_SUPORTE_LOGADA = (
+    "Você está nesta conta. Senhas salvas no Windows desta conta (cofre de credenciais) serão "
+    "perdidas."
+)
+
+
+def texto_suporte(nome: str, lista: Lista | None) -> str:
+    """Confirmação de "Aplicar conta Suporte"; com a Suporte logada, avisa do cofre."""
+    texto = (
+        f"Aplicar a conta {nome}: cria se faltar, ou troca a senha pela do cadastro, ativa e "
+        "torna administradora?"
+    )
+    logada = lista is not None and any(
+        c.logada and c.nome.lower() == nome.lower() for c in lista.contas
+    )
+    return texto + ("\n\n" + AVISO_SUPORTE_LOGADA if logada else "")
+
+
 class ConfirmarExclusao(QDialog):
     """Resumo, caixa de apagar a pasta e o nome digitado para liberar o botão."""
 
@@ -495,12 +513,7 @@ class PainelContas(QWidget):
         if isinstance(origem, str):
             QMessageBox.warning(self, "Conta Suporte", origem)
             return
-        if confirmar(
-            self,
-            "Conta Suporte",
-            f"Aplicar a conta {origem[0]}: cria se faltar, ou troca a senha pela do "
-            "cadastro, ativa e torna administradora?",
-        ):
+        if confirmar(self, "Conta Suporte", texto_suporte(origem[0], self.lista)):
             self._rodar(lambda: contas.aplicar_suporte(cadastros))
 
     def _lote(self, tipo: Any) -> None:

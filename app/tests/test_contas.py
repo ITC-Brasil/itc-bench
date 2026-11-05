@@ -291,10 +291,7 @@ def test_lote_padrao_recusa_sem_suporte():
 def test_aplicar_suporte_recusas():
     c = cad(servidor(1, "senha", SENHA, False))
     assert not contas.aplicar_suporte(None, rodar=Falso()).ok
-    for alvo, texto in (
-        (conta(500, "Suporte"), "nativo"),
-        (conta(1002, "Suporte", logada=True), "uso"),
-    ):
+    for alvo, texto in ((conta(500, "Suporte"), "nativo"),):
         falso = Falso(alvo)
         assert texto in contas.aplicar_suporte(c, rodar=falso).mensagem
         assert falso.chamadas == []
@@ -394,3 +391,35 @@ def test_senha_fora_da_lista_de_processos():
     r = executor.powershell(script, senha=Sensivel(SENHA))
     assert r.ok and r.saida.strip() == "0"
     assert SENHA not in r.saida and SENHA not in r.erros
+
+
+def test_aplicar_suporte_com_a_suporte_logada():
+    """Emenda do ADR-017: permitido; a tela avisa do cofre de credenciais."""
+    from itc_bench.ui.contas import AVISO_SUPORTE_LOGADA, texto_suporte
+
+    c = cad(servidor(1, "senha", SENHA, False))
+    logada = conta(1002, "Suporte", admin=True, logada=True)
+    falso = Falso(logada, saida="ATUALIZADA\nOK")
+    feito = contas.aplicar_suporte(c, rodar=falso)
+    assert feito.ok and len(falso.chamadas) == 1
+    assert AVISO_SUPORTE_LOGADA in texto_suporte("Suporte", lista(logada))
+    assert AVISO_SUPORTE_LOGADA not in texto_suporte("Suporte", lista(SUPORTE))
+    # As ações manuais continuam recusando a Suporte.
+    assert recusa("senha", logada, lista(logada, TECNICO), PROT) == "suporte"
+
+
+def test_caminho_de_perfil_fora_do_log(caplog):
+    caminho = r"C:\Users\Teste01"
+    caplog.set_level(logging.DEBUG)
+    aviso = f"CONTA\nAVISO|perfil|0x80041001|Falha ao apagar {caminho}\nOK"
+    falso = Falso(TECNICO, conta(1003, "Aluno-Teste", perfil="X"), saida=aviso)
+    feito = contas.excluir(ALUNO.sid, True, rodar=falso)
+    assert feito.ok and any(caminho in a for a in feito.avisos)  # a tela recebe o detalhe
+    assert "perfil: falhou (0x80041001)" in caplog.text
+    erro = f"ERRO|senha|Acesso negado em {caminho}"
+    falso = Falso(TECNICO, ALUNO, saida=erro, codigo=1)
+    feito = contas.trocar_senha(ALUNO.sid, Sensivel("x"), rodar=falso)
+    assert caminho in feito.mensagem and "falhou: senha" in caplog.text
+    lote = f"AVISO|Aluno-Teste|negado em {caminho}\nOK"
+    assert contas.lote("admin", rodar=Falso(TECNICO, ALUNO, saida=lote)).ok
+    assert caminho not in caplog.text
