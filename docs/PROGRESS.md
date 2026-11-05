@@ -2,12 +2,12 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-06-diagnostico`, PR para `develop` (merge commit).
+- **Branch:** `feat/modulo-06-diagnostico-v2`, PR para `develop` (merge commit).
 - **Feito:** Módulo 06 no código. App: coletores portados em trechos PowerShell embutidos pelo
   executor (agora com cancelamento), regras do pendrive em Python, contrato 1.3 saneado (perfis,
   contas e nomes de arquivo fora), fila DPAPI `protegido\fila-diagnostico.dpapi` (10 itens, 14
   dias), telas Coleta e laudo e Histórico com ajuda, laudo renderizado só com `insertText`
-  (265 testes, paridade com o pendrive sobre gravações anonimizadas). API: `POST
+  (266 testes, paridade com o pendrive sobre gravações anonimizadas). API: `POST
   /v1/bench/relatorio` e `GET /v1/bench/historico/{hostname}` com sessão, limite por técnico,
   idempotência por `envio_id` com `409 em_processamento`, migração `0006` (240 testes). ADR-015,
   ADR-016, TA-ADR-028; auditoria sem achado acima de informativo.

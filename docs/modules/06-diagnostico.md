@@ -49,7 +49,7 @@ migração testada com banco povoado, gravações anonimizadas em commit própri
 
 ## Verificação
 
-API: 240 (19 novos em `test_bench_relatorio.py` e `test_migrations.py`) testes no container. App: 265 testes, ruff e mypy limpos,
+API: 240 (19 novos em `test_bench_relatorio.py` e `test_migrations.py`) testes no container. App: 266 testes (1 pulado sem a lista local), ruff e mypy limpos,
 `itc-bench --teste --dev` com código 0. Nada de IA, NocoDB, GLPI ou ntfy reais nos testes.
 
 | # | Cenário | Como | Resultado |
@@ -59,7 +59,7 @@ API: 240 (19 novos em `test_bench_relatorio.py` e `test_migrations.py`) testes n
 | C3 | Coletor que falha, devolve lixo ou estoura o tempo | `test_coletor_que_falha_ou_esgota_nao_derruba`, `test_saida_hostil_validada` | Módulo `erro` com motivo curto; os outros `ok` |
 | C4 | Cancelamento (coleta e processo filho) | `test_cancelar_encerra_processo_e_filho`, `test_cancelamento_guarda_o_que_ficou_pronto`, `test_cancelar_coleta_guarda_o_que_ficou_pronto`, `test_varredura_cancelada` | Processo e filho encerrados; módulos prontos guardados, os outros "cancelado" |
 | C5 | Paridade com o pendrive | `tests/test_paridade.py` sobre gravações da mesma máquina | Passa nos cinco módulos (`processos`, `rede`, `eventlog`, `disco`, `bateria`); achou os dois defeitos de PS 5.1 descritos acima |
-| C6 | Gravações anonimizadas | `test_gravacoes_anonimas` | IPs só em faixas de documentação/loopback/link-local, MAC no prefixo fictício, perfis fictícios, sem nome da máquina nem da conta |
+| C6 | Gravações anonimizadas | `test_gravacoes_anonimas` e `test_nomes_proibidos_da_lista_local` (lista de nomes reais fora do repo, por `ITC_BENCH_PROIBIDOS`; pulado no CI, roda antes do PR) | Troca em palavra inteira; perfil só até o 2º nível padrão (resto `pasta-N`); SID, hexadecimal longo, APIPA (`169.254.0.x`) e programas de terceiros (`programa-N`) trocados. Rodou com a lista local: passa. IPs só em faixas de documentação/loopback/link-local, MAC no prefixo fictício, perfis fictícios, sem nome da máquina nem da conta |
 | E1 | Envio online com laudo | `test_envio_com_sessao_grava_auditoria_e_classifica`, `test_coleta_online_mostra_areas_e_laudo_como_texto` | `200`; `carreta BANCADA`, `bench_usuario`, `unidade`; laudo na tela |
 | E2 | IA fora / lenta | `test_ia_falha_e_reenvio_tenta_na_mesma_linha`, `test_falhas_do_envio[ia_timeout]`, `test_ia_fora_e_tentar_de_novo_usa_o_mesmo_envio` | `503 ia_*`, linha com `falha`; reenvio na mesma linha, mesmo `envio_id` |
 | E3 | `401` com sessão expirada no meio | `test_sessao_expirada_401`, `test_janela_401_volta_a_entrar_com_coleta_preservada` | Volta à Entrar; coleta na fila |
