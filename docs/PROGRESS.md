@@ -2,29 +2,26 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-06-diagnostico-v2`, PR para `develop` (merge commit).
-- **Feito:** Módulo 06 no código. App: coletores portados em trechos PowerShell embutidos pelo
-  executor (agora com cancelamento), regras do pendrive em Python, contrato 1.3 saneado (perfis,
-  contas e nomes de arquivo fora), fila DPAPI `protegido\fila-diagnostico.dpapi` (10 itens, 14
-  dias), telas Coleta e laudo e Histórico com ajuda, laudo renderizado só com `insertText`
-  (266 testes, paridade com o pendrive sobre gravações anonimizadas). API: `POST
-  /v1/bench/relatorio` e `GET /v1/bench/historico/{hostname}` com sessão, limite por técnico,
-  idempotência por `envio_id` com `409 em_processamento`, migração `0006` (240 testes). ADR-015,
-  ADR-016, TA-ADR-028; auditoria sem achado acima de informativo.
-- **Pela metade:** nada no código. Verificação real depende do responsável (D1–D4 de
-  `docs/modules/06-diagnostico.md`).
-- **Próximo passo:** responsável, depois do merge: pendências do 04/05 → backup do SQLite →
-  deploy (`0006`) → conferências → `curl` → bancada (coleta, laudo pela borda, fila e reenvio).
-  Depois, Módulo 07.
+- **Branch:** `feat/modulo-07-contas`, PR para `develop` (merge commit).
+- **Feito:** Módulo 07 no código. `servicos/contas.py` (sem Qt) com trechos PS em
+  `recursos/contas/`: listar, criar (clone só de grupos), tornar admin/padrão, trocar/remover
+  senha, excluir (com ou sem perfil), aplicar conta Suporte (nome e senha de Servidores, linhas
+  `Conta Suporte`), tornar todos admins e remover admin de todos (exceto Suporte). Alvo por SID,
+  regras em Python e de novo no PS. Tela Contas com ajuda. 310 testes. ADR-017; auditoria só com
+  informativos.
+- **Pela metade:** nada no código. Cenários V1–V8 (`docs/modules/07-contas.md`) dependem de VM.
+- **Próximo passo:** responsável: linhas `Conta Suporte` no NocoDB, troca da senha Suporte, VM
+  pt-BR/en-US com `ITC_TESTE_CONTAS=1`. Depois, Módulo 08.
 - **Tarefas futuras:** trocar a pasta de deploy no servidor para `itc-bench`; PR no TA trocando o
   README; teste de borda pelo túnel; rótulos de módulo antigos em `ui/navegacao.py`; corrigir no
-  pendrive o `Sort-Object LocalPort -Unique` (perde portas ao acaso) se ele continuar em uso.
-- **Pendências externas:** UAC real do 01 (cenário 7).
+  pendrive o `Sort-Object LocalPort -Unique` se ele continuar em uso.
+- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04, 05 e 06; release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-05 | 07 — Contas | `servicos/contas.py` + trechos PS (executor, `ITC_*`, `Sensivel`), alvo por SID, grupos pelo SID, sem `wmic`/`net user`. Regras (nativo RID 500, conta Microsoft só leitura, Suporte pelo nome cadastrado e `Suporte`, conta logada, último admin ativo, sessão aberta) em Python e de novo no PS. Conta Suporte de Servidores (`Conta Suporte`/`usuario`/`senha`). Lote: tornar todos admins; remover admin de todos exceto Suporte (inclui a logada). Cópia de pastas fora. Tela Contas com ajuda. App 310 testes. ADR-017. Auditoria: 5 informativos. Cenários em VM pendentes. |
 | 2026-11-04 | 06 — Diagnóstico | App: coletores portados (trechos PS embutidos, regras em Python), executor com cancelamento, contrato 1.3 saneado, fila DPAPI 10/14 dias, telas Coleta e laudo e Histórico, laudo só com `insertText`, paridade com o pendrive sobre gravações anonimizadas (achou 2 defeitos de PS 5.1). API: `/v1/bench/relatorio` e `/historico` com sessão, 30/h por técnico, idempotência por `envio_id`, `0006` reconstrói `diagnosticos`. `itcta_` fora dos notebooks. App 265 testes, API 240. ADR-015, ADR-016, TA-ADR-028. Auditoria: 4 informativos. Deploy e bancada pendentes do responsável. |
 | 2026-11-04 | 05 — Cadastros | API: `GET /v1/bench/cadastros[?unidade=]` com sessão `itcbs_`, NocoDB lido por token Viewer em `nocodb_cadastros.py` (inativo, sem nome e unidade inexistente descartados), cópia em memória TTL 60 s com uma leitura por vez, cópia defasada até 24 h, `ETag` HMAC e `304`, `503 cadastros_indisponivel`, auditoria `0005` com 12 caracteres da versão. App: cache DPAPI em `protegido\cadastros.dpapi` (só memória sem admin), 7 dias, vencido/corrompido apagado, mantido no logout, filtro pela unidade da máquina em HKLM, sincronização após login/30 min/manual, rodapé com unidade e "sincronizado HH:MM", tela Configurações só leitura com segredos mascarados. `Servidores.Publico` falha fechado. API 221 testes, app 186. ADR-014, TA-ADR-027. Auditoria: 1 baixo corrigido (dica rich text), 4 informativos. Espelho ligado no deploy (decisão do responsável). Deploy e cadastros reais pendentes do responsável. |
 | 2026-11-04 | 04 — Login | API: login pelo GLPI v2 (OAuth2 `password`, `/session`, perfil em qualquer entidade), sessão `itcbs_` de 12 h só em SHA-256, limite 5/usuário (HMAC) e 20/IP em 15 min no SQLite, auditoria sem senha, migração `0004`, sobe sem as variáveis novas (login `503`). App: cliente stdlib sem redirecionamento, tela Entrar, bloqueio 15 min, offline 7 dias com scrypt + DPAPI de máquina em `protegido\` (SY/BA), técnico no log. Reset do ACL da árvore passou a pular a pasta protegida (o Windows sobrescrevia a DACL dela). API 194 testes, app 149. ADR-013. Auditoria: 2 médios corrigidos, 4 informativos. Deploy, Cloudflare e login real pendentes do responsável. |
