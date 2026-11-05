@@ -8,7 +8,6 @@ cadastro: nunca SSID, senha ou XML.
 import hmac
 import re
 import threading
-import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -20,8 +19,6 @@ from itc_bench.servicos.cadastros import Rede
 
 NS = "http://www.microsoft.com/networking/WLAN/profile/v1"
 HEX64 = re.compile(r"^[0-9A-Fa-f]{64}$")
-ESPERA_CONEXAO = 20.0
-PASSO_CONEXAO = 0.5
 
 Situacao = Literal["igual", "diferente", "ausente", "nao_conferida", "invalida"]
 ROTULOS: dict[Situacao, str] = {
@@ -40,8 +37,6 @@ class Wlan(Protocol):
     def perfis(self, interface: wlan.Interface) -> list[str]: ...
     def perfil(self, interface: wlan.Interface, nome: str, *, com_chave: bool) -> str: ...
     def gravar(self, interface: wlan.Interface, xml: str) -> None: ...
-    def conectar(self, interface: wlan.Interface, nome: str) -> None: ...
-    def conectado_a(self, interface: wlan.Interface) -> str | None: ...
 
 
 @dataclass(frozen=True)
@@ -203,30 +198,3 @@ def instalar(
         len(resumo.canceladas),
     )
     return resumo
-
-
-def testar(
-    rede: Rede,
-    cliente: Wlan,
-    saude: Callable[[], bool],
-    *,
-    cancelar: threading.Event | None = None,
-    espera: float = ESPERA_CONEXAO,
-    relogio: Callable[[], float] = time.monotonic,
-) -> str:
-    """Conecta pelo perfil instalado e pergunta à API se responde. Mensagem para a tela."""
-    interface = _interface(cliente)[0]
-    try:
-        cliente.conectar(interface, rede.ssid)
-    except wlan.ErroWlan as erro:
-        log.warning("Wi-Fi: testar Id %s: %s", rede.id, _falha(erro))
-        return "Não conectou: " + _falha(erro) + ". A rede está instalada?"
-    evento = cancelar or threading.Event()
-    limite = relogio() + espera
-    while cliente.conectado_a(interface) != rede.ssid:
-        if relogio() >= limite or evento.wait(PASSO_CONEXAO):
-            log.warning("Wi-Fi: testar Id %s: não conectou", rede.id)
-            return "Cancelado." if evento.is_set() else "Não conectou em 20 segundos."
-    ok = saude()  # quem passa `saude` trata a falta de rede (devolve False)
-    log.info("Wi-Fi: testar Id %s: conectado, API %s", rede.id, "ok" if ok else "sem resposta")
-    return "Conectado, e a API responde." if ok else "Conectado, mas sem acesso à API."

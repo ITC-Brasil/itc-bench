@@ -358,9 +358,7 @@ class Janela(QMainWindow):
     def _preparar(self) -> None:
         """Identificação e Wi-Fi (ADR-018): leem ao abrir; ações só com administrador."""
         self.identificacao = PainelIdentificacao(self.admin)
-        self.wifi = PainelWifi(
-            self.admin, lambda: self.cadastros, lambda: self.unidade, self._api_responde
-        )
+        self.wifi = PainelWifi(self.admin, lambda: self.cadastros, lambda: self.unidade)
         for chave, painel, ajuda in (
             ("id", self.identificacao, AJUDA_IDENTIFICACAO),
             ("wifi", self.wifi, AJUDA_WIFI),
@@ -373,15 +371,6 @@ class Janela(QMainWindow):
                     widget.deleteLater()
             tela.corpo.addWidget(painel, 1)
             tela.ajuda.texto.setText(ajuda)
-
-    def _api_responde(self) -> bool:
-        if not self.base:
-            return False
-        try:
-            return api.saude(str(self.base))
-        except (api.SemConexao, api.ErroApi) as erro:
-            log.warning("Wi-Fi: API não respondeu no teste (%s)", type(erro).__name__)
-            return False
 
     def sessao_online(self) -> tuple[str, Sensivel, str] | None:
         if self.entrada is None or self.entrada.sessao is None or not self.base:

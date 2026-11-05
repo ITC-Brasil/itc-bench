@@ -39,9 +39,8 @@ AJUDA = (
     "no cadastro), Instalada (igual).\n"
     "3. Marque as redes (o Bench já marca as que faltam ou estão diferentes) e clique em "
     "Instalar. Dá para cancelar entre uma rede e outra.\n\n"
-    "Testar conexão\n"
-    "Selecione uma rede instalada e clique em Testar conexão. O notebook sai da rede atual, "
-    "conecta nessa e confere se a API responde.\n\n"
+    "A conexão é conferida na carreta, pelo próprio Windows: no escritório as redes das "
+    "unidades não estão ao alcance.\n\n"
     "Notebook sem internet e sem cadastro\n"
     "Conecte por cabo, ou clique em Abrir redes do Windows e entre numa rede à mão. Depois entre "
     "no Bench e sincronize em Configurações.\n\n"
@@ -89,11 +88,9 @@ class PainelWifi(QWidget):
         admin: bool,
         obter_cadastros: Callable[[], Cadastros | None],
         obter_unidade: Callable[[], str | None],
-        saude: Callable[[], bool],
     ) -> None:
         super().__init__()
         self.admin, self.obter_cadastros, self.obter_unidade = admin, obter_cadastros, obter_unidade
-        self.saude = saude
         self.leitura: Leitura | None = None
         self.ocupado = False
         self.cancelar_evento: threading.Event | None = None
@@ -134,13 +131,10 @@ class PainelWifi(QWidget):
         self.b_instalar = QPushButton("Instalar")
         self.b_instalar.setObjectName("primario")
         self.b_instalar.clicked.connect(self._instalar)
-        self.b_testar = QPushButton("Testar conexão")
-        self.b_testar.clicked.connect(self._testar)
         self.b_cancelar = QPushButton("Cancelar")
         self.b_cancelar.clicked.connect(self._cancelar)
         self.b_cancelar.hide()
         acoes.addWidget(self.b_instalar)
-        acoes.addWidget(self.b_testar)
         acoes.addWidget(self.b_cancelar)
         acoes.addStretch()
         v.addLayout(acoes)
@@ -241,15 +235,6 @@ class PainelWifi(QWidget):
                 ids.append(item.data(Qt.ItemDataRole.UserRole))
         return [por_id[i] for i in ids if i in por_id]
 
-    def _selecionada(self) -> Rede | None:
-        cadastros = self.obter_cadastros()
-        linhas = self.tabela.selectionModel().selectedRows() if self.tabela.selectionModel() else []
-        if cadastros is None or not linhas or self.filtro.currentIndex() == 2:
-            return None
-        item = self.tabela.item(linhas[0].row(), 0)
-        rid = item.data(Qt.ItemDataRole.UserRole) if item else None
-        return next((r for r in cadastros.redes if r.id == rid), None)
-
     # ------------------------------------------------------------ botões
 
     def _ocupar(self, ocupado: bool) -> None:
@@ -264,7 +249,6 @@ class PainelWifi(QWidget):
         quantas = len(self._marcadas())
         self.b_instalar.setText(f"Instalar {quantas} rede(s)" if quantas else "Instalar")
         self.b_instalar.setEnabled(livre and not sem_wifi and quantas > 0)
-        self.b_testar.setEnabled(livre and not sem_wifi and self._selecionada() is not None)
 
     def _iniciar_cancelavel(self) -> threading.Event:
         self.cancelar_evento = threading.Event()
@@ -337,25 +321,3 @@ class PainelWifi(QWidget):
         self._fim()
         self._falhou(motivo)
         self.carregar()
-
-    def _testar(self) -> None:
-        rede = self._selecionada()
-        if rede is None or not confirmar(
-            self,
-            "Testar conexão",
-            f"Conectar em {rede.ssid} e testar? O notebook sai da rede atual.",
-        ):
-            return
-        evento, saude = self._iniciar_cancelavel(), self.saude
-        self.estado.setText("Conectando…")
-
-        def rodar() -> str:
-            with wlan.Cliente() as cliente:
-                return wifi.testar(rede, cliente, saude, cancelar=evento)
-
-        tarefa.iniciar(rodar, self._testou, self._falhou_acao)
-
-    def _testou(self, mensagem: str) -> None:
-        self._fim()
-        self._ocupar(False)
-        self.estado.setText(mensagem)

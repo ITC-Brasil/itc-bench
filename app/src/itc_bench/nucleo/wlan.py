@@ -12,10 +12,6 @@ from types import TracebackType
 
 _VERSAO_CLIENTE = 2
 _PERFIL_COM_CHAVE = 0x4  # WLAN_PROFILE_GET_PLAINTEXT_KEY: só com administrador
-_CONEXAO_ATUAL = 7  # wlan_intf_opcode_current_connection
-_CONECTADA = 1  # wlan_interface_state_connected
-_MODO_PERFIL = 0  # wlan_connection_mode_profile
-_INFRAESTRUTURA = 1  # dot11_BSS_type_infrastructure
 SERVICO_PARADO = 1062  # ERROR_SERVICE_NOT_ACTIVE
 NAO_ENCONTRADO = 1168  # ERROR_NOT_FOUND
 
@@ -50,25 +46,6 @@ class _ListaPerfis(ctypes.Structure):
         ("indice", wintypes.DWORD),
         ("itens", _Perfil * 1),
     )
-
-
-class _ParametrosConexao(ctypes.Structure):
-    _fields_ = (
-        ("modo", ctypes.c_int),
-        ("perfil", wintypes.LPCWSTR),
-        ("ssid", ctypes.c_void_p),
-        ("bssids", ctypes.c_void_p),
-        ("tipo_bss", ctypes.c_int),
-        ("flags", wintypes.DWORD),
-    )
-
-
-class _AtributosConexao(ctypes.Structure):
-    _fields_ = (
-        ("estado", wintypes.DWORD),
-        ("modo", ctypes.c_int),
-        ("perfil", ctypes.c_wchar * 256),
-    )  # o resto da estrutura não é lido
 
 
 class ErroWlan(OSError):
@@ -123,16 +100,6 @@ def _dll() -> ctypes.WinDLL:
         ctypes.c_void_p,
         p(wintypes.DWORD),
     )
-    dll.WlanConnect.argtypes = (wintypes.HANDLE, p(_Guid), p(_ParametrosConexao), ctypes.c_void_p)
-    dll.WlanQueryInterface.argtypes = (
-        wintypes.HANDLE,
-        p(_Guid),
-        ctypes.c_int,
-        ctypes.c_void_p,
-        p(wintypes.DWORD),
-        p(ctypes.c_void_p),
-        ctypes.c_void_p,
-    )
     for nome in (
         "WlanOpenHandle",
         "WlanCloseHandle",
@@ -140,8 +107,6 @@ def _dll() -> ctypes.WinDLL:
         "WlanGetProfileList",
         "WlanGetProfile",
         "WlanSetProfile",
-        "WlanConnect",
-        "WlanQueryInterface",
     ):
         getattr(dll, nome).restype = wintypes.DWORD
     return dll
@@ -224,24 +189,3 @@ class Cliente:
             self._handle, _guid(interface), 0, xml, None, True, None, motivo
         )
         self._checar("WlanSetProfile", codigo, motivo.value)
-
-    def conectar(self, interface: Interface, nome: str) -> None:
-        parametros = _ParametrosConexao(_MODO_PERFIL, nome, None, None, _INFRAESTRUTURA, 0)
-        self._checar(
-            "WlanConnect", self._dll.WlanConnect(self._handle, _guid(interface), parametros, None)
-        )
-
-    def conectado_a(self, interface: Interface) -> str | None:
-        """Nome do perfil da conexão atual, ou None se a interface não está conectada."""
-        tamanho = wintypes.DWORD()
-        dados = ctypes.c_void_p()
-        codigo = self._dll.WlanQueryInterface(
-            self._handle, _guid(interface), _CONEXAO_ATUAL, None, tamanho, dados, None
-        )
-        if codigo:
-            return None  # desconectada devolve erro (ERROR_INVALID_STATE)
-        try:
-            atributos = ctypes.cast(dados, ctypes.POINTER(_AtributosConexao)).contents
-            return atributos.perfil if atributos.estado == _CONECTADA else None
-        finally:
-            self._dll.WlanFreeMemory(dados)

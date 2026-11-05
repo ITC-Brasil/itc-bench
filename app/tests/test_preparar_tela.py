@@ -47,7 +47,7 @@ def rede(i: int, ssid: str, unidade: str = "ABC01", senha: str = "Senha-Teste-1"
 
 def painel(qtbot, monkeypatch, cad, admin=True, unidade="ABC01"):
     monkeypatch.setattr(tela_wifi.tarefa, "iniciar", lambda *a: None)
-    p = tela_wifi.PainelWifi(admin, lambda: cad, lambda: unidade, lambda: True)
+    p = tela_wifi.PainelWifi(admin, lambda: cad, lambda: unidade)
     qtbot.addWidget(p)
     return p
 
@@ -82,7 +82,7 @@ def test_wifi_sem_cadastro_e_sem_admin(qtbot, monkeypatch):
     p._recebeu(tela_wifi.Leitura((), ("Rede-Do-Windows",)))
     assert "Sem cadastros" in p.estado.text()
     assert p.b_windows.isEnabled()
-    assert not p.b_instalar.isEnabled() and not p.b_testar.isEnabled()
+    assert not p.b_instalar.isEnabled()
 
 
 def test_wifi_sem_adaptador(qtbot, monkeypatch):

@@ -38,8 +38,6 @@ class Falso:
         self.lista = [wlan.Interface(bytes([i]) * 16, f"if{i}") for i in range(interfaces)]
         self.gravados: dict[tuple[bytes, str], str] = {}
         self.falhar = falhar or set()
-        self.conectada: str | None = None
-        self.conectar_em: str | None = None
 
     def interfaces(self) -> list[wlan.Interface]:
         return self.lista
@@ -55,12 +53,6 @@ class Falso:
         if nome in self.falhar:
             raise wlan.ErroWlan("WlanSetProfile", 0x80070057, 523)
         self.gravados[(interface.guid, nome)] = xml
-
-    def conectar(self, interface: wlan.Interface, nome: str) -> None:
-        self.conectar_em = nome
-
-    def conectado_a(self, interface: wlan.Interface) -> str | None:
-        return self.conectar_em
 
 
 # ---------------------------------------------------------------- validação e XML
@@ -186,29 +178,6 @@ def test_ja_instalada_igual_fica_igual() -> None:
     wifi.instalar([r], cliente)
     wifi.instalar([r], cliente)  # sobrescreve sem erro
     assert wifi.situacao([r], cliente, admin=True)[0].situacao == "igual"
-
-
-# ---------------------------------------------------------------- testar conexão
-
-
-def test_testar_conecta_e_api() -> None:
-    cliente = Falso()
-    assert "API responde" in wifi.testar(rede(), cliente, lambda: True)
-    assert "sem acesso" in wifi.testar(rede(), cliente, lambda: False)
-
-
-def test_testar_nao_conecta_e_cancela() -> None:
-    class Nunca(Falso):
-        def conectado_a(self, interface: wlan.Interface) -> str | None:
-            return None
-
-    tempo = iter(range(0, 100, 30))
-    assert "20 segundos" in wifi.testar(
-        rede(), Nunca(), lambda: True, relogio=lambda: float(next(tempo))
-    )
-    cancelar = threading.Event()
-    cancelar.set()
-    assert wifi.testar(rede(), Nunca(), lambda: True, cancelar=cancelar) == "Cancelado."
 
 
 # ---------------------------------------------------------------- sem disco nem processo
