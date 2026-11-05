@@ -1,0 +1,34 @@
+{
+ "bench": {
+  "baterias": [
+   {
+    "nome": "5B10X026",
+    "fabricante": "BATERIA-TESTE",
+    "cargaAtualPercentual": 100,
+    "statusCodigo": 2,
+    "emUsoDeBateria": false
+   }
+  ],
+  "avisos": []
+ },
+ "pendrive": {
+  "presente": true,
+  "baterias": [
+   {
+    "nome": "5B10X026",
+    "fabricante": "BATERIA-TESTE",
+    "cargaAtualPercentual": 100,
+    "statusCodigo": 2,
+    "emUsoDeBateria": false
+   }
+  ],
+  "capacidadeProjetoMWh": 45730,
+  "capacidadeAtualMWh": 39460,
+  "desgastePercentual": 13.7,
+  "classificacaoDesgaste": "saudavel",
+  "ciclosCarga": 262,
+  "relatorioGerado": true,
+  "arquivoRelatorio": "batteryreport.html",
+  "avisos": []
+ }
+}
