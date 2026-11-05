@@ -36,8 +36,12 @@ from itc_bench.ui.contas import AJUDA as AJUDA_CONTAS
 from itc_bench.ui.contas import PainelContas
 from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO, PainelColeta, PainelHistorico
 from itc_bench.ui.entrar import Ocioso, TelaEntrar
+from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
+from itc_bench.ui.identificacao import PainelIdentificacao
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
+from itc_bench.ui.wifi import AJUDA as AJUDA_WIFI
+from itc_bench.ui.wifi import PainelWifi
 
 TEXTO_AJUDA = "Instruções desta tela em breve"
 SINCRONIA_MS = 30 * 60 * 1000  # ADR-014: a cada 30 min com sessão online
@@ -219,6 +223,7 @@ class Janela(QMainWindow):
         self._configuracoes()
         self._diagnostico()
         self._contas()
+        self._preparar()
         self.abrir("inicio")
 
         centro = QWidget()
@@ -349,6 +354,34 @@ class Janela(QMainWindow):
         self.contas = PainelContas(self.admin, lambda: self.cadastros)
         tela.corpo.addWidget(self.contas, 1)
         tela.ajuda.texto.setText(AJUDA_CONTAS)
+
+    def _preparar(self) -> None:
+        """Identificação e Wi-Fi (ADR-018): leem ao abrir; ações só com administrador."""
+        self.identificacao = PainelIdentificacao(self.admin)
+        self.wifi = PainelWifi(
+            self.admin, lambda: self.cadastros, lambda: self.unidade, self._api_responde
+        )
+        for chave, painel, ajuda in (
+            ("id", self.identificacao, AJUDA_IDENTIFICACAO),
+            ("wifi", self.wifi, AJUDA_WIFI),
+        ):
+            tela = self.telas[chave]
+            while tela.corpo.count():
+                item = tela.corpo.takeAt(0)
+                widget = item.widget() if item is not None else None
+                if widget is not None:
+                    widget.deleteLater()
+            tela.corpo.addWidget(painel, 1)
+            tela.ajuda.texto.setText(ajuda)
+
+    def _api_responde(self) -> bool:
+        if not self.base:
+            return False
+        try:
+            return api.saude(str(self.base))
+        except (api.SemConexao, api.ErroApi) as erro:
+            log.warning("Wi-Fi: API não respondeu no teste (%s)", type(erro).__name__)
+            return False
 
     def sessao_online(self) -> tuple[str, Sensivel, str] | None:
         if self.entrada is None or self.entrada.sessao is None or not self.base:
