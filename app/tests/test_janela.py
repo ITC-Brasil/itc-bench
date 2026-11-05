@@ -46,8 +46,8 @@ def test_botao_ajuda_abre_e_fecha_popup(qtbot):
     j, _ = janela(qtbot)
     j.show()
     j.raiz.setCurrentWidget(j.conteudo)  # sem login: o conteúdo fica atrás da Entrar
-    tela = j.telas["wifi"]
-    j.abrir("wifi")
+    tela = j.telas["remoto"]  # tela ainda sem conteúdo (Módulo 09)
+    j.abrir("remoto")
     tela.botao_ajuda.click()
     assert tela.ajuda.isVisible()
     assert tela.ajuda.texto.text() == TEXTO_AJUDA

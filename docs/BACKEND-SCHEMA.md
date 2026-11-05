@@ -39,7 +39,7 @@ marcada como obrigatória nem única: validação fica na API.
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
 | `SSID` | SingleLineText, display | **Sensível para log**: visível na tela, nunca no log (o log usa `Id`) |
-| `Senha` | SingleLineText | **Sensível**, nunca exibida na UI |
+| `Senha` | SingleLineText | **Sensível**, nunca exibida na UI. Obrigatória: WPA2-Personal, 8–63 caracteres comuns ou 64 hexadecimais; vazia ou fora disso, o Bench não instala (ADR-018) |
 | `Unidade` | SingleLineText | Texto livre, casa com `Unidades.Codigo` (sem link) |
 | `categoria` | SingleLineText | Ex.: Carreta, Roteador 4G, Parceiro local |
 | `Ativo` | Checkbox | |
@@ -50,7 +50,7 @@ marcada como obrigatória nem única: validação fica na API.
 
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
-| `Codigo` | SingleLineText, display | Ex.: `UM-07` |
+| `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos: `^[A-Z]{1,6}[0-9]{2}$`, até 8 (ex. fictício: `ABC01`). ADR-018 |
 | `Nome` | SingleLineText | |
 | `Cidade` | SingleLineText | |
 | `UF` | SingleLineText | |
@@ -59,7 +59,7 @@ marcada como obrigatória nem única: validação fica na API.
 | `Ativo` | Checkbox | |
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
-`Unidades.Codigo` (ex.: `UM-07`). A API descarta a rede cuja unidade não é uma Unidade ativa; o
+`Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o
 Bench não confia em código que a API não validou. Sem `?unidade=`, a API entrega todo o Wi-Fi;
 com `?unidade=`, só o daquela unidade (ADR-014, que substitui a regra de 03/11/2026 de filtrar
 sempre).

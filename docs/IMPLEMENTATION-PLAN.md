@@ -74,7 +74,8 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [ ] Depois do merge (responsável): linhas `Conta Suporte` no NocoDB, troca da senha Suporte, cenários V1–V8 em máquina real, com o instalador
 
 ### 08 — Identificação e Wi-Fi · `feat/modulo-08-identificacao-wifi`
-- [ ] `sistema.py` (renomear PC sem interpolação), `wifi.py` com dados do cache; ajuda escrita
+- [x] `sistema.py` (renomear PC sem interpolação), `wifi.py` com dados do cache; ajuda escrita
+- [ ] Cenários V1–V8 em máquina real, com o instalador (`docs/modules/08-identificacao-wifi.md`)
 
 ### 09 — Acesso remoto · `feat/modulo-09-acesso-remoto`
 - [ ] GLPI Agent, RustDesk, AnyDesk com dados de Servidores; senha AnyDesk sem `echo`; polling no lugar de `sleep(10)`; comparação de versão numérica
