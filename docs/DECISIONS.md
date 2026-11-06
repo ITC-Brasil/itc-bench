@@ -1489,3 +1489,108 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
 **Consequences**
 O responsável cria a opção `papel` em `Tipo` no NocoDB, cadastra a linha da imagem e faz o deploy
 da API antes do app novo. Os cenários de escrita ficam para a máquina real com o instalador.
+
+---
+
+## ADR-023 — Preparação completa por perfis fechados, retomada assistida, Limpeza de manutenção, Registro e Ajuda consolidada
+
+**Status:** Accepted
+**Date:** 2026-11-06
+**Module:** 13
+
+**Context**
+No Configurador, a preparação em lote (`aba_master.py`, `estado.py`) monta o plano lendo as
+outras abas, não trata erro por etapa (uma exceção derruba o resto), pula etapa vazia em
+silêncio e retoma depois do reinício por `HKCU\...\Run` com comando interpolado, executando as
+tarefas sem confirmação e sem limpar a lista. A Limpeza esvazia pastas pessoais e perfis de
+alunos, com `robocopy /MIR /B` de reserva. As contas por turno são criadas como administradoras
+com senha fixa no código e depois ficam sem senha. A tela de logs só mostra a sessão, sem teto.
+Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
+
+**Decision**
+1. **Perfis fechados no código** (`servicos/perfis.py`): `sala_de_aula` (Sala de aula, todas as
+   etapas), `administrativo` (Administrativo, sem Políticas, USB e Remover pré-instalados) e
+   `so_diagnostico` (Só diagnóstico). Perfil = id, nome e tupla ordenada de ids de etapa;
+   parâmetros só de listas fechadas do código (ids de política, opções de mouse e teclado,
+   tempos de energia, itens da Limpeza, famílias Appx) ou "linhas ativas do cadastro" (Wi-Fi da
+   unidade, Programas `Categoria = Programas`, papel de parede ativo, Acesso remoto).
+   `Unidades.PerfilPadrao` pré-seleciona pelo id; texto desconhecido é ignorado com aviso. Na
+   hora o técnico só desmarca etapas, escolhe as contas-alvo entre as "contas de aluno" e digita
+   o nome do computador. Nunca texto livre, caminho, comando, ordem ou parâmetro editável.
+2. **Motor** (`servicos/preparacao.py`, sem Qt): cada etapa tem `ler()` e `aplicar()` que só
+   chamam os serviços dos módulos 07 a 12. A situação é sempre lida do Windows antes de aplicar;
+   etapa "feita" é pulada, sem marca guardada. Situações: `feito`, `pendente`, `nao_iniciado`,
+   `bloqueada` (pré-requisito: cache, administrador, cadastro, etapa de que depende), `falhou`
+   (com código) e `aguardando_reinicio`. Falha numa etapa segue para a próxima que não depende
+   dela (Contas bloqueia Políticas, USB, Papel de parede e Mouse e teclado). "Pausar" = parar
+   depois da etapa corrente; o `cancelar` só vai a quem já cancela com segurança. Ordem:
+   Identificação, Contas, Wi-Fi, Acesso remoto, Programas, Remover pré-instalados, Políticas,
+   USB, Proteção do login, Papel de parede, Mouse e teclado, Energia, Limpeza, Diagnóstico.
+   - **Contas:** `aplicar_suporte` e `lote("padrao")`. A confirmação diz que a conta logada
+     também perde administrador (ADR-017, item 6) e que depois o UAC pede a Suporte. "Feito" =
+     Suporte ativa no `S-1-5-32-544`, nenhuma outra conta ativa no grupo, RID 500 desativado.
+   - **Contas de aluno** (`preparacao.contas_de_aluno`): contas locais ativas, não
+     administradoras, menos Suporte, RID 500 e a conta logada, com as recusas do ADR-021.
+   - **Acesso remoto:** "feito" = os programas com cadastro completo instalados e configurados,
+     sem número fixo.
+   - **Limpeza na preparação:** só temporários (sistema e por usuário), cache do Windows Update e
+     relatórios de erro. A lixeira só pela tela Limpeza.
+3. **Remover pré-instalados (Appx):** trecho próprio (`recursos/programas/appx.ps1`) chamado
+   pelo serviço de desinstalação. Lista fechada por nome de família (`Name` do pacote) de apps de
+   consumidor da Microsoft (`desinstalar.APPX_PREINSTALADOS`). Remove para todas as contas
+   (`Remove-AppxPackage -AllUsers`) e o pacote provisionado. Recusa, no Python e no trecho, nome
+   fora da lista, `SignatureKind = System`, `NonRemovable` e framework. Confirmação com a lista.
+4. **Contas por turno fora do 13.** As do Configurador são administradoras e sem senha, criadas
+   com senha fixa no código, contra o ADR-017. Item futuro possível (opção B): sufixo fixo no
+   código, conta padrão, senha digitada na hora (sem cadastro, disco ou log), por
+   `contas.criar`.
+5. **Reinício e retomada assistida.** Pedem reinício: renomear e instaladores com 3010/1641. O
+   Bench não reinicia sozinho e não usa Run/RunOnce, tarefa agendada nem serviço. Antes de
+   "Reiniciar agora" grava `protegido\preparacao.json`: `formato`, perfil, etapas desmarcadas,
+   nome pedido, alvos por SID, horário e contagem de reinícios (sem senha, token, técnico ou
+   nome de conta; SIDs nunca no log). Ao ler: dono e ACL conferidos pelo critério do ADR-020
+   (senão apaga e registra), cada id validado contra o catálogo (o que não casa é descartado),
+   vencido (24 h) ou ilegível é apagado. O técnico sempre faz login ao reabrir (sessão só em
+   memória; offline de 7 dias do ADR-013). Máximo de 2 reinícios por preparação; etapa que pediu
+   reinício e continua pendente depois do boot não pede outro. "Descartar preparação" apaga o
+   arquivo.
+6. **Início:** máquina lida por CIM sem texto localizado (`recursos/inicio/ler.ps1`); etapas do
+   perfil da unidade; último diagnóstico (fila local); alertas com atalho para a tela que
+   resolve (proteção do login por `protecao.situacao().alertas()`, políticas e USB do perfil,
+   nome pendente, Suporte ausente, cache vencido, fila de diagnóstico). BitLocker fora. Selos na
+   barra: `feito/aplicáveis` na Preparação e alertas críticos no Início. Leitura em tarefa,
+   cache de 60 s. Atalhos: forçar inventário GLPI e abrir a Limpeza.
+7. **Limpeza de manutenção** (`servicos/limpeza.py`, `recursos/limpeza/limpeza.ps1`), lista
+   fechada: temporários do sistema, temporários por usuário (por SID; caminho de `ProfileList`
+   conferido no trecho, perfil e `AppData\Local\Temp` sem reparse), lixeira, cache do Windows
+   Update e relatórios de erro (WER). Enumeração manual que nunca desce em reparse point (o link
+   é removido como link), cada caminho conferido contra a raiz, arquivo em uso só contado. Saída
+   só números por id. Prévia com tamanho antes, confirmação com o total. Windows Update: com
+   reinício pendente de atualização ou serviço que não para no tempo, o item fica "não limpo";
+   `wuauserv`/`bits` só param e voltam ao estado anterior no `finally`, sem mudar o tipo de
+   inicialização. Fora: pastas pessoais e perfis ("zerar aluno", se pedido, ADR próprio),
+   `Windows.old`, WinSxS, pontos de restauração e logs (o do Bench já rota).
+8. **Registro:** `bench.log` e rotacionados só leitura, filtros por nível e texto. O log tem
+   técnico (ADR-013), nomes de contas afetadas (ADR-017) e nome do computador (ADR-018), nunca
+   senha, token, SSID, host de servidor, SID ou caminho de perfil. Exportar grava só as linhas
+   filtradas, com máscara de nome do computador, nomes das contas locais e `X:\Users\<nome>`.
+9. **Ajuda consolidada:** `ui/ajuda.py` reúne as constantes `AJUDA*` das telas sem copiar
+   texto; tela Ajuda na ordem do menu com busca sem acento e maiúscula.
+10. **Executor e log:** nenhuma exceção nova ao executor. Log da preparação: perfil, etapa,
+    situação, resultado e código; nunca mensagem do Windows, nome de conta, SID, SSID, nome de
+    programa do cadastro ou senha.
+11. **API sem mudança:** `Unidades.PerfilPadrao` já vem na rota de cadastros (ADR-014).
+
+**Alternatives considered**
+- Perfis no NocoDB ou em arquivo local — configuração vinda de fora, sem revisão, e muda pouco.
+- Marca "feito" em disco — diverge do Windows quando alguém desfaz à mão.
+- Run/RunOnce, tarefa agendada ou serviço para retomar — abre elevado sem técnico ou aparece na
+  conta do aluno.
+- Contas por turno com senha no cadastro — mesma senha em todas as máquinas da unidade.
+- `cleanmgr /sagerun` e `Remove-Item -Recurse` — sem prévia por item; segue junction no PS 5.1.
+- Sanear o log na gravação — desfaz decisões do 07 e do 08.
+- Ajuda em Markdown — muda o formato de 7 módulos sem ganho agora.
+
+**Consequences**
+O responsável preenche `Unidades.PerfilPadrao` com o id do perfil. Os cenários de escrita ficam
+para a máquina real com o instalador.
