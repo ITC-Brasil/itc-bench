@@ -1393,8 +1393,9 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
        original);
      - **não lida** = `CryptSvc` parado, `UnknownError` ou exceção. Nunca "trocado" sem a
        verificação ter rodado.
-     - **IFEO:** `Debugger` na chave do exe e nas subchaves com `UseFilter = 1`
-       (`FilterFullPath` + `Debugger`); `SilentProcessExit\<exe>\MonitorProcess`. Só 64 bits.
+     - **IFEO:** `Debugger` na chave do exe ou em qualquer subchave dela, com ou sem
+       `UseFilter` (no filtro por caminho, `UseFilter = 1` fica na chave do exe e a subchave tem
+       `FilterFullPath` + `Debugger`; revisão do PR #35); `SilentProcessExit\<exe>\MonitorProcess`. Só 64 bits.
      - **ACL:** protegido, não protegido, dono diferente do TrustedInstaller.
    - **Shift 5x na tela de login:** `Flags` de `StickyKeys`/`Keyboard Response`/`ToggleKeys` em
      `HKU\.DEFAULT` (`506`/`122`/`58`; desfazer `510`/`126`/`62`). Nas contas, pelo Mouse e teclado.

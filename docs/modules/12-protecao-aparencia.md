@@ -14,7 +14,7 @@
 
 **Ajustes incorporados:**
 - assinatura por `IsOSBinary` e "não lida" quando a verificação não roda;
-- IFEO com `UseFilter`;
+- IFEO com filtro: qualquer `Debugger` em subchave do exe conta (revisão do PR #35);
 - "não protegido" depois de atualização exposto para o Início;
 - `Policies\System` com lista por valor;
 - preferência só herda a ACL, em tipo nativo;
@@ -58,7 +58,7 @@
 
 ## Verificação
 
-App: 641 testes passando e 4 pulados; ruff e mypy limpos. API: 242 testes no container.
+App: 642 testes passando e 4 pulados; ruff e mypy limpos. API: 242 testes no container.
 
 A máquina de desenvolvimento (Windows 11 Pro em português) foi usada só para leitura:
 - proteção: os 7 binários deram "original", "não protegido", "sem depurador" e atalho padrão;
@@ -130,7 +130,8 @@ Notebook reserva com as contas comuns `Teste01` e `Teste02` e a conta Suporte.
 5. **Incidente** (só no notebook reserva):
    - Crie `HKLM\...\Image File Execution Options\osk.exe\Debugger = cmd.exe`: a tela mostra
      "DEPURADOR". "Remover depurador" apaga, e a chave `osk.exe` fica.
-   - Repita com uma subchave com `UseFilter = 1`, `FilterFullPath` e `Debugger`.
+   - Repita com `UseFilter = 1` na chave `osk.exe` e uma subchave com `FilterFullPath` e
+     `Debugger`: a tela mostra "DEPURADOR" e Remover apaga o `Debugger` da subchave.
    - Copie `cmd.exe` sobre o `sethc.exe` (com `takeown`): a tela mostra "TROCADO" e Proteger
      recusa. "Restaurar original" traz o original, e Proteger volta a funcionar (V4).
 6. **Papel de parede:** com a linha `papel` cadastrada, aplique em `Teste01` (logada, outra
@@ -140,7 +141,9 @@ Notebook reserva com as contas comuns `Teste01` e `Teste02` e a conta Suporte.
    - Em `Teste01`, tente gravar em `C:\ProgramData\ITC\Bench\papel\`: acesso negado.
    - Crie `Teste03`: recebe o papel de parede.
    - Desfazer: cada conta volta ao papel dela.
-   - Sem rede, use "Escolher arquivo…" com a imagem num pendrive; com outra imagem, recusa (V5).
+   - Sem rede, use "Escolher arquivo…" com a imagem num pendrive; com outra imagem, recusa.
+   - **Troca da imagem:** desative a linha antiga e cadastre outra; sincronize. Depois da limpeza
+     dos instaladores, `Teste01` fica sem papel de parede; reaplique e confira a imagem nova (V5).
 7. **Mouse e teclado:**
    - Em `Teste02` (fechada), aplique ponteiro preto grande, velocidade 15 e botões invertidos;
      entre nela e confira.
@@ -165,5 +168,8 @@ Notebook reserva com as contas comuns `Teste01` e `Teste02` e a conta Suporte.
 - **"Restaurar original"** depende do WinSxS; se ele também foi trocado offline, o `sfc` não
   resolve.
 - **Papel de parede e mouse** valem no próximo logon (sem SPI).
+- **Troca da imagem no cadastro:** o `limpar` apaga o arquivo da linha que deixou de estar ativa,
+  e as contas que apontavam para ele ficam sem papel de parede. Ao trocar a imagem no cadastro,
+  reaplique o papel de parede nas contas (revisão do PR #35; está na ajuda da tela).
 - **Energia:** padrão do plano não encontrado → o Bench não mexe naquele ajuste.
 - **Resolução e escala** ficam com o Windows.

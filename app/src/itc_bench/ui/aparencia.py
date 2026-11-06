@@ -54,6 +54,9 @@ AJUDA_TELA = (
     "3. Desfazer apaga a política; a conta volta ao papel de parede dela.\n\n"
     "A imagem fica numa pasta do Bench que o aluno lê, mas não altera. Aceita JPG e PNG, até "
     "20 MB, de 640x480 a 7680x4320.\n\n"
+    "Trocou a imagem no cadastro?\n"
+    "Reaplique o papel de parede nas contas. O Bench apaga a imagem antiga quando ela sai do "
+    "cadastro, e as contas que apontavam para ela ficam sem papel de parede até reaplicar.\n\n"
     "Resolução e escala\n"
     "O Bench não muda: o Windows já usa a resolução recomendada do notebook. Para ajustar, use "
     "Abrir configurações de vídeo, na conta do aluno.\n\n" + _ALVOS
