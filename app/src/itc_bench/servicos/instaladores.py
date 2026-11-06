@@ -44,7 +44,10 @@ def do_cadastro(cadastros: Cadastros | None, programa: str) -> Instalador | str:
     """A linha ativa do programa, ou a mensagem do que falta (ADR-008)."""
     if cadastros is None:
         return "Sem cadastros: conecte, entre e sincronize."
-    linhas = [i for i in cadastros.instaladores if i.programa == programa]
+    # Só instaladores: um winget ou Web App com o mesmo nome não conta (ADR-020).
+    linhas = [
+        i for i in cadastros.instaladores if i.tipo == "instalador" and i.programa == programa
+    ]
     if not linhas:
         return f"Cadastre o instalador “{programa}” em Instaladores e sincronize."
     if len(linhas) > 1:
@@ -53,9 +56,12 @@ def do_cadastro(cadastros: Cadastros | None, programa: str) -> Instalador | str:
 
 
 def validar(instalador: Instalador, extensao: str) -> str | None:
-    """Motivo do cadastro inválido, ou None. `extensao` com ponto, ex.: `.msi`."""
+    """Motivo do cadastro inválido, ou None. `extensao` com ponto, ex.: `.msi`.
+
+    O ícone de Web App (`.ico`) não tem versão.
+    """
     nome = instalador.programa
-    if not instalador.versao.strip():
+    if extensao != ".ico" and not instalador.versao.strip():
         return f"O instalador “{nome}” está sem versão em Instaladores."
     if not SHA256.fullmatch(instalador.sha256.strip()):
         return f"O instalador “{nome}” está sem SHA-256 válido (64 hexadecimais)."
@@ -238,23 +244,31 @@ def copiar(
     return caminho
 
 
+def icones() -> Path:
+    r"""%ProgramData%\ITC\Bench\icones: ícones dos Web Apps, legíveis por Usuários (ADR-020)."""
+    return caminhos.dados() / "icones"
+
+
 def limpar(cadastros: Cadastros | None, base: Path | None = None) -> list[str]:
-    """Apaga o que não corresponde a nenhuma linha ativa de Instaladores; sem cadastros, nada."""
+    r"""Apaga o que não corresponde a nenhuma linha ativa de Instaladores; sem cadastros, nada.
+
+    Sem `base`, vale para `protegido\instaladores` e para `icones` (ADR-020).
+    """
     if cadastros is None:
-        return []
-    raiz = base or pasta()
-    if not raiz.is_dir():
         return []
     ativos = {i.sha256.strip().lower() for i in cadastros.instaladores}
     apagados = []
-    for item in raiz.iterdir():
-        sha = item.name.split(".", 1)[0].lower()
-        if item.is_file() and (sha not in ativos or item.name.endswith(".parcial")):
-            try:
-                item.unlink()
-                apagados.append(item.name)
-            except OSError as erro:
-                log.warning("Instaladores: não apagou %s… (%s)", sha[:12], type(erro).__name__)
+    for raiz in [base] if base is not None else [pasta(), icones()]:
+        if not raiz.is_dir():
+            continue
+        for item in raiz.iterdir():
+            sha = item.name.split(".", 1)[0].lower()
+            if item.is_file() and (sha not in ativos or item.name.endswith(".parcial")):
+                try:
+                    item.unlink()
+                    apagados.append(item.name)
+                except OSError as erro:
+                    log.warning("Instaladores: não apagou %s… (%s)", sha[:12], type(erro).__name__)
     if apagados:
         log.info("Instaladores: %d arquivo(s) sem cadastro apagado(s)", len(apagados))
     return apagados

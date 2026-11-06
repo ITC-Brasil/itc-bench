@@ -51,6 +51,13 @@ class Instalador:
     sha256: str
     link: str
     observacao: str
+    # ADR-020 / TA-ADR-029; cache antigo sem os campos = instalador.
+    tipo: str = "instalador"
+    categoria: str = "Programas"
+    identificador: str = ""
+    argumentos: str = ""
+    deteccao: str = ""
+    modo: str = "quiosque"
 
 
 @dataclass(frozen=True)
@@ -132,6 +139,12 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(i["sha256"]),
                 str(i["link"]),
                 str(i["observacao"]),
+                str(i.get("tipo") or "instalador"),
+                str(i.get("categoria") or "Programas"),
+                str(i.get("identificador") or ""),
+                str(i.get("argumentos") or ""),
+                str(i.get("deteccao") or ""),
+                str(i.get("modo") or "quiosque"),
             )
             for i in dados["instaladores"]
         ),

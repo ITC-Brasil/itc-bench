@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+from itc_bench.nucleo import versao as _versao
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import cadastros as cad
 from itc_bench.servicos import executor, instaladores
@@ -63,7 +64,6 @@ HOST = re.compile(
 )
 CHAVE_RUSTDESK = re.compile(r"^[A-Za-z0-9+/]{43}=$")
 SEM_ESPACO_NEM_ASPAS = re.compile(r'^[^\s"\']+$')
-VERSAO = re.compile(r"\d+(?:\.\d+)*")
 ID_REMOTO = re.compile(r"^\d[\d ]{5,15}$")
 
 MSI_OK = {0: "", 3010: "reinício pendente", 1641: "reinício pendente"}
@@ -73,7 +73,7 @@ MSI_ERROS = {
     1619: "O Windows não conseguiu abrir o instalador (1619).",
 }
 
-Comparacao = Literal["ausente", "velha", "igual", "nova"]
+Comparacao = _versao.Comparacao
 
 
 class ErroRemoto(Exception):
@@ -184,21 +184,8 @@ def dados(
 # ---------------------------------------------------------------- versão (pura)
 
 
-def versao(texto: str | None) -> tuple[int, ...] | None:
-    """Primeira sequência numérica (`ad 8.0.14` → (8, 0, 14)); None se não houver."""
-    achado = VERSAO.search(texto or "")
-    return tuple(int(p) for p in achado.group().split(".")) if achado else None
-
-
-def comparar(instalada: str | None, cadastro: str) -> Comparacao:
-    if instalada is None:
-        return "ausente"
-    a, b = versao(instalada), versao(cadastro)
-    if a is None or b is None:
-        return "velha"  # ilegível: instala por cima
-    n = max(len(a), len(b))
-    a, b = a + (0,) * (n - len(a)), b + (0,) * (n - len(b))
-    return "igual" if a == b else "velha" if a < b else "nova"
+versao = _versao.versao
+comparar = _versao.comparar
 
 
 # ---------------------------------------------------------------- TOML do RustDesk (puro)
@@ -291,7 +278,7 @@ def senha_cifrada(texto: str) -> bool:
 # ---------------------------------------------------------------- máquina
 
 
-def _pasta_conhecida(csidl: int) -> Path:
+def pasta_conhecida(csidl: int) -> Path:
     buffer = ctypes.create_unicode_buffer(260)
     if ctypes.windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buffer) != 0:
         raise ErroRemoto("Pasta de programas não encontrada.")
@@ -299,11 +286,11 @@ def _pasta_conhecida(csidl: int) -> Path:
 
 
 def program_files() -> Path:
-    return _pasta_conhecida(0x26)  # CSIDL_PROGRAM_FILES
+    return pasta_conhecida(0x26)  # CSIDL_PROGRAM_FILES
 
 
 def program_files_x86() -> Path:
-    return _pasta_conhecida(0x2A)  # CSIDL_PROGRAM_FILESX86
+    return pasta_conhecida(0x2A)  # CSIDL_PROGRAM_FILESX86
 
 
 def windows() -> Path:

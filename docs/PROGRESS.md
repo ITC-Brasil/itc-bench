@@ -2,27 +2,36 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-09-acesso-remoto`, PR para `develop` (merge commit).
-- **Feito:** Módulo 09 no código. `servicos/instaladores.py` (instalador do cadastro em
-  `protegido\instaladores\<sha256>`, download `https`, cópia de arquivo escolhido, SHA-256 sobre a
-  cópia e de novo antes de executar, limpeza contra todas as linhas) e `servicos/remoto.py` (GLPI
-  Agent, RustDesk, AnyDesk pelo executor; senha do AnyDesk pela entrada padrão; senha do RustDesk
-  pela linha `password` do `RustDesk.toml` do serviço, retirada em qualquer saída sem cifra;
-  versão numérica; polling; `msiexec` 3010/1641/1618). Tela Acesso remoto com ajuda.
-  433 testes. ADR-019; auditoria com 1 médio corrigido e 5 informativos.
-- **Pela metade:** nada no código. Pendência do 09: cenários V1–V11
-  (`docs/modules/09-acesso-remoto.md`), em especial o V2 (o RustDesk aceita a senha pelo arquivo).
-- **Próximo passo:** responsável: cinco linhas em Servidores, três em Instaladores, `TagGLPI`
-  (opcional), trocar as senhas do RustDesk e do AnyDesk; merge do PR. Depois, Módulo 10.
+- **Branch:** `feat/modulo-10-programas`, PR para `develop` (merge commit).
+- **Feito:** Módulo 10 no código.
+  - API: seis colunas em Instaladores e validação por `Tipo` (TA-ADR-029).
+  - App: `servicos/programas.py` (instaladores com argumentos um por linha, winget pelo caminho
+    do pacote com assinatura da Microsoft e `--scope machine`, Web Apps por `.lnk` com `ITC_*` e
+    ícone com SHA-256) e `servicos/desinstalar.py` (MSI por `ProductCode`, `UninstallString`
+    separada sem shell e só se voltar ao mesmo texto, recusas por interpretador e local,
+    protegidos, Windows Terminal).
+  - Executor: instalador não é morto no timeout.
+  - Telas Programas e Remover programas com ajuda.
+  - App 539 testes, API 241. ADR-020; auditoria só com informativos.
+- **Pela metade:** nada no código. Pendência do 10: cenários V1–V11
+  (`docs/modules/10-programas.md`).
+- **Próximo passo:** responsável:
+  1. criar as seis colunas em Instaladores;
+  2. deploy da API antes do app;
+  3. cadastrar as linhas;
+  4. merge do PR.
+
+  Depois, Módulo 11.
 - **Tarefas futuras:** trocar a pasta de deploy no servidor para `itc-bench`; PR no TA trocando o
   README; teste de borda pelo túnel; rótulos de módulo antigos em `ui/navegacao.py`; corrigir no
   pendrive o `Sort-Object LocalPort -Unique` se ele continuar em uso.
-- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–09 em máquina real; release #24.
+- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–10 em máquina real; release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-06 | 10 — Programas | Lista única em Instaladores (`Tipo` instalador/winget/webapp, `Categoria`, `Identificador`, `Argumentos`, `Deteccao`, `Modo`), validada na API. Instaladores pelo serviço do 09, argumentos um por linha. winget pelo caminho do pacote, assinado pela Microsoft, `--source winget --scope machine`, sem `--force`, situação pelo `export`. Web Apps por `.lnk` no Desktop Público para o Edge (quiosque ou app), ícone com SHA-256 em `icones\` com ACL própria. Remover: MSI por `ProductCode`; `Quiet`/`UninstallString` separadas sem shell só se voltam ao mesmo texto; interpretadores e caminho fora de Program Files/Windows recusados; protegidos com cadeado; Windows Terminal para todos e provisionado; sem limpeza de resíduos. Timeout não mata instalador; lote não inicia o próximo. App 539 testes, API 241. ADR-020, TA-ADR-029. Auditoria: 1 médio corrigido (HKU executado de %WINDIR%), 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-05 | 09 — Acesso remoto | GLPI Agent, RustDesk e AnyDesk pelo executor, com dados de Servidores (`GLPI Agent`/`servidor`, `RustDesk`/`servidor`/`chave`/`senha`, `AnyDesk`/`senha`) e tag opcional de `Unidades.TagGLPI`. Instaladores do cadastro em `protegido\instaladores\` com SHA-256 (download `https` ou arquivo escolhido, hash sobre a cópia, conferido antes de executar), serviço comum para o 10. Senha do AnyDesk pela entrada padrão; do RustDesk pelo `RustDesk.toml` do serviço, cifrada pelo próprio RustDesk e retirada em qualquer falha; `RustDesk2.toml` mesclado. Versão pela primeira sequência numérica; não rebaixa. Polling no lugar do `sleep`. Forçar inventário pelo `/now` local. Log sem senha, chave, host, tag, link ou ID. Tela com ajuda. App 433 testes. ADR-019. Auditoria: 1 médio corrigido, 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-05 | 08 — Identificação e Wi-Fi | Renomear por `Rename-Computer` no executor (`ITC_NOME`), validação NetBIOS em Python e no PS, nome pendente na tela, domínio/Azure AD recusa, reiniciar agora ou depois. Wi-Fi pela `wlanapi.dll` (ctypes): XML por `ElementTree` com SSID em hex, só WPA2, senha vazia/inválida = erro de cadastro, comparação da senha instalada sem sair da função, instalar com cancelamento. Wi-Fi é exceção registrada ao executor único. "Testar conexão" saiu na revisão (a conexão é conferida na carreta). Sem `netsh`, arquivo ou processo no Wi-Fi; log só por `Id`. Telas com ajuda. `Unidades.Codigo` = `<SIGLA><nn>` documentado. App 366 testes. ADR-018. Auditoria: 1 baixo corrigido, 4 informativos. Cenários em máquina real pendentes. |
 | 2026-11-05 | 07 — Contas | `servicos/contas.py` + trechos PS (executor, `ITC_*`, `Sensivel`), alvo por SID, grupos pelo SID, sem `wmic`/`net user`. Regras (nativo RID 500, conta Microsoft só leitura, Suporte pelo nome cadastrado e `Suporte`, conta logada, último admin ativo, sessão aberta) em Python e de novo no PS. Conta Suporte de Servidores (`Conta Suporte`/`usuario`/`senha`). Lote: tornar todos admins; remover admin de todos exceto Suporte (inclui a logada). Cópia de pastas fora. Tela Contas com ajuda. App 313 testes. ADR-017. Auditoria: 5 informativos. Ajustes da revisão: Suporte logada pode ser aplicada (com aviso), log só com código. Cenários em máquina real pendentes. |

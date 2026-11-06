@@ -90,11 +90,16 @@ def executar(
     codificacao: Codificacao = "auto",
     descricao: str | None = None,
     cancelar: threading.Event | None = None,
+    encerrar_no_timeout: bool = True,
 ) -> Resultado:
     """Roda o programa e espera (ou até `cancelar`, ADR-015).
 
-    Código ≠ 0 volta no `Resultado`; uso errado levanta exceção.
+    Código ≠ 0 volta no `Resultado`; uso errado levanta exceção. `encerrar_no_timeout=False`
+    (instaladores, ADR-020): no timeout o processo continua rodando, fora de Job Object, e o
+    `Resultado` volta `esgotado`; não combina com `cancelar`.
     """
+    if not encerrar_no_timeout and cancelar is not None:
+        raise ValueError("Processo que não é encerrado não aceita cancelamento.")
     if isinstance(argumentos, str | bytes):
         raise TypeError("O comando é uma lista de argumentos, nunca texto.")
     argumentos = list(argumentos)
@@ -122,13 +127,14 @@ def executar(
         argumentos,
         shell=False,
         stdin=subprocess.PIPE if dados is not None else subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        # Solto no timeout: sem pipe, para o filho não morrer escrevendo num pipe fechado.
+        stdout=subprocess.PIPE if encerrar_no_timeout else subprocess.DEVNULL,
+        stderr=subprocess.PIPE if encerrar_no_timeout else subprocess.DEVNULL,
         env=filho,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
-    job = _Job(processo.pid)
-    esgotado = cancelado = False
+    job = _Job(processo.pid) if encerrar_no_timeout else None
+    esgotado = cancelado = solto = False
     limite = inicio + timeout
     try:
         while True:
@@ -141,14 +147,24 @@ def executar(
                 dados = None
                 cancelado = cancelar is not None and cancelar.is_set()
                 esgotado = not cancelado and time.monotonic() >= limite
+                if esgotado and job is None:
+                    # Instalador segue sozinho, sem saída ligada a nós.
+                    if processo.stdin is not None:
+                        processo.stdin.close()
+                    saida = erros = b""
+                    solto = True
+                    break
                 if cancelado or esgotado:
-                    job.encerrar()
+                    if job is not None:
+                        job.encerrar()
                     processo.kill()
                     saida, erros = processo.communicate()
                     break
     finally:
-        job.fechar()
+        if job is not None:
+            job.fechar()
     duracao = time.monotonic() - inicio
+    saida, erros = saida or b"", erros or b""
 
     resultado = Resultado(
         codigo=None if esgotado or cancelado else processo.returncode,
@@ -161,6 +177,13 @@ def executar(
     variaveis = ", ".join(sorted(ambiente)) or "nenhuma"
     if cancelado:
         log.warning("Cancelado pelo técnico: %s [ITC_*: %s]", rotulo, variaveis)
+    elif solto:
+        log.error(
+            "Tempo esgotado (%.0f s), processo ainda em execução: %s [ITC_*: %s]",
+            timeout,
+            rotulo,
+            variaveis,
+        )
     elif esgotado:
         log.error("Tempo esgotado (%.0f s): %s [ITC_*: %s]", timeout, rotulo, variaveis)
     else:
@@ -197,6 +220,11 @@ def powershell(
         codificacao="utf-8",
         descricao=f"PowerShell ({len(script)} caracteres): {script.strip().splitlines()[0][:80]}",
     )
+
+
+def linha_de_comando(argumentos: Sequence[str]) -> str:
+    """Como o executor junta a lista (regras do `CommandLineToArgvW`)."""
+    return subprocess.list2cmdline(argumentos)
 
 
 def _texto(valor: str | Sensivel) -> str:

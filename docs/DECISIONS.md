@@ -1054,3 +1054,154 @@ proposto e aprovado com ajustes em `.conversa/` em 05/11/2026.
 O responsável cadastra as cinco linhas de Servidores e as três de Instaladores e troca as senhas
 do RustDesk e do AnyDesk. O 10 usa `servicos/instaladores.py` e a mesma pasta. O 13 chama
 `servicos/remoto.py`.
+
+## ADR-020 — Programas e Remover programas: lista única em Instaladores, winget e Web Apps sem shell, desinstalação por argumentos
+
+**Status:** Accepted
+**Date:** 2026-11-06
+**Module:** 10
+
+**Context**
+O Configurador instala de uma pasta ao lado do EXE com `shell=True` (`.exe` sempre visual, código
+de saída ignorado), roda o winget em texto com `--force` e, no erro, de novo sem `--source`; cria
+Web Apps com um `.bat` (`start msedge --kiosk "{url}"`) e um `.vbs` em `%TEMP%`; desinstala
+executando a `UninstallString` do registro com shell, troca `/I` por `/X` em qualquer lugar do
+texto e faz "limpeza profunda" apagando pastas e entradas do registro por nome parcial. Desenho
+proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
+
+**Decision**
+1. **Inventário.** Entram o lote de instaladores, o winget, os Web Apps (inclusive os jogos), a
+   desinstalação e a remoção do Windows Terminal. Saem a pasta local de instaladores, as listas
+   locais (`winget_db.json`, `webapps_db.json`, `games_db.json`), o `.bat`, o `.vbs`, o `--force`,
+   o fallback sem `--source`, o `/I`→`/X` em texto e a limpeza de resíduos inteira. A lista de
+   pré-instalados a remover vai para o perfil do Módulo 13; no 10 a seleção é manual.
+2. **Lista única = a tabela `Instaladores`**, com seis colunas novas (TA-ADR-029):
+   `Tipo` (`instalador`, `winget`, `webapp`; vazio = `instalador`), `Categoria` (`Programas`,
+   `Jogos`; vazio = `Programas`), `Identificador` (ID do winget ou URL do Web App), `Argumentos`
+   (um por linha, só instalador), `Deteccao` (opcional) e `Modo` (`quiosque`, `app`; só Web App;
+   vazio = `quiosque`).
+   - Obrigatórios: instalador = `Programa`, `Versao`, `Arquivo` `.exe`/`.msi`, `SHA256`, `Link`
+     `https://` (regra do ADR-019); winget = `Identificador` no formato de ID; Web App =
+     `Identificador` `https://` com host, ícone opcional (`Link` `https://` + `SHA256` + `Arquivo`
+     `.ico`).
+   - Duplicada (mesmo tipo e `Identificador`, ou mesmo `Programa` entre instaladores): as duas
+     aparecem como "cadastro duplicado" e nenhuma instala.
+   - `instaladores.do_cadastro` (Acesso remoto) considera só `Tipo = instalador`; GLPI Agent,
+     RustDesk e AnyDesk não aparecem em Programas.
+3. **Instaladores** pelo serviço do ADR-019 (download ou arquivo escolhido, SHA-256 sobre a cópia
+   e antes de executar, `protegido\instaladores\`).
+   - Cada linha de `Argumentos` é **um** item da lista do executor, validado por
+     `^[A-Za-z0-9/_=.:+,{}-]+$` (sem espaço, aspas, `\`, `&|<>%^`); item inválido recusa o programa.
+   - MSI: `msiexec.exe /i <arquivo> /qn /norestart` + `Argumentos` (só `PROPRIEDADE=valor`).
+     EXE: `<arquivo>` + `Argumentos`; sem argumentos é interativo, com aviso na confirmação.
+   - Códigos: `msiexec` como no ADR-019 (0; 3010/1641 reinício pendente; 1618 outra instalação).
+     EXE: 0 ok, 3010 reinício pendente, outro falha.
+4. **Winget.**
+   - Executável: `InstallLocation` do pacote `Microsoft.DesktopAppInstaller` (lido pelo executor)
+     + `winget.exe`, com assinatura Authenticode válida e assinante Microsoft conferidos antes do
+     uso. O alias do perfil (`WindowsApps`) não é usado. Ausente: itens winget desabilitados com o
+     motivo.
+   - Comando fixo: `install --id <ID> -e --source winget --scope machine --silent
+     --disable-interactivity --accept-package-agreements --accept-source-agreements`. Sem
+     `--force`, `--ignore-security-hash`, `--version` nem nova tentativa em outra origem ou escopo.
+     Pacote sem instalador de máquina falha com mensagem própria (o Bench roda como admin; escopo
+     de usuário cairia no perfil do técnico).
+   - Situação e versão: `winget export --source winget --include-versions` em JSON (não depende do
+     idioma), arquivo temporário em `protegido\` apagado em `finally`.
+   - Códigos `APPINSTALLER_CLI_ERROR_*` em tabela fechada; outro código vira falha com o hex.
+   - **Risco aceito:** o Bench não confere SHA-256 do que o winget baixa; o winget confere contra o
+     manifesto do repositório comunitário. Conferido pelo Bench: origem fixa, ID exato, escopo de
+     máquina, `winget.exe` assinado pela Microsoft. Programa que precisa de hash nosso vai como
+     `instalador`.
+5. **Web Apps:** atalho `.lnk` no Desktop Público para `msedge.exe` (caminho de
+   `HKLM\...\App Paths\msedge.exe`, dentro de `Program Files`).
+   - Argumentos montados pelo Bench a partir de `Modo`: `quiosque` = `--kiosk <url>
+     --edge-kiosk-type=fullscreen --no-first-run`; `app` = `--app=<url> --no-first-run`; valor
+     desconhecido recusa a linha. URL `https://` com host, sem espaço, aspas nem controle.
+   - Ícone baixado com SHA-256 e guardado em `%ProgramData%\ITC\Bench\icones\<sha256>.ico`,
+     **local novo fora de `protegido\`** (o Explorer do usuário precisa ler). O Bench grava a ACL
+     explicitamente: sem herança; Administradores e SYSTEM controle total; Usuários leitura e
+     execução. `instaladores.limpar` trata também essa pasta com a mesma regra.
+   - `.lnk` por trecho PowerShell fixo no executor (`WScript.Shell.CreateShortcut`), valores só por
+     `ITC_*`. Descrição fixa "ITC Bench" marca os atalhos do Bench.
+   - Nome do arquivo = `Programa` sem `\/:*?"<>|` e controles, sem `..`, até 60 caracteres, sem
+     ponto ou espaço no fim, fora dos nomes reservados (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`,
+     `LPT1`–`LPT9`). Atalho com o mesmo nome sem a descrição "ITC Bench" não é sobrescrito.
+6. **Remover programas** (`servicos/desinstalar.py`).
+   - Lista por `winreg`: `HKLM` 64 e 32 bits e `HKU\<SID>` dos perfis carregados. Pula
+     `SystemComponent=1`, `ParentKeyName` e sem `DisplayName`.
+   - MSI (chave `{GUID}` com `WindowsInstaller=1`): `msiexec.exe /x {GUID} /qn /norestart`; a
+     `UninstallString` é ignorada.
+   - EXE: `QuietUninstallString` (silencioso) ou `UninstallString` (interativo, avisado). Variáveis
+     de `REG_EXPAND_SZ` expandidas. Caminho entre aspas até a aspa seguinte; sem aspas, o primeiro
+     prefixo terminado em `.exe` em fronteira de espaço que existe como arquivo. O resto vai por
+     `CommandLineToArgvW`; se `list2cmdline` da lista não reproduzir o texto original, o comando
+     é recusado (o silencioso cai para o interativo, se este servir).
+   - **Recusa:** não separável; não `.exe`; executável em lista fechada (`cmd`, `powershell`,
+     `pwsh`, `rundll32`, `wscript`, `cscript`, `mshta`, `regsvr32`, `msiexec` fora do caso MSI);
+     caminho final (depois de expandir, resolver `..`, junções e links) fora de `Program Files`,
+     `Program Files (x86)` e `%WINDIR%`. `%ProgramData%` e perfis ficam fora: o usuário comum
+     poderia trocar o executável que o Bench rodaria como admin.
+   - **Locais por origem** (revisão do PR, 06/11/2026): a chave `Uninstall` de `HKU\<SID>` é
+     gravável pelo próprio usuário. Entrada de HKU só roda executável em `Program Files` ou
+     `Program Files (x86)`; `%WINDIR%` é recusado ("remova pelo Painel de Controle, entrando na
+     conta do usuário"). MSI por `ProductCode` continua aceito, porque o `msiexec /x {GUID}` não
+     leva nada do registro. Entrada de HKLM aceita `%WINDIR%` fora de uma lista fechada de
+     subpastas graváveis por Usuários (`Temp`, `Tasks`, `tracing`, `Registration\CRMLog` e, em
+     `System32` e `SysWOW64`, `Tasks`, `Tasks_Migrated`, `spool\drivers\color`,
+     `spool\PRINTERS`, `spool\SERVERS`, `com\dmp`, `FxsTmp`,
+     `Microsoft\Crypto\RSA\MachineKeys`). Foi escolhida a lista fechada, e não "só
+     `System32`/`SysWOW64`", para não recusar desinstaladores legítimos em outras pastas de
+     `%WINDIR%`.
+   - Sem limpeza de resíduos; entrada cujo desinstalador não existe aparece como "desinstalador
+     ausente", sem apagar.
+   - **Protegidos**, com cadeado e motivo, sem seleção: ITC Bench, GLPI Agent, RustDesk, AnyDesk e
+     prefixos fixos de driver e runtime (Visual C++, .NET, Windows Driver Package, Intel, Realtek,
+     AMD, NVIDIA).
+   - Atalhos "ITC Bench" do Desktop Público aparecem como "Atalho web" e só eles são apagados.
+   - **Windows Terminal:** item fixo quando o pacote `Microsoft.WindowsTerminal` existe; trecho PS
+     fixo remove o pacote de todos os usuários e o provisionado de mesmo nome exato, sem curinga.
+7. **Execução e lote.** Só pelo executor, com descrição sem caminho nem URL. Timeout 900 s por
+   instalador/desinstalador e 1800 s por winget. O executor ganhou `encerrar_no_timeout=False`:
+   instalador, `msiexec` e winget **não são mortos** no timeout. O item fica "ainda em execução,
+   confira depois" e o lote **pula os instaladores, winget e desinstalações seguintes** (todos
+   podem usar o Windows Installer), seguindo só com Web Apps e atalhos. Cancelamento entre itens
+   e no download; um falhou, os outros seguem; resumo no fim.
+8. **Detecção.** Versão pela primeira sequência numérica (`nucleo/versao.py`, a do ADR-019):
+   igual = instalado; mais velha ou ilegível = desatualizado; mais nova = não rebaixa.
+   - MSI: `ProductCode` e `ProductVersion` lidos do próprio `.msi` guardado e conferido
+     (`msi.dll` por `ctypes`), procurado em `Uninstall\{ProductCode}`; sem o arquivo guardado, cai
+     na regra do EXE.
+   - EXE: `Deteccao`, ou `Programa`, como prefixo do `DisplayName` (regra do 09).
+   - Nenhum = "não instalado"; mais de um = "ambíguo" (instala se pedido, com aviso).
+   - winget pelo `export`; Web App pelo `.lnk` "ITC Bench".
+9. **Tela e log.** Por item: programa, origem, categoria, situação, versões e motivo de bloqueio.
+   O log recebe programa, tipo, `Id`, versão, passo, resultado, código, 12 caracteres do hash e o
+   ID do winget. Nunca `Link`, URL do Web App, caminho de perfil, nome de usuário, SID nem a
+   `UninstallString` (só o nome do executável e o modo). `--dev` sem admin: só leitura.
+10. **Serviços sem Qt** para o 13: `servicos/programas.py` e `servicos/desinstalar.py`.
+
+**Alternatives considered**
+- Tabela nova "Programas" no NocoDB — mais um token e variável, e o 09 leria outra tabela para o
+  mesmo conceito.
+- Lista em arquivo no app — muda só com release, contra o ADR-006.
+- Parâmetros em texto livre separados por espaço — volta a interpretar linha de comando vinda do
+  cadastro.
+- Manter `--force` e o fallback sem `--source` — mascaram "já instalado" e podem trazer outro
+  pacote da msstore.
+- `IShellLinkW` por `ctypes` — vtable à mão para o mesmo resultado do trecho PS com `ITC_*`.
+- Ícone em `protegido\` — o Explorer do usuário não lê.
+- Limpeza de resíduos por lista fechada de pastas — manutenção por programa sem ganho; por nome
+  parcial, já apagou o que não devia.
+- Esconder programas protegidos — o técnico acharia que o Bench não os viu.
+- Matar o instalador no timeout — o Windows Installer continua e o próximo MSI pega 1618.
+
+**Riscos aceitos (responsável, 06/11/2026)**
+- Pacotes do winget sem SHA-256 do Bench (item 4).
+- Desinstalador interativo é programa do fabricante, executado como admin, de pasta só gravável
+  por admin.
+- Perfis não carregados não aparecem na lista de remoção.
+
+**Consequences**
+O responsável cria as seis colunas em Instaladores, cadastra as linhas e faz o deploy da API
+antes do app novo. O 13 escolhe programas pelo serviço.

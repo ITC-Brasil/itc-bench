@@ -170,3 +170,33 @@ def test_limpar_sem_cadastros_nao_apaga(tmp_path: Path) -> None:
 def test_redirecionamento_para_http_recusado() -> None:
     with pytest.raises(inst.ErroInstalador, match="https"):
         inst._SoHttps().redirect_request(None, None, 302, "", {}, "http://x.exemplo.invalid/a")
+
+
+def test_do_cadastro_ignora_winget_e_webapp_com_o_mesmo_nome() -> None:
+    """ADR-020: só `Tipo = instalador` serve ao Acesso remoto."""
+    from dataclasses import replace
+
+    winget = replace(linha(2), tipo="winget", identificador="Exemplo.Pacote")
+    webapp = replace(linha(3), tipo="webapp", identificador="https://exemplo.invalid")
+    assert inst.do_cadastro(cadastros(linha(), winget, webapp), "RustDesk") == linha()
+    assert "Cadastre" in str(inst.do_cadastro(cadastros(winget), "RustDesk"))
+
+
+def test_icone_sem_versao_e_valido() -> None:
+    from dataclasses import replace
+
+    icone = replace(linha(arquivo="jogo.ico", versao=""), tipo="webapp")
+    assert inst.validar(icone, ".ico") is None
+    assert "versão" in str(inst.validar(linha(versao=""), ".msi"))
+
+
+def test_limpar_sem_base_trata_instaladores_e_icones(tmp_path: Path, monkeypatch) -> None:
+    pastas = tmp_path / "instaladores", tmp_path / "icones"
+    for p in pastas:
+        p.mkdir()
+        (p / f"{'c' * 64}.ico").write_bytes(b"x")
+        (p / f"{SHA}.ico").write_bytes(b"x")
+    monkeypatch.setattr(inst, "pasta", lambda: pastas[0])
+    monkeypatch.setattr(inst, "icones", lambda: pastas[1])
+    assert len(inst.limpar(cadastros(linha()))) == 2
+    assert all((p / f"{SHA}.ico").exists() for p in pastas)
