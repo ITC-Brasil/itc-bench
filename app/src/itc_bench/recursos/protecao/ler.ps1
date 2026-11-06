@@ -23,7 +23,8 @@ function Tem-Valor($k, [string]$nome) {
 }
 
 function Depurador($maq, [string]$exe) {
-    # Debugger na chave do exe ou em subchave com UseFilter = 1; MonitorProcess no SilentProcessExit.
+    # Debugger na chave do exe ou em qualquer subchave (filtro por caminho: UseFilter fica na chave
+    # do exe, FilterFullPath e Debugger na subchave), com ou sem UseFilter; MonitorProcess no SPE.
     $achou = $false
     $k = $maq.OpenSubKey("$IFEO\$exe", $false)
     if ($k) {
@@ -31,7 +32,7 @@ function Depurador($maq, [string]$exe) {
         foreach ($n in $k.GetSubKeyNames()) {
             $s = $k.OpenSubKey($n, $false)
             if ($s) {
-                if ($s.GetValue('UseFilter', 0) -eq 1 -and (Tem-Valor $s 'Debugger')) { $achou = $true }
+                if (Tem-Valor $s 'Debugger') { $achou = $true }
                 $s.Close()
             }
         }

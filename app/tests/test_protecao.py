@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from itc_bench.servicos import protecao
+from itc_bench.servicos import executor, protecao
 from itc_bench.servicos.executor import Resultado
 
 SYS = "C:\\W\\System32\\"
@@ -181,3 +181,26 @@ def test_situacao_real() -> None:
     s = protecao.situacao()
     assert set(s.binarios) == set(protecao.BINARIOS)
     assert s.binarios["utilman.exe"].arquivo in ("original", "nao_lido")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+def test_ifeo_com_filtro_real() -> None:
+    """Caso real: UseFilter = 1 na chave do exe, Debugger na subchave (chave de teste em HKCU)."""
+    import secrets
+
+    raiz = rf"Software\ITCBenchTeste_{secrets.token_hex(4)}"
+    funcoes = protecao.script("ler").split("$maq = [Microsoft.Win32.RegistryKey]::OpenBaseKey")[0]
+    funcoes = funcoes.replace(
+        "$IFEO = 'SOFTWARE", r"$IFEO = $env:ITC_RAIZ + '\IFEO'; $NAO = 'SOFTWARE"
+    )
+    teste = r"""
+$cu = [Microsoft.Win32.Registry]::CurrentUser
+$exe = $cu.CreateSubKey("$IFEO\osk.exe"); $exe.SetValue('UseFilter', 1, 'DWord')
+$cu.CreateSubKey("$IFEO\osk.exe\f").SetValue('FilterFullPath', 'C:/x/osk.exe')
+Write-Output ('ANTES|' + (Depurador $cu 'osk.exe'))
+$cu.OpenSubKey("$IFEO\osk.exe\f", $true).SetValue('Debugger', 'cmd.exe')
+Write-Output ('DEPOIS|' + (Depurador $cu 'osk.exe'))
+$cu.DeleteSubKeyTree($env:ITC_RAIZ, $false)
+"""
+    r = executor.powershell(funcoes + teste, raiz=raiz)
+    assert "ANTES|False" in r.saida and "DEPOIS|True" in r.saida, (r.saida, r.erros)
