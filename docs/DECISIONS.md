@@ -1205,3 +1205,149 @@ proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
 **Consequences**
 O responsável cria as seis colunas em Instaladores, cadastra as linhas e faz o deploy da API
 antes do app novo. O 13 escolhe programas pelo serviço.
+
+## ADR-021 — Políticas e USB: catálogo fechado no código, escrita no hive do usuário-alvo e bloqueio de armazenamento removível
+
+**Status:** Accepted
+**Date:** 2026-11-06
+**Module:** 11
+
+**Context**
+O Configurador grava 13 políticas por `winreg` no `HKEY_CURRENT_USER` do processo elevado (o
+parâmetro de hive de outro usuário existe, mas ninguém o passa), então as políticas de usuário
+caem na conta que elevou, não na do aluno. A situação vem de `gpo_prefs.json`, não do registro.
+Desfazer apaga o valor, inclusive `SharedAccess\Start`, o que tira a configuração do serviço.
+Um `.bat` com `%USERNAME%` interpolado e `-ExecutionPolicy Bypass` e um `.ps1` gerado por texto
+ficam ocultos na pasta Inicializar de todos os usuários para reaplicar no logon. "USB" no
+Configurador é copiar uma pasta para pendrives. Desenho proposto e aprovado com ajustes em
+`.conversa/` em 06/11/2026.
+
+**Decision**
+1. **Catálogo fechado no código** (`servicos/politicas.py`, `CATALOGO`):
+   - Cada política tem id estável, nome, descrição, grupo, escopos (`usuario`, `maquina`),
+     valores (chave relativa, nome, tipo, dado, valor de desfazer) e as edições em que o efeito
+     não está confirmado.
+   - O Módulo 13 escolhe políticas só por id. Sem NocoDB e sem mudança na API.
+   - **Raízes aceitas,** conferidas no Python (teste) e de novo no PowerShell:
+     - usuário: `Software\Policies\` e `Software\Microsoft\Windows\CurrentVersion\Policies\`;
+     - máquina: `SOFTWARE\Policies\` e a chave exata
+       `SYSTEM\CurrentControlSet\Services\SharedAccess`.
+2. **Políticas:**
+   - **Usuário:** Prompt de Comando (`DisableCMD = 2`, deixa `.bat` de terceiros), Regedit,
+     Painel de Controle, Adicionar/Remover (só o painel antigo), aba Temas, ponteiros do mouse.
+   - **PowerShell pelo Explorer:** `DisallowRun = 1` e `ITCBench1..3` (`powershell.exe`,
+     `powershell_ise.exe`, `pwsh.exe`).
+     - O valor legado do Configurador `DisallowRun\1` com dado exatamente `PowerShell.exe` (sem
+       diferenciar maiúsculas) conta na situação e é apagado no desfazer.
+     - `DisallowRun` só é apagado quando a lista fica vazia.
+   - **Máquina:**
+     - compartilhamento de conexão (`NC_ShowSharedAccessUI = 0`);
+     - Wi-Fi Direct;
+     - ICS (`SharedAccess\Start = 4`; desfazer grava `3`, Manual). O ICS fica no registro, e não
+       em `Set-Service`: é o mesmo valor, pelo mesmo caminho das outras políticas, e o serviço
+       em execução para no próximo reinício.
+   - **Usuário e máquina:** Microsoft Store (`RemoveWindowsStore = 1`, efeito documentado só no
+     Enterprise e no Education) e armazenamento removível (`RemovableStorageDevices\Deny_All = 1`).
+   - **Saem:** wallpaper e estilo (vão para o 12). "Ocultar unidade C:" não entra.
+3. **USB** = bloquear ("Desabilitar") e liberar ("Habilitar") armazenamento removível por
+   `Deny_All`, que cobre disco removível, CD/DVD, WPD/MTP e fita.
+   - Por usuário, no hive do aluno: deixa Suporte e técnico usarem pendrive.
+   - Na máquina: bloqueia todos.
+   - Liberar apaga só `Deny_All`. Sem cópia para pendrive e sem `servicos/usb.py`.
+4. **Alvos:** "Máquina", "Contas futuras" (Default User) e as contas de `contas.listar()`,
+   sempre por SID.
+   - Hive carregado: escreve em `HKU\<SID>`.
+   - Perfil não carregado ou Default: chamadas separadas do executor. O trecho carrega o
+     `NTUSER.DAT` em `HKU\ITCBench_<8 hex>`, escreve ou lê, e descarrega.
+     - O descarregar roda num `finally` do Python, sem cancelamento, até 3 tentativas.
+     - O caminho do perfil é lido pelo trecho em `ProfileList` e conferido (`%SystemDrive%\Users\`,
+       sem perfil `TEMP`, arquivo existente). O Python nunca recebe esse caminho.
+     - Antes de cada leitura ou aplicação, `HKU\ITCBench_*` que tenham sobrado são descarregados.
+   - **O processo Python nunca abre `HKU\ITCBench_*`.** O serviço não importa `winreg`.
+   - **Leitura só em 64 bits:** toda leitura é pelo trecho, em `RegistryView.Registry64`. O
+     PowerShell é o de `System32`, e o serviço recusa rodar em Python de 32 bits (sem
+     `WOW6432Node`).
+   - Há teste para cada regra.
+5. **Recusas** (Python e de novo no trecho):
+   - Administrador nativo (RID 500);
+   - conta Suporte;
+   - conta dona do processo elevado ("é a conta que está rodando o Bench");
+   - conta sem perfil.
+
+   Conta administradora é aceita com aviso.
+6. **ACL:**
+   - **Criação:** a primeira chave que faltar no caminho é criada com
+     `O:BAG:SYD:PAI(A;CI;KA;;;SY)(A;CI;KA;;;BA)(A;CI;KR;;;BU)`, e as de baixo herdam. Dono:
+     Administradores; Usuários só leem.
+   - **Default User:** as chaves `Policies` do perfil padrão vêm com a mesma forma (SY/BA total,
+     Usuários leitura).
+     - Na criação da conta, o Windows copia o hive e só dá controle à raiz.
+     - Chave com ACL protegida mantém dono BA e Usuários leitura: a conta nova só lê.
+     - Cenário da máquina real.
+   - **"O usuário pode alterar":**
+     - Vale para a chave mais próxima que exista, até a raiz de política.
+     - Aparece quando o dono dela é o SID-alvo, ou quando ela dá escrita a ele, a Todos, a
+       Usuários autenticados, a Interativo ou a Usuários (e a Administradores, se a conta for
+       admin).
+     - O Bench só avisa; não troca ACL existente.
+7. **Máquina:** registro direto pelo executor. A tela diz que vale no próximo logon.
+   - Sem `Registry.pol`/LGPO.
+   - Sem `gpupdate`: ele só sobrescreve o que a GPO local também configura, e nesse caso a
+     situação mostra "diferente".
+   - Sem `WM_SETTINGCHANGE`: seria ctypes fora do critério do ADR-018 e não alcança outra sessão
+     nem hive descarregado.
+8. **Edição:** `EditionID` lido pelo trecho.
+   - Efeito não confirmado: no Home, para as políticas de máquina e o USB; no Home e no Pro,
+     para a Store.
+   - Nesses casos a tela mostra "efeito não confirmado nesta edição", e a política pode ser
+     aplicada.
+   - Só vira cadeado o que o teste na máquina real confirmar sem efeito.
+9. **Sem reaplicação no logon** (confirmado pelo responsável): as chaves de política no hive do
+   aluno só são graváveis por admin.
+   - Sobras do Configurador: os dois arquivos de nome fixo `itc_security_check.bat` e `.ps1` na
+     pasta Inicializar de todos os usuários, sem curinga.
+   - A tela Políticas as mostra com "Remover".
+10. **Situação** por política × alvo:
+    - aplicada;
+    - não aplicada;
+    - diferente (outro valor, legado ou parcial);
+    - não lida (perfil descarregado, até "Ler");
+    - e o alerta "o usuário pode alterar".
+
+    **Desfazer = padrão do Windows**, sem guardar o valor anterior. Aplicar é idempotente.
+11. **Executor:**
+    - Trechos fixos em `recursos/politicas/`. Variáveis:
+      - `ITC_HIVE`: regex de SID, `MAQUINA` ou `ITCBench_[0-9a-f]{8}`;
+      - `ITC_OPERACOES`: JSON montado só do catálogo e revalidado no trecho.
+    - Erros do trecho só como código: a mensagem de `reg load` pode trazer caminho de perfil.
+    - **Granularidade:**
+      - uma chamada de escrita por alvo, com todas as políticas escolhidas para ele;
+      - a chamada nunca é cancelada no meio: o cancelamento vale entre alvos ("Cancelar depois
+        deste passo");
+      - timeout de 60 s;
+      - falha num alvo não para o lote.
+12. **Log:** `Políticas: <aplicar|desfazer> alvo <maquina|padrao|usuario n> politica=<id>
+    resultado=<ok|erro> codigo=<c>`. Nunca nome de conta, SID, caminho de perfil nem nome do
+    hive temporário.
+13. **Telas:**
+    - **Segurança › Políticas:** alvo; tabela por grupo com situação; aplicar e desfazer;
+      confirmação do que muda; cancelamento; sobras do Configurador; "?".
+    - **Segurança › USB:** a mesma lógica, só com o armazenamento removível e os botões
+      Habilitar/Desabilitar.
+    - **`--dev` sem admin:** só leitura. O trecho lê HKLM e os hives que o usuário pode ler.
+
+**Alternatives considered**
+- Catálogo no NocoDB ou em arquivo — escrita arbitrária no registro como admin a partir de
+  cadastro, ou um formato a mais para validar sem ganho.
+- `USBSTOR\Start = 4` — bloqueia o técnico também e não é política.
+- Cópia para pendrive — o Explorer faz; mexe em mídia externa e não protege a máquina.
+- Tarefa agendada ou `Run` no logon — superfície a cada logon para um problema que deixa de
+  existir com a escrita no hive certo.
+- Guardar o valor anterior — estado a mais, e o anterior pode ser de outra ferramenta.
+- `winreg` no Python para ler — não lê ACL e abriria o hive temporário.
+- LGPO/`Registry.pol` — binário externo ou formato próprio; `gpedit` não existe no Home.
+- Cadeado por edição sem teste — esconderia política que pode funcionar.
+
+**Consequences**
+Sem passos do responsável (sem API, NocoDB nem `.env`). Os cenários de escrita (Default User,
+perfil descarregado, Home/Pro, Windows em inglês) ficam para a máquina real com o instalador.
