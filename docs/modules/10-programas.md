@@ -53,6 +53,8 @@ Ajustes incorporados:
   (o argv não muda). NSIS `/S /D=C:\Program Files\X` passa (o programa recebe a mesma linha);
   aspas que sumiriam (`"arg"`, `/X="a b"`) são recusadas. Recusa por local é conferida antes da
   existência do arquivo.
+- **Locais por origem** (revisão do PR): entrada de HKU só roda de Program Files; entrada de HKLM
+  aceita `%WINDIR%` fora de uma lista fechada de subpastas graváveis por Usuários (ADR-020).
 - **Detecção MSI** só quando o `.msi` está guardado e conferido; antes do primeiro download, vale
   o nome.
 - **Ajuda.** O manual do Configurador só lista as abas Winget, Softwares & Jogos, Web Apps e
@@ -60,7 +62,7 @@ Ajustes incorporados:
 
 ## Verificação
 
-API: 241 testes no container oficial. App: 530 testes passando e 4 pulados; ruff e mypy limpos;
+API: 241 testes no container oficial. App: 539 testes passando e 4 pulados; ruff e mypy limpos;
 `itc-bench --teste --dev` com código 0.
 
 A máquina de desenvolvimento (Windows 11 em português) foi usada só para leitura:
@@ -105,6 +107,7 @@ Nada foi instalado, removido nem criado nela; os nomes dos programas não foram 
 | D6 | Protegidos (Bench, acesso remoto, runtime, driver) | `test_protegidos` (6 casos), `test_protegido_e_recusado_nao_executam` | Sem seleção, nada executado |
 | D7 | Lote de remoção: códigos, 1605, 1618, timeout, cancelar, log sem caminho | `test_lote_codigos_e_log_sem_comando`, `test_msi_1605_e_1618`, `test_timeout_pula_programas_mas_segue_atalho_e_terminal`, `test_cancelar_entre_itens` | Passa |
 | D8 | Windows Terminal por trecho fixo (todos os usuários e provisionado) | `test_terminal_por_script_fixo` | Passa |
+| D9 | Locais por origem: HKU em Program Files (aceito), em System32 e `Windows\Temp` (recusado); HKLM em `Windows\Temp` e no spool (recusado), em `%WINDIR%` legítimo e System32 (aceito); HKU MSI por `ProductCode` (aceito); junção para subpasta gravável | `test_locais_por_origem` (7 casos), `test_hku_msi_por_product_code_aceito`, `test_subpasta_gravavel_pelo_caminho_final` | Passa |
 | T1 | Telas: abas, busca, bloqueados, contagem, `--dev` só leitura, confirmação com modo e origem, protegido travado | `test_programas_tela.py` (5 testes) | Passa |
 | M1 | Nenhum `shell=True`, `cmd /c` ou `subprocess` fora do executor no `src/` | `test_sem_shell.py`, busca no `src/` | Passa (só o `list2cmdline` da elevação, de antes) |
 | M2 | Leitura real nesta máquina: registro, winget, `export`, Edge, atalhos, lista de remoção | Script de leitura (só contagens) | Passa |
@@ -114,6 +117,7 @@ Nada foi instalado, removido nem criado nela; os nomes dos programas não foram 
 | V4 | Web App criado, ícone, quiosque e app; atalho alheio com o mesmo nome | Roteiro, passo 5 | **Pendente (máquina real, com o instalador)** |
 | V5 | Lote com um item falhando; cancelar no meio | Roteiro, passo 6 | **Pendente (máquina real, com o instalador)** |
 | V6 | Desinstalar MSI, EXE com `QuietUninstallString`, EXE só interativo; comando recusado; protegido | Roteiro, passo 7 | **Pendente (máquina real, com o instalador)** |
+| V11 | Entrada de HKU criada por usuário comum apontando para `%WINDIR%` | Roteiro, passo 7 | **Pendente (máquina real, com o instalador)** |
 | V7 | Windows Terminal removido e não volta em conta nova | Roteiro, passo 8 | **Pendente (máquina real, com o instalador)** |
 | V8 | Windows em inglês | Roteiro, passo 9 | **Pendente (máquina real, com o instalador)** |
 | V9 | `--dev` sem admin | Roteiro, passo 1 | **Pendente (máquina real, com o instalador)** |
@@ -128,11 +132,11 @@ Nada foi instalado, removido nem criado nela; os nomes dos programas não foram 
 3. Cadastrar as linhas: instaladores com `SHA256` do arquivo oficial e `Link` `https://`, os IDs
    do winget que estavam no Configurador e os Web Apps e jogos (URL `https://`, ícone opcional).
    `Programa` do instalador com o nome de "Aplicativos instalados".
-4. Rodar V1–V10 num notebook reserva (roteiro abaixo).
+4. Rodar V1–V11 num notebook reserva (roteiro abaixo).
 
 Sem `.env` novo.
 
-## Roteiro do teste em máquina real (V1–V10)
+## Roteiro do teste em máquina real (V1–V11)
 
 1. Abra o Bench sem administrador (`--dev`): Programas e Remover programas mostram a lista e nada
    fica habilitado (V9). Depois abra com administrador, entre e sincronize.
@@ -155,7 +159,11 @@ Sem `.env` novo.
    resto fica "cancelado" (V5).
 7. **Remover:** desinstale um MSI (silencioso), um EXE com `QuietUninstallString` e um só
    interativo (siga a janela). Um programa instalado no perfil do usuário aparece "recusado"; um
-   driver aparece com cadeado (V6).
+   driver aparece com cadeado (V6). Numa conta comum, crie em
+   `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Teste` um `DisplayName` e uma
+   `UninstallString` apontando para `%WINDIR%\System32\`, e outra entrada apontando para
+   `%WINDIR%\Temp\`. Com o perfil carregado, as duas aparecem "recusado" no Bench e nada roda
+   (V11). Apague a chave.
 8. Remova o Windows Terminal; crie uma conta nova, entre nela e confira que ele não está lá (V7).
 9. Se houver máquina em inglês, repita 2, 4 e 7 (V8).
 10. No `bench.log`, procure o `Link` de um instalador, a URL de um Web App, `C:\Users\` e o nome

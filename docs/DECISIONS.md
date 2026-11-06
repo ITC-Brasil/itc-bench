@@ -1142,6 +1142,17 @@ proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
      caminho final (depois de expandir, resolver `..`, junções e links) fora de `Program Files`,
      `Program Files (x86)` e `%WINDIR%`. `%ProgramData%` e perfis ficam fora: o usuário comum
      poderia trocar o executável que o Bench rodaria como admin.
+   - **Locais por origem** (revisão do PR, 06/11/2026): a chave `Uninstall` de `HKU\<SID>` é
+     gravável pelo próprio usuário. Entrada de HKU só roda executável em `Program Files` ou
+     `Program Files (x86)`; `%WINDIR%` é recusado ("remova pelo Painel de Controle, entrando na
+     conta do usuário"). MSI por `ProductCode` continua aceito, porque o `msiexec /x {GUID}` não
+     leva nada do registro. Entrada de HKLM aceita `%WINDIR%` fora de uma lista fechada de
+     subpastas graváveis por Usuários (`Temp`, `Tasks`, `tracing`, `Registration\CRMLog` e, em
+     `System32` e `SysWOW64`, `Tasks`, `Tasks_Migrated`, `spool\drivers\color`,
+     `spool\PRINTERS`, `spool\SERVERS`, `com\dmp`, `FxsTmp`,
+     `Microsoft\Crypto\RSA\MachineKeys`). Foi escolhida a lista fechada, e não "só
+     `System32`/`SysWOW64`", para não recusar desinstaladores legítimos em outras pastas de
+     `%WINDIR%`.
    - Sem limpeza de resíduos; entrada cujo desinstalador não existe aparece como "desinstalador
      ausente", sem apagar.
    - **Protegidos**, com cadeado e motivo, sem seleção: ITC Bench, GLPI Agent, RustDesk, AnyDesk e
