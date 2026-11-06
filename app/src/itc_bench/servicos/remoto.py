@@ -756,7 +756,7 @@ def _configurar_rustdesk(
     rodar: Rodar,
     executar: Rodar,
     pasta: Path,
-    esperar: Callable[[float], None] = time.sleep,
+    esperar: Callable[[float], None] | None = None,
 ) -> None:
     if d.chave is None or d.senha is None:
         raise ErroRemoto("Chave ou senha do RustDesk ausente.")
@@ -771,22 +771,24 @@ def _configurar_rustdesk(
     gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar()))
     existente = config.read_text("utf-8") if config.is_file() else ""
     gravar_atomico(config, com_senha(existente, d.senha.revelar()))
-    avisar("Iniciando o RustDesk…")
-    _servico("RustDesk", "iniciar", rodar=rodar, cancelar=cancelar)
-    avisar("Conferindo se o RustDesk cifrou a senha…")
-    for _ in range(ESPERA_CIFRAR):
-        _checar(cancelar)
-        texto = config.read_text("utf-8") if config.is_file() else ""
-        if senha_cifrada(texto) and d.senha.revelar() not in texto:
-            break
-        esperar(1)
-    else:
-        # Falha: a senha não pode ficar no arquivo (nem em .tmp).
-        _servico("RustDesk", "parar", rodar=rodar, cancelar=None, pasta=instalado.parent)
-        atual = config.read_text("utf-8") if config.is_file() else ""
-        gravar_atomico(config, com_senha(atual, None))
-        _servico("RustDesk", "iniciar", rodar=rodar, cancelar=None)
-        log.error("Acesso remoto: RustDesk: a senha não foi cifrada; linha removida")
+    # Daqui até a senha aparecer cifrada, qualquer saída (falha, cancelamento, exceção) tira a
+    # linha do arquivo: a senha em texto puro não pode ficar no disco (ADR-019).
+    cifrou = False
+    try:
+        avisar("Iniciando o RustDesk…")
+        _servico("RustDesk", "iniciar", rodar=rodar, cancelar=cancelar)
+        avisar("Conferindo se o RustDesk cifrou a senha…")
+        for _ in range(ESPERA_CIFRAR):
+            _checar(cancelar)
+            texto = config.read_text("utf-8") if config.is_file() else ""
+            if senha_cifrada(texto) and d.senha.revelar() not in texto:
+                cifrou = True
+                break
+            (esperar or time.sleep)(1)
+    finally:
+        if not cifrou:
+            _retirar_senha(config, d.senha, rodar=rodar, pasta=instalado.parent)
+    if not cifrou:
         raise ErroRemoto(
             "O RustDesk não aceitou a senha permanente pelo arquivo de configuração. "
             "A senha foi retirada do arquivo; avise o responsável (ADR-019)."
@@ -799,6 +801,18 @@ def _configurar_rustdesk(
         )
         if not r.ok:
             log.warning("Acesso remoto: RustDesk: --option %s código %s", opcao, r.codigo)
+
+
+def _retirar_senha(config: Path, senha: Sensivel, *, rodar: Rodar, pasta: Path) -> None:
+    """Para o serviço (se der), tira a linha `password` se ainda estiver em texto puro e inicia."""
+    with contextlib.suppress(ErroRemoto, instaladores.Cancelado):
+        _servico("RustDesk", "parar", rodar=rodar, cancelar=None, pasta=pasta)
+    atual = config.read_text("utf-8") if config.is_file() else ""
+    if senha.revelar() in atual or not senha_cifrada(atual):
+        gravar_atomico(config, com_senha(atual, None))
+    log.error("Acesso remoto: RustDesk: a senha não foi cifrada; linha removida")
+    with contextlib.suppress(ErroRemoto, instaladores.Cancelado):
+        _servico("RustDesk", "iniciar", rodar=rodar, cancelar=None)
 
 
 def forcar_inventario(*, abrir: Callable[..., Any] = urllib.request.urlopen) -> Feito:

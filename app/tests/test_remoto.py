@@ -350,6 +350,19 @@ def test_rustdesk_senha_nao_cifrada_e_retirada(arquivo, tmp_path, monkeypatch) -
         assert SENHA_RD not in item.read_text("utf-8"), item.name
 
 
+def test_rustdesk_cancelado_na_espera_tira_a_senha(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False)
+    cancelar = threading.Event()
+    monkeypatch.setattr(remoto.time, "sleep", lambda _s: cancelar.set())
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(
+        d, arquivo, cancelar=cancelar, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta
+    )  # type: ignore[arg-type]
+    assert not feito.ok and "Cancelado" in feito.mensagem
+    for item in pasta.iterdir():
+        assert SENHA_RD not in item.read_text("utf-8"), item.name
+
+
 def test_cancelar_antes_de_comecar(arquivo) -> None:
     cancelar = threading.Event()
     cancelar.set()
