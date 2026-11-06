@@ -1,0 +1,40 @@
+# Funções comuns aos trechos de políticas (ADR-021). Dados só por $env:ITC_*; alvo sempre por SID.
+# Saída: linhas `OK|...`, `ERRO|codigo[|politica]`, `DONO|sid` ou JSON. Nunca mensagem do
+# Windows: ela pode trazer caminho de perfil.
+$HIVE_OK = '^(MAQUINA|S-1-5-21-\d+-\d+-\d+-\d+|ITCBench_[0-9a-f]{8})$'
+$RAIZES_USUARIO = @('Software\Policies\', 'Software\Microsoft\Windows\CurrentVersion\Policies\')
+$RAIZES_MAQUINA = @('SOFTWARE\Policies\')
+$EXATAS_MAQUINA = @('SYSTEM\CurrentControlSet\Services\SharedAccess')
+$SDDL_NOVA = 'O:BAG:SYD:PAI(A;CI;KA;;;SY)(A;CI;KA;;;BA)(A;CI;KR;;;BU)'
+$Vista = [Microsoft.Win32.RegistryView]::Registry64
+
+function Falhar([string]$codigo) { Write-Output ('ERRO|' + $codigo); exit 1 }
+
+function Hive-Formato([string]$hive) { if ($hive -cnotmatch $HIVE_OK) { Falhar 'hive' } }
+
+function Hive-Escrita([string]$hive) {
+    Hive-Formato $hive
+    if ($hive -match '-500$') { Falhar 'nativo' }
+    if ($hive -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { Falhar 'dono' }
+    $prot = @(if ($env:ITC_PROTEGIDOS) { $env:ITC_PROTEGIDOS -split "`n" | Where-Object { $_ } })
+    if ($prot -contains $hive) { Falhar 'suporte' }
+}
+
+function Raiz-Aceita([string]$hive, [string]$chave) {
+    if ($chave -match '\\\\|\.\.|^\\|\\$') { return $false }
+    if ($hive -eq 'MAQUINA') {
+        if ($EXATAS_MAQUINA -contains $chave) { return $true }
+        $raizes = $RAIZES_MAQUINA
+    } else { $raizes = $RAIZES_USUARIO }
+    foreach ($r in $raizes) { if ($chave.StartsWith($r, [StringComparison]::OrdinalIgnoreCase)) { return $true } }
+    return $false
+}
+
+function Base([string]$hive) {
+    if ($hive -eq 'MAQUINA') { return [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', $Vista) }
+    $u = [Microsoft.Win32.RegistryKey]::OpenBaseKey('Users', $Vista)
+    $k = $u.OpenSubKey($hive, $true)
+    if (-not $k) { $k = $u.OpenSubKey($hive, $false) }
+    if (-not $k) { Falhar 'hive_ausente' }
+    return $k
+}

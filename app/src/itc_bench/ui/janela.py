@@ -40,6 +40,8 @@ from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
 from itc_bench.ui.identificacao import PainelIdentificacao
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
+from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
+from itc_bench.ui.politicas import AJUDA_USB, PainelPoliticas
 from itc_bench.ui.programas import AJUDA as AJUDA_PROGRAMAS
 from itc_bench.ui.programas import AJUDA_REMOVER, PainelProgramas, PainelRemover
 from itc_bench.ui.remoto import AJUDA as AJUDA_REMOTO
@@ -367,12 +369,17 @@ class Janela(QMainWindow):
         # Software (ADR-020): mesmo padrão, leem ao abrir; ação só admin.
         self.programas = PainelProgramas(self.admin, lambda: self.cadastros)
         self.remover = PainelRemover(self.admin)
+        # Segurança (ADR-021): Políticas e USB pelo mesmo serviço; leem ao abrir; ação só admin.
+        self.politicas = PainelPoliticas(self.admin, lambda: self.cadastros)
+        self.usb = PainelPoliticas(self.admin, lambda: self.cadastros, usb=True)
         for chave, painel, ajuda in (
             ("id", self.identificacao, AJUDA_IDENTIFICACAO),
             ("wifi", self.wifi, AJUDA_WIFI),
             ("remoto", self.remoto, AJUDA_REMOTO),
             ("prog", self.programas, AJUDA_PROGRAMAS),
             ("remover", self.remover, AJUDA_REMOVER),
+            ("gpo", self.politicas, AJUDA_POLITICAS),
+            ("usb", self.usb, AJUDA_USB),
         ):
             tela = self.telas[chave]
             while tela.corpo.count():

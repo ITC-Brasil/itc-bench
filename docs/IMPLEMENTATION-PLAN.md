@@ -84,7 +84,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] Apps + Winget + WebApps em lista única; download sob demanda com SHA-256; desinstalador sem shell
 
 ### 11 — Políticas e USB · `feat/modulo-11-politicas-usb`
-- [ ] GPO: local e ACL do `.bat` de logon (achado 4 da análise); USB
+- [x] GPO: local e ACL do `.bat` de logon (achado 4 da análise); USB — sem script de logon, sobras do Configurador removíveis; USB = bloqueio de armazenamento removível (ADR-021)
 
 ### 12 — Proteção do login e Aparência · `feat/modulo-12-protecao-aparencia`
 - [ ] Proteção, Tela e papel de parede, Mouse e teclado, Energia (ajudas do manual)
