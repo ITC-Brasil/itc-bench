@@ -392,3 +392,29 @@ def test_sha256_invalido_vira_vazio(settings, fake):
     fake.dados["mIns"].append({"Id": 2, "Programa": "Outro", "SHA256": "<b>nao-hex</b>", "Ativo": True})
     dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
     assert [i["sha256"] for i in dados["instaladores"]] == ["ab" * 32, ""]
+
+
+def test_instaladores_por_tipo(settings, fake, caplog):
+    """TA-ADR-029: defaults for empty Tipo/Categoria/Modo; invalid rows dropped by Id only."""
+    url = "https://exemplo.invalid/jogo?x=1"
+    fake.dados["mIns"] += [
+        {"Id": 2, "Programa": "Pacote", "Tipo": "winget", "Identificador": "Exemplo.Pacote", "Ativo": True},
+        {"Id": 3, "Programa": "Jogo", "Tipo": "webapp", "Categoria": "Jogos", "Modo": "app", "Identificador": url, "Ativo": True},
+        {"Id": 4, "Programa": "X", "Tipo": "outro", "Ativo": True},
+        {"Id": 5, "Programa": "X", "Categoria": "Outra", "Ativo": True},
+        {"Id": 6, "Programa": "X", "Tipo": "webapp", "Modo": "tela", "Identificador": url, "Ativo": True},
+        {"Id": 7, "Programa": "X", "Tipo": "winget", "Identificador": "id com espaço", "Ativo": True},
+        {"Id": 8, "Programa": "X", "Tipo": "webapp", "Identificador": "http://exemplo.invalid", "Ativo": True},
+        {"Id": 9, "Programa": "X", "Tipo": "webapp", "Identificador": 'https://exemplo.invalid/"a', "Ativo": True},
+    ]
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    por_id = {i["id"]: i for i in dados["instaladores"]}
+    assert set(por_id) == {1, 2, 3}
+    assert (por_id[1]["tipo"], por_id[1]["categoria"], por_id[1]["modo"]) == ("instalador", "Programas", "quiosque")
+    assert por_id[2]["identificador"] == "Exemplo.Pacote"
+    assert (por_id[3]["categoria"], por_id[3]["modo"]) == ("Jogos", "app")
+    assert dados["descartados"]["instaladores"] == [4, 5, 6, 7, 8, 9]
+    texto_log = caplog.text
+    assert "tipo_invalido" in texto_log and "modo_invalido" in texto_log
+    assert url not in texto_log and "id com espaço" not in texto_log
