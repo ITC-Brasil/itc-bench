@@ -283,3 +283,49 @@ def test_terminal_por_script_fixo() -> None:
     assert k["acao"] == "remover"
     assert "-Name $nome" in script and "*" not in script.split("$nome =")[1].splitlines()[0]
     assert "Remove-AppxProvisionedPackage" in script
+
+
+# ---------------------------------------------------------------- locais por origem (revisão)
+
+HKU_PF = rf"{PF}\X\Uninstall.exe"
+SYS = rf"{WIN}\System32\ferramenta.exe"
+WIN_TEMP = rf"{WIN}\Temp\x.exe"
+WIN_COR = rf"{WIN}\System32\spool\drivers\color\x.exe"
+WIN_OK = rf"{WIN}\Fornecedor\desinstalar.exe"
+
+
+def plano_origem(caminho: str, usuario: bool) -> d.Entrada:
+    i = Instalado("X", "Prog", "1", usuario, {"UninstallString": f'"{caminho}" /S'})
+    return d.plano(i, existe=lambda c: c == caminho or existe(c), resolver=igual)
+
+
+@pytest.mark.parametrize(
+    ("caminho", "usuario", "aceito"),
+    [
+        (HKU_PF, True, True),  # HKU em Program Files
+        (SYS, True, False),  # HKU em System32
+        (WIN_TEMP, True, False),  # HKU em Windows\Temp
+        (WIN_TEMP, False, False),  # HKLM em Windows\Temp
+        (WIN_COR, False, False),  # HKLM em subpasta gravável do spool
+        (WIN_OK, False, True),  # HKLM em %WINDIR% legítimo
+        (SYS, False, True),  # HKLM em System32
+    ],
+)
+def test_locais_por_origem(caminho, usuario, aceito) -> None:
+    e = plano_origem(caminho, usuario)
+    assert (e.modo == "interativo") is aceito, e.motivo
+    if usuario and not aceito:
+        assert "entrando na conta do usuário" in e.motivo
+
+
+def test_hku_msi_por_product_code_aceito() -> None:
+    guid = "{11111111-2222-3333-4444-555555555555}"
+    i = Instalado(guid, "Prog", "1", True, {"WindowsInstaller": "1", "UninstallString": "x"})
+    e = d.plano(i, existe=existe, resolver=igual)
+    assert e.modo == "silencioso" and e.comando[1:3] == ("/x", guid)
+
+
+def test_subpasta_gravavel_pelo_caminho_final() -> None:
+    """Junção de uma pasta legítima para Windows\\Temp: vale o destino."""
+    motivo = d.recusa(WIN_OK, resolver=lambda _c: WIN_TEMP)
+    assert "gravável por usuários" in motivo

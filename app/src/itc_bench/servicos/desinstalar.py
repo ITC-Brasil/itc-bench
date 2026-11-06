@@ -130,12 +130,35 @@ def separar(texto: str, existe: Callable[[str], bool]) -> tuple[str, list[str]] 
     return exe, args
 
 
+# Subpastas de %WINDIR% em que Usuários gravam: executável ali nunca roda (ADR-020).
+GRAVAVEIS_WINDOWS = tuple(
+    PureWindowsPath(p)
+    for base in ("System32", "SysWOW64")
+    for p in (
+        rf"{base}\Tasks",
+        rf"{base}\Tasks_Migrated",
+        rf"{base}\spool\drivers\color",
+        rf"{base}\spool\PRINTERS",
+        rf"{base}\spool\SERVERS",
+        rf"{base}\com\dmp",
+        rf"{base}\FxsTmp",
+        rf"{base}\Microsoft\Crypto\RSA\MachineKeys",
+    )
+) + tuple(PureWindowsPath(p) for p in ("Temp", "Tasks", "tracing", r"Registration\CRMLog"))
+
+
 def pastas_aceitas() -> tuple[Path, ...]:
     return remoto.program_files(), remoto.program_files_x86(), remoto.windows()
 
 
-def recusa(exe: str, *, resolver: Callable[[str], str] = os.path.realpath) -> str:
-    """Motivo de não rodar o executável, ou vazio."""
+def recusa(
+    exe: str, *, usuario: bool = False, resolver: Callable[[str], str] = os.path.realpath
+) -> str:
+    """Motivo de não rodar o executável, ou vazio.
+
+    Entrada de HKU (gravável pelo próprio usuário): só Program Files. HKLM: também %WINDIR%, fora
+    das subpastas graváveis por Usuários.
+    """
     nome = PureWindowsPath(exe).name.lower()
     if not nome.endswith(".exe"):
         return "O desinstalador não é um .exe."
@@ -145,10 +168,20 @@ def recusa(exe: str, *, resolver: Callable[[str], str] = os.path.realpath) -> st
         return "O desinstalador não tem caminho absoluto."
     # Caminho final: `..`, junções e links resolvidos.
     final = PureWindowsPath(resolver(exe))
-    if not any(final.is_relative_to(PureWindowsPath(b)) for b in pastas_aceitas()):
-        return "O desinstalador está fora de Program Files e do Windows; remova pelo Painel."
     if PureWindowsPath(final).name.lower() in PROIBIDOS:
         return f"O registro manda rodar {PureWindowsPath(final).name}; remova pelo Painel."
+    programas_, programas86, windows = (PureWindowsPath(b) for b in pastas_aceitas())
+    if final.is_relative_to(programas_) or final.is_relative_to(programas86):
+        return ""
+    if usuario:
+        return "Remova pelo Painel de Controle, entrando na conta do usuário."
+    if not final.is_relative_to(windows):
+        return "O desinstalador está fora de Program Files e do Windows; remova pelo Painel."
+    relativo = final.relative_to(windows)
+    if any(relativo.is_relative_to(g) for g in GRAVAVEIS_WINDOWS):
+        return (
+            "O desinstalador está numa pasta do Windows gravável por usuários; remova pelo Painel."
+        )
     return ""
 
 
@@ -187,7 +220,7 @@ def plano(
             ultimo = "Comando de desinstalação que não dá para separar com segurança."
             continue
         exe, args = separado
-        ultimo = recusa(exe, resolver=resolver)
+        ultimo = recusa(exe, usuario=i.usuario, resolver=resolver)
         if ultimo:
             continue
         if not existe(exe):
