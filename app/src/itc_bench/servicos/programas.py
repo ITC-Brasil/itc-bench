@@ -183,6 +183,7 @@ def listar(cadastros: Cadastros | None) -> list[Item]:
         i
         for i in cadastros.instaladores
         if not (i.tipo == "instalador" and i.programa in remoto.PROGRAMAS)
+        and i.tipo != "papel"  # papel de parede é da tela Aparência (ADR-022)
     ]
     contagem = Counter(chave_duplicata(i) for i in linhas)
     itens = []

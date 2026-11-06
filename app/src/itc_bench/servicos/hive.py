@@ -44,6 +44,12 @@ MENSAGENS = {
     "cancelado": "Cancelado pelo técnico (antes deste alvo).",
     "bits": "O Bench precisa rodar em 64 bits para ler o registro certo.",
 }
+# Aparência (ADR-022): as mesmas recusas, sem falar em política.
+MENSAGENS_APARENCIA = {
+    **MENSAGENS,
+    "nativo": "O Administrador nativo do Windows não é alterado pelo Bench.",
+    "suporte": "A conta Suporte não é alterada (o técnico precisa dela como está).",
+}
 
 
 # ---------------------------------------------------------------- alvos

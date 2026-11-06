@@ -5,6 +5,14 @@ $HIVE_OK = '^(MAQUINA|S-1-5-21-\d+-\d+-\d+-\d+|ITCBench_[0-9a-f]{8})$'
 $RAIZES_USUARIO = @('Software\Policies\', 'Software\Microsoft\Windows\CurrentVersion\Policies\')
 $RAIZES_MAQUINA = @('SOFTWARE\Policies\')
 $EXATAS_MAQUINA = @('SYSTEM\CurrentControlSet\Services\SharedAccess')
+# Perfil (ADR-022): politicas = raízes de política (11); aparencia = só estas chaves exatas e, em
+# Policies\System, só os valores Wallpaper e WallpaperStyle (12).
+$PERFIL = if ($env:ITC_PERFIL) { $env:ITC_PERFIL } else { 'politicas' }
+$EXATAS_APARENCIA = @('Control Panel\Mouse', 'Control Panel\Cursors', 'Control Panel\Keyboard',
+    'Control Panel\Accessibility\StickyKeys', 'Control Panel\Accessibility\Keyboard Response',
+    'Control Panel\Accessibility\ToggleKeys', 'Software\Microsoft\Accessibility')
+$CHAVE_PAPEL = 'Software\Microsoft\Windows\CurrentVersion\Policies\System'
+$VALORES_PAPEL = @('Wallpaper', 'WallpaperStyle')
 $SDDL_NOVA = 'O:BAG:SYD:PAI(A;CI;KA;;;SY)(A;CI;KA;;;BA)(A;CI;KR;;;BU)'
 $Vista = [Microsoft.Win32.RegistryView]::Registry64
 
@@ -27,6 +35,18 @@ function Raiz-Aceita([string]$hive, [string]$chave) {
         $raizes = $RAIZES_MAQUINA
     } else { $raizes = $RAIZES_USUARIO }
     foreach ($r in $raizes) { if ($chave.StartsWith($r, [StringComparison]::OrdinalIgnoreCase)) { return $true } }
+    return $false
+}
+
+function Valor-Aceito([string]$chave, [string]$nome) {
+    if ($PERFIL -ceq 'aparencia' -and $chave -eq $CHAVE_PAPEL) { return $VALORES_PAPEL -contains $nome }
+    return $true
+}
+
+function Sob-Politica([string]$chave) {
+    foreach ($r in ($RAIZES_USUARIO + $RAIZES_MAQUINA)) {
+        if ($chave.StartsWith($r, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
     return $false
 }
 
