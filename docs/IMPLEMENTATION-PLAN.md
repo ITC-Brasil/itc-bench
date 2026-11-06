@@ -87,7 +87,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] GPO: local e ACL do `.bat` de logon (achado 4 da análise); USB — sem script de logon, sobras do Configurador removíveis; USB = bloqueio de armazenamento removível (ADR-021)
 
 ### 12 — Proteção do login e Aparência · `feat/modulo-12-protecao-aparencia`
-- [ ] Proteção, Tela e papel de parede, Mouse e teclado, Energia (ajudas do manual)
+- [x] Proteção, Tela e papel de parede (resolução e escala só pelo atalho do Windows), Mouse e teclado, Energia, com ajuda (ADR-022)
 
 ### 13 — Preparação completa, Início e Limpeza · `feat/modulo-13-preparacao`
 - [ ] Perfis, etapas, retomada após reinício; tela Início; Limpeza; Registro; Ajuda consolidada

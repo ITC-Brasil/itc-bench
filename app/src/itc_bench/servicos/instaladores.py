@@ -58,10 +58,10 @@ def do_cadastro(cadastros: Cadastros | None, programa: str) -> Instalador | str:
 def validar(instalador: Instalador, extensao: str) -> str | None:
     """Motivo do cadastro inválido, ou None. `extensao` com ponto, ex.: `.msi`.
 
-    O ícone de Web App (`.ico`) não tem versão.
+    O ícone de Web App (`.ico`) e o papel de parede (ADR-022) não têm versão.
     """
     nome = instalador.programa
-    if extensao != ".ico" and not instalador.versao.strip():
+    if instalador.tipo == "instalador" and extensao != ".ico" and not instalador.versao.strip():
         return f"O instalador “{nome}” está sem versão em Instaladores."
     if not SHA256.fullmatch(instalador.sha256.strip()):
         return f"O instalador “{nome}” está sem SHA-256 válido (64 hexadecimais)."
@@ -249,16 +249,21 @@ def icones() -> Path:
     return caminhos.dados() / "icones"
 
 
+def papeis() -> Path:
+    r"""%ProgramData%\ITC\Bench\papel: papéis de parede, legíveis por Usuários (ADR-022)."""
+    return caminhos.dados() / "papel"
+
+
 def limpar(cadastros: Cadastros | None, base: Path | None = None) -> list[str]:
     r"""Apaga o que não corresponde a nenhuma linha ativa de Instaladores; sem cadastros, nada.
 
-    Sem `base`, vale para `protegido\instaladores` e para `icones` (ADR-020).
+    Sem `base`, vale para `protegido\instaladores`, `icones` (ADR-020) e `papel` (ADR-022).
     """
     if cadastros is None:
         return []
     ativos = {i.sha256.strip().lower() for i in cadastros.instaladores}
     apagados = []
-    for raiz in [base] if base is not None else [pasta(), icones()]:
+    for raiz in [base] if base is not None else [pasta(), icones(), papeis()]:
         if not raiz.is_dir():
             continue
         for item in raiz.iterdir():

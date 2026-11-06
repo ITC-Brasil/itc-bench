@@ -16,11 +16,12 @@ from pydantic import SecretStr
 
 log = logging.getLogger("tecnico.cadastros")
 SHA256 = re.compile(r"[0-9a-f]{64}")
-# Instaladores by Tipo (TA-ADR-029): value -> default when empty.
-TIPOS = ("instalador", "winget", "webapp")
+# Instaladores by Tipo (TA-ADR-029, TA-ADR-030 for papel): value -> default when empty.
+TIPOS = ("instalador", "winget", "webapp", "papel")
 CATEGORIAS = ("Programas", "Jogos")
 MODOS = ("quiosque", "app")
 WINGET_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{1,127}")
+ARQUIVO_PAPEL = re.compile(r"[^\\/]+\.(?:jpg|jpeg|png)", re.IGNORECASE)
 URL_WEBAPP = re.compile(r"https://[A-Za-z0-9.-]+(?::\d+)?(?:[/?#][^\s\x00-\x1f\"'<>\\]*)?")
 
 LIMITE_PAGINA = 1000
@@ -186,6 +187,12 @@ def motivo_instalador(linha: dict) -> str | None:
         return "identificador_invalido"
     if tipo == "webapp" and not URL_WEBAPP.fullmatch(ident):
         return "identificador_invalido"
+    if tipo == "papel" and not (
+        ARQUIVO_PAPEL.fullmatch(texto(linha.get("Arquivo")))
+        and SHA256.fullmatch(texto(linha.get("SHA256")).lower())
+        and URL_WEBAPP.fullmatch(texto(linha.get("Link")))
+    ):
+        return "papel_invalido"
     return None
 
 

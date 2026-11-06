@@ -1058,3 +1058,29 @@ O ADR-020 do Bench junta instaladores, pacotes do winget e Web Apps numa lista s
 
 **Consequences**
 Deploy da API antes do app novo; o Bench antigo ignora os campos novos.
+
+---
+
+## TA-ADR-030 — `Tipo = papel` em Instaladores para o papel de parede do Bench
+
+**Status:** Accepted (estende o TA-ADR-029)
+**Date:** 2026-11-06
+**Module:** 12 do ITC Bench
+
+**Context**
+O ADR-022 do Bench aplica um papel de parede que vem do cadastro, com hash conferido, como os
+instaladores. A API só aceita `instalador`, `winget` e `webapp`.
+
+**Decision**
+- `Tipo` aceita `papel`. A linha exige `Arquivo` terminado em `.jpg`, `.jpeg` ou `.png`, `SHA256`
+  com 64 hexadecimais e `Link` `https://` com host; senão é descartada com `papel_invalido` (log
+  com tabela, `Id` e motivo, sem valor).
+- Formato e rota iguais; sem migração.
+
+**Alternatives considered**
+- Tabela nova — variável e token a mais para uma linha.
+- `Tipo = instalador` com nome fixo — Programas a mostraria como instalador.
+
+**Consequences**
+Deploy da API antes do app novo. O Bench do Módulo 11 mostra a linha `papel` em Programas como
+"Tipo desconhecido", sem instalar, até o app do 12 chegar.

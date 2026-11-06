@@ -119,6 +119,7 @@ def test_listar_tira_acesso_remoto_e_marca_duplicados() -> None:
         winget(4, pacote="exemplo.PACOTE"),  # mesmo ID: duplicado
         webapp(5),
         winget(6, pacote="id com espaço"),
+        inst(7, "Papel", "papel.jpg", tipo="papel"),  # papel de parede: fora (ADR-022)
     )
     itens = {i.id: i for i in pg.listar(cadastros(*linhas))}
     assert set(itens) == {1, 3, 4, 5, 6}
