@@ -46,6 +46,7 @@ MENSAGENS = {
     "perfil_fora": "O perfil não fica em Usuários do disco do Windows: recusado.",
     "perfil_temporario": "Perfil temporário do Windows: recusado.",
     "em_uso": "O perfil está em uso por outro programa: reinicie e tente de novo.",
+    "carregar": "O Windows não abriu o perfil da conta: reinicie e tente de novo.",
     "nao_encontrada": "A conta não existe mais. Atualize a lista.",
     "carregado": "O perfil foi carregado nesse meio-tempo. Atualize e tente de novo.",
     "descarregar": "O perfil ainda está carregado: reinicie antes de entrar nessa conta.",

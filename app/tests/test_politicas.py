@@ -495,3 +495,30 @@ def test_hive_recusa_nome_e_sid() -> None:
     assert "ERRO|hive" in r.saida
     r = executor.powershell(script, acao="carregar", hive="ITCBench_0000abcd", sid=BASE + "500")
     assert "ERRO|nativo" in r.saida
+
+
+@pytest.mark.parametrize(
+    ("codigo", "trecho"), [("em_uso", "em uso por outro programa"), ("carregar", "não abriu")]
+)
+def test_falha_ao_carregar_por_codigo(codigo: str, trecho: str) -> None:
+    f = Falso()
+    original = f.__call__
+
+    def rodar(script: str, **kw: Any) -> Resultado:
+        if kw.get("acao") == "carregar":
+            f.chamadas.append(("carregar", kw))
+            return Resultado(1, f"ERRO|{codigo}", "", 0, False)
+        return original(script, **kw)
+
+    (feito,) = politicas.aplicar("aplicar", ["cmd"], [alvo(OUTRO)], protegidas_=PROT, rodar=rodar)
+    assert not feito.ok and trecho in feito.mensagem
+    assert "escrever" not in f.nomes() and "descarregar" not in f.nomes()
+
+
+def test_hive_em_uso_so_pela_abertura_exclusiva() -> None:
+    texto = (
+        Path(politicas.__file__).parent.parent / "recursos" / "politicas" / "hive.ps1"
+    ).read_text("utf-8")
+    load = next(linha for linha in texto.splitlines() if "'load'" in linha)
+    assert "Falhar 'carregar'" in load and "em_uso" not in load
+    assert "'Read', 'None'" in texto

@@ -46,7 +46,11 @@ switch ($env:ITC_ACAO) {
         if ((Split-Path $pasta -Leaf) -match '^TEMP') { Falhar 'perfil_temporario' }
         $arquivo = Join-Path $pasta 'NTUSER.DAT'
         if (-not (Test-Path -LiteralPath $arquivo -PathType Leaf)) { Falhar 'sem_perfil' }
-        if (Reg @('load', ('HKU\' + $env:ITC_HIVE), $arquivo)) { Falhar 'em_uso' }
+        # Em uso só quando a abertura exclusiva falha; qualquer outra falha do load é genérica.
+        try { ([IO.File]::Open($arquivo, 'Open', 'Read', 'None')).Close() }
+        catch [IO.IOException] { Falhar 'em_uso' }
+        catch { Falhar 'carregar' }
+        if (Reg @('load', ('HKU\' + $env:ITC_HIVE), $arquivo)) { Falhar 'carregar' }
         Write-Output 'OK'
     }
     'descarregar' {
