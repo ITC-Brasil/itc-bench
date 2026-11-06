@@ -78,7 +78,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [ ] Cenários V1–V8 em máquina real, com o instalador (`docs/modules/08-identificacao-wifi.md`)
 
 ### 09 — Acesso remoto · `feat/modulo-09-acesso-remoto`
-- [ ] GLPI Agent, RustDesk, AnyDesk com dados de Servidores; senha AnyDesk sem `echo`; polling no lugar de `sleep(10)`; comparação de versão numérica
+- [x] GLPI Agent, RustDesk, AnyDesk com dados de Servidores; senha AnyDesk sem `echo`; polling no lugar de `sleep(10)`; comparação de versão numérica
 
 ### 10 — Programas e Remover programas · `feat/modulo-10-programas`
 - [ ] Apps + Winget + WebApps em lista única; download sob demanda com SHA-256; desinstalador sem shell
