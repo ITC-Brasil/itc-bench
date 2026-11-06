@@ -240,10 +240,13 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
 
 - Só linhas com `Ativo = true`. Linha sem o campo de exibição (`Servico`, `Programa`, `SSID`,
   `Codigo`) ou Wi-Fi com unidade fora das Unidades ativas sai em `descartados` (só o `Id`).
-- **Instaladores por `tipo`** (TA-ADR-029): `instalador`, `winget` ou `webapp`; vazios de
+- **Instaladores por `tipo`** (TA-ADR-029): `instalador`, `winget`, `webapp` ou `papel`; vazios de
   `tipo`, `categoria` e `modo` saem como `instalador`, `Programas` e `quiosque`. Tipo, categoria
   ou modo fora da lista, winget sem ID no formato e Web App sem `https://` com host saem em
   `descartados` (log com o `Id` e o motivo, sem valor).
+- **`tipo = papel`** (TA-ADR-030): papel de parede do Bench. Exige `arquivo` `.jpg`/`.jpeg`/`.png`,
+  `sha256` com 64 hexadecimais e `link` `https://` com host; senão sai em `descartados` com
+  `papel_invalido`.
 - **Segredos:** `servidores[].valor` e `observacao` são segredo quando `publico` é `false`
   (`Publico` vazio ou ausente no NocoDB = segredo); `wifi[].senha` sempre. Saem em texto nesta
   resposta (o Bench precisa deles offline) e em nenhum log ou tabela.

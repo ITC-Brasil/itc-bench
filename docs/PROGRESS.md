@@ -2,30 +2,34 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-11-politicas-usb`, PR para `develop` (merge commit).
-- **Feito:** Módulo 11 no código.
-  - `servicos/politicas.py`: catálogo fechado de 12 políticas, situação por alvo, aplicar e
-    desfazer.
-  - Trechos em `recursos/politicas/`: hive de outro usuário e Default User carregado e sempre
-    descarregado, leitura em 64 bits com ACL.
-  - Telas Políticas e USB com ajuda.
-  - Sem mudança na API. App 581 testes. ADR-021; auditoria só com informativos (um risco aceito).
-- **Pela metade:** nada no código. Pendência do 11: cenários V1–V12
-  (`docs/modules/11-politicas-usb.md`).
-- **Próximo passo:** responsável: merge do PR. Depois, Módulo 12.
+- **Branch:** `feat/modulo-12-protecao-aparencia`, PR para `develop` (merge commit).
+- **Feito:** Módulo 12 no código.
+  - `servicos/hive.py`: serviço de hive do 11 extraído, com o perfil `aparencia`.
+  - Proteção do login: ACL só de execução, detecção dos 7 binários e IFEO, atalho em `.DEFAULT`,
+    incidente.
+  - Papel de parede pelo cadastro (`Tipo = papel`), mouse e teclado por alvo, energia por
+    `powercfg`.
+  - Telas com ajuda. API aceita `papel` (TA-ADR-030). ADR-022; auditoria só com informativos.
+- **Pela metade:** nada no código. Pendência do 12: cenários V1–V11
+  (`docs/modules/12-protecao-aparencia.md`).
+- **Próximo passo:** responsável: opção `papel` no NocoDB, linha da imagem, deploy da API, merge
+  do PR. Depois, Módulo 13 (o Início usa `protecao.situacao().alertas()`).
 - **Tarefas futuras:**
   - trocar a pasta de deploy no servidor para `itc-bench`;
   - PR no TA trocando o README;
   - teste de borda pelo túnel;
   - corrigir no pendrive o `Sort-Object LocalPort -Unique`, se ele continuar em uso;
-  - cadeado por edição no catálogo de políticas, depois do teste em Home/Pro.
-- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–11 em máquina real;
+  - cadeado por edição no catálogo de políticas, depois do teste em Home/Pro;
+  - estado do BitLocker no Diagnóstico (recomendação do ADR-022);
+  - tampa e botão de energia (`SUB_BUTTONS`), se a carreta pedir.
+- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–12 em máquina real;
   release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-06 | 12 — Proteção do login e Aparência | Hive do 11 extraído para `servicos/hive.py` sem mudar o 11; perfil `aparencia` com chaves exatas e só `Wallpaper`/`WallpaperStyle` em `Policies\System`. Proteção: `(D;;FX;;;SY)` no utilman/sethc por `takeown`/`icacls`, dono de volta ao TrustedInstaller num `finally`; detecção por `IsOSBinary` + `OriginalFilename` (lista por exe) + IFEO com `UseFilter` + `SilentProcessExit`, "não lida" sem `CryptSvc`; Shift 5x em `.DEFAULT`; remover depurador e `sfc /scanfile` com confirmação dupla. Papel de parede do cadastro (`Tipo = papel`) em `papel\` com ACL, imagem conferida, política por alvo. Mouse e teclado por alvo em tipo nativo, ACL herdada. Energia por `powercfg` com aliases, leitura só dos números, desfazer pelo padrão do plano, hibernação. Resolução/escala fora (atalho do Windows). App 641 testes, API 242. ADR-022, TA-ADR-030. Auditoria: 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-06 | 11 — Políticas e USB | Catálogo fechado no código (CMD, Regedit, Painel, Programas e Recursos, Temas, ponteiros, PowerShell pelo Explorer com legado do Configurador, Store, compartilhamento, Wi-Fi Direct, ICS com desfazer em Manual, armazenamento removível `Deny_All`). Alvo por SID: máquina, Contas futuras (Default User) e contas; perfil fechado carregado em `HKU\ITCBench_<hex>` pelo trecho e sempre descarregado (finally do Python, sobras na próxima operação); Python sem `winreg`; 64 bits. Recusa nativo, Suporte e a conta que roda o Bench. Chave nova com dono Administradores e Usuários leitura; situação com "usuário pode alterar". Sem reaplicação no logon; sobras do Configurador removíveis. USB = Desabilitar/Habilitar, sem cópia. Aviso de edição no lugar de cadeado. App 581 testes. ADR-021. Auditoria: 5 informativos (1 risco aceito). Cenários em máquina real pendentes. |
 | 2026-11-06 | 10 — Programas | Lista única em Instaladores (`Tipo` instalador/winget/webapp, `Categoria`, `Identificador`, `Argumentos`, `Deteccao`, `Modo`), validada na API. Instaladores pelo serviço do 09, argumentos um por linha. winget pelo caminho do pacote, assinado pela Microsoft, `--source winget --scope machine`, sem `--force`, situação pelo `export`. Web Apps por `.lnk` no Desktop Público para o Edge (quiosque ou app), ícone com SHA-256 em `icones\` com ACL própria. Remover: MSI por `ProductCode`; `Quiet`/`UninstallString` separadas sem shell só se voltam ao mesmo texto; interpretadores e caminho fora de Program Files/Windows recusados; protegidos com cadeado; Windows Terminal para todos e provisionado; sem limpeza de resíduos. Timeout não mata instalador; lote não inicia o próximo. App 539 testes, API 241. ADR-020, TA-ADR-029. Auditoria: 1 médio corrigido (HKU executado de %WINDIR%), 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-05 | 09 — Acesso remoto | GLPI Agent, RustDesk e AnyDesk pelo executor, com dados de Servidores (`GLPI Agent`/`servidor`, `RustDesk`/`servidor`/`chave`/`senha`, `AnyDesk`/`senha`) e tag opcional de `Unidades.TagGLPI`. Instaladores do cadastro em `protegido\instaladores\` com SHA-256 (download `https` ou arquivo escolhido, hash sobre a cópia, conferido antes de executar), serviço comum para o 10. Senha do AnyDesk pela entrada padrão; do RustDesk pelo `RustDesk.toml` do serviço, cifrada pelo próprio RustDesk e retirada em qualquer falha; `RustDesk2.toml` mesclado. Versão pela primeira sequência numérica; não rebaixa. Polling no lugar do `sleep`. Forçar inventário pelo `/now` local. Log sem senha, chave, host, tag, link ou ID. Tela com ajuda. App 433 testes. ADR-019. Auditoria: 1 médio corrigido, 5 informativos. Cenários em máquina real pendentes. |

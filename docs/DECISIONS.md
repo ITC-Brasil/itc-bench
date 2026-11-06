@@ -1385,7 +1385,9 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
    - **Detecção** dos 7 binários de acessibilidade da tela de login (`utilman`, `sethc`, `osk`,
      `Magnify`, `Narrator`, `DisplaySwitch`, `AtBroker`):
      - **original** = `Get-AuthenticodeSignature` `Valid` com `IsOSBinary` e `OriginalFilename`
-       igual ao esperado;
+       (sem `.mui`) numa lista fechada por exe. Conferido no Windows 11: `utilman.exe` →
+       `utilman2.exe`, `Magnify.exe` → `ScreenMagnifier.exe`, `Narrator.exe` → `SR.exe`; os
+       outros, o próprio nome;
      - **trocado** = `NotSigned`/`HashMismatch`/`NotTrusted`, não é binário do Windows, ou outro
        `OriginalFilename` (um `cmd.exe` copiado é assinado pela Microsoft, mas tem outro nome
        original);
@@ -1425,8 +1427,8 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
      mesmas recusas). Vale no próximo logon. Desfazer apaga só esses dois valores, nunca a chave.
    - **Única exceção ao "valor fixo" do ADR-021:** o caminho da imagem não é fixo no código. O
      único produtor é `papel_de_parede.caminho()`, a partir do SHA-256 do cadastro; o trecho só
-     grava se casar com `^<ProgramData>\ITC\Bench\papel\[0-9a-f]{64}\.(jpg|png)$` (ProgramData
-     lido no trecho) e o arquivo existir.
+     grava se casar com `^<ProgramData>\ITC\Bench\papel\[0-9a-f]{64}\.(jpg|jpeg|png)$`
+     (ProgramData lido no trecho) e o arquivo existir.
 4. **Hive comum** (`servicos/hive.py`): carregar, ler, escrever, descarregar e o laço por alvo
    saem de `politicas.py` sem mudar o comportamento do 11. O trecho recebe `ITC_PERFIL`
    (`politicas` | `aparencia`), e as raízes ficam fixas no `comum.ps1`:
