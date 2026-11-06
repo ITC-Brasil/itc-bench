@@ -411,7 +411,8 @@ def test_comando_sem_segredo() -> None:
 def test_leitura_real_dos_servicos() -> None:
     estados = remoto.servicos()
     assert set(estados) == {"glpi-agent", "RustDesk", "AnyDesk"}
-    assert remoto.desinstalacao("RustDesk")[0] is None or isinstance(
-        remoto.desinstalacao("RustDesk")[0], str
-    )
+    for programa in remoto.PROGRAMAS:
+        ver, local = remoto.desinstalacao(programa)
+        assert ver is None or isinstance(ver, str)
+        assert local is None or not local.startswith('"')  # AnyDesk grava entre aspas
     assert executor.sistema32("msiexec.exe").lower().endswith("msiexec.exe")

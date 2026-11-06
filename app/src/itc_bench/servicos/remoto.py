@@ -355,7 +355,11 @@ def desinstalacao(programa: Programa) -> tuple[str | None, str | None]:
                             continue
                         ver = str(winreg.QueryValueEx(k, "DisplayVersion")[0])
                         try:
-                            local = str(winreg.QueryValueEx(k, "InstallLocation")[0]) or None
+                            # O AnyDesk grava entre aspas.
+                            local = (
+                                str(winreg.QueryValueEx(k, "InstallLocation")[0]).strip().strip('"')
+                                or None
+                            )
                         except OSError:
                             local = None
                         return ver, local
