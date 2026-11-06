@@ -30,6 +30,11 @@ function Hive-Escrita([string]$hive) {
 
 function Raiz-Aceita([string]$hive, [string]$chave) {
     if ($chave -match '\\\\|\.\.|^\\|\\$') { return $false }
+    if ($PERFIL -ceq 'aparencia') {
+        if ($hive -eq 'MAQUINA') { return $false }
+        return ($EXATAS_APARENCIA -contains $chave) -or ($chave -eq $CHAVE_PAPEL)
+    }
+    if ($PERFIL -cne 'politicas') { return $false }
     if ($hive -eq 'MAQUINA') {
         if ($EXATAS_MAQUINA -contains $chave) { return $true }
         $raizes = $RAIZES_MAQUINA
