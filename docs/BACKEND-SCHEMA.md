@@ -71,6 +71,14 @@ Contrato da conta Suporte (ADR-017): `Servico = "Conta Suporte"`, `Papel = "usua
 conta, `Publico` marcado) e `Papel = "senha"` (`Publico` desmarcado). Uma linha ativa de cada;
 duplicada, o Bench recusa. Sem `usuario`, o nome é `Suporte`.
 
+Contrato do acesso remoto (ADR-019), uma linha ativa por par: `GLPI Agent`/`servidor` (URL
+`http(s)://`, público), `RustDesk`/`servidor` (host sem porta, público), `RustDesk`/`chave`,
+`RustDesk`/`senha` e `AnyDesk`/`senha` (não públicos). Ausente, vazia, duplicada ou com
+`Publico` trocado: o Bench recusa aquele programa e diz o par. Instaladores: `Programa` igual a
+`GLPI Agent`, `RustDesk` ou `AnyDesk`, `SHA256` de 64 hexadecimais, `Link` `https://` e
+`Arquivo` com `.msi`, `.msi`, `.exe`. `Unidades.TagGLPI` é opcional (sem ela, o agente vai sem
+`TAG=`).
+
 ## API (rotas)
 
 Existentes na API (`docs/api/API.md`): `GET /v1/saude`,
@@ -95,4 +103,6 @@ Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
 | Fila de diagnósticos não enviados (`formato`, `envio_id`, `criado_em`, `coletado_por`, hostname, corpo 1.3 já saneado); 10 itens, 14 dias | `%ProgramData%\ITC\Bench\protegido\fila-diagnostico.dpapi`; ilegível vira `fila-diagnostico.corrompida`; sem admin, só memória | DPAPI de máquina + ACL (ADR-015) | 06 |
 | Token da carreta (`itcta_`) | Não vai aos notebooks: o envio usa a sessão (ADR-016) | — | 06 |
+| Instaladores conferidos (nome = SHA-256 + extensão); apagados quando nenhuma linha ativa de Instaladores os usa | `%ProgramData%\ITC\Bench\protegido\instaladores\` | ACL só SYSTEM e `S-1-5-32-544` (ADR-019) | 09 |
+| Configuração do RustDesk (servidor, chave; senha só cifrada pelo RustDesk) | `%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` | Pasta do perfil do serviço (SYSTEM, LocalService, Administradores) | 09 |
 | `batteryreport.html` do powercfg | Pasta temporária, apagado depois de lido | — | 06 |
