@@ -1030,3 +1030,31 @@ gravado faz o Bench reenviar.
 
 **Consequences**
 Backup do SQLite antes do deploy, com restauração documentada em `docs/api/DEPLOY.md`.
+
+## TA-ADR-029 — Instaladores vira a lista de programas do Bench: seis colunas e validação por `Tipo`
+
+**Status:** Accepted (estende o TA-ADR-027)
+**Date:** 2026-11-06
+**Module:** 10 do ITC Bench
+
+**Context**
+O ADR-020 do Bench junta instaladores, pacotes do winget e Web Apps numa lista só. A API lê de
+`Instaladores` uma lista fixa de colunas; colunas novas não chegariam ao Bench.
+
+**Decision**
+- `Instaladores` ganha `Tipo`, `Categoria`, `Identificador`, `Argumentos`, `Deteccao` e `Modo`,
+  entregues como texto (`tipo`, `categoria`, `identificador`, `argumentos`, `deteccao`, `modo`).
+  Vazio de `Tipo`, `Categoria` e `Modo` vira `instalador`, `Programas` e `quiosque`.
+- Linha descartada (log com tabela, `Id` e motivo, sem valor): `tipo_invalido`,
+  `categoria_invalida`, `modo_invalido` e `identificador_invalido` (winget sem ID no formato;
+  Web App sem `https://` com host).
+- O resto continua como no TA-ADR-027 (`SHA256` inválido vira vazio; o Bench recusa).
+- A rota e o formato só ganham campos; nada sai nem muda de nome. Sem migração (o SQLite não
+  guarda cadastros).
+
+**Alternatives considered**
+- Tabela nova no NocoDB — variável e token a mais para o mesmo conceito.
+- Repassar as colunas sem validar — o cadastro errado só apareceria na bancada.
+
+**Consequences**
+Deploy da API antes do app novo; o Bench antigo ignora os campos novos.
