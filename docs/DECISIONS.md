@@ -929,3 +929,128 @@ e aprovado em `.conversa/` em 05/11/2026.
 **Consequences**
 O responsável preenche `Unidades` no NocoDB no formato acordado e usa os mesmos códigos em
 `WiFi.Unidade`. O 13 chama `servicos/identificacao.py` e `servicos/wifi.py`.
+
+---
+
+## ADR-019 — Acesso remoto pelo executor, instaladores com SHA-256 em `protegido\` e senhas fora de argumento
+
+**Status:** Accepted
+**Date:** 2026-11-05
+**Module:** 09
+
+**Context**
+O Configurador instala GLPI Agent, RustDesk e AnyDesk com `shell=True`, a partir de instaladores
+guardados ao lado do EXE ou baixados para `%TEMP%` sem conferência. Os segredos vêm de
+`segredos.json`. A senha do RustDesk vai em argumento (`--password`) e a do AnyDesk por
+`echo senha |`. A espera é feita com `sleep(10)`, e a versão é comparada como texto. Desenho
+proposto e aprovado com ajustes em `.conversa/` em 05/11/2026.
+
+**Decision**
+1. **Inventário.**
+   - Entram: GLPI Agent (instalar, reconfigurar, forçar inventário), RustDesk e AnyDesk
+     (instalar, atualizar, reconfigurar).
+   - Saem: a pasta Ferramentas, a URL do GLPI digitada pelo técnico, o TOML na conta de quem roda
+     o programa, os `sleep`, o `--password` e o `echo`.
+   - Energia vai para o 12; a "Manutenção geral" vai para o 13.
+2. **Servidores** (contrato no molde do ADR-017; uma linha ativa por par):
+   - `GLPI Agent`/`servidor`, público: URL `http(s)://` com host, sem espaço nem aspas.
+     **`http://` é aceito provisoriamente**, com aviso na tela, até o GLPI estar em HTTPS.
+   - `RustDesk`/`servidor`, público: nome DNS ou IPv4, sem porta (portas 21116 e 21117).
+   - `RustDesk`/`chave`, não público: base64 de 44 caracteres. É a chave pública do servidor,
+     distribuída a todo cliente; não é segredo forte, só não é exibida em Configurações.
+   - `RustDesk`/`senha` e `AnyDesk`/`senha`, não públicos.
+   - Linha ausente, vazia, duplicada, com `Publico` trocado ou com formato errado recusa aquele
+     programa e diz qual par falta. O log recebe só `Id` e motivo.
+3. **Tag do GLPI opcional** (hoje nenhuma regra do GLPI usa tag). Com `Unidades.TagGLPI`
+   preenchida na unidade da máquina, entra `TAG=`, validada contra espaço e aspas. Sem unidade ou
+   com a tag vazia, o agente é instalado sem `TAG=`, e a tela mostra "sem tag", sem bloquear. Em
+   "Reconfigurar", tag vazia não apaga a tag já gravada. A tag não vai ao log.
+4. **Instaladores** (`servicos/instaladores.py`, sem Qt, também usado pelo 10):
+   - Linha ativa com `Programa` exatamente igual ao nome, `SHA256` de 64 hexadecimais, `Link`
+     `https://` e extensão de `Arquivo` igual à esperada.
+   - O arquivo fica em `%ProgramData%\ITC\Bench\protegido\instaladores\<sha256>.<ext>`, com o
+     nome derivado do hash e nunca de `Arquivo`.
+   - Download com `urllib`, só `https`, redirecionamento só para `https`, teto de 300 MB e
+     cancelamento entre blocos. O hash é calculado durante a gravação em `.parcial`, que só vira o
+     arquivo final se o hash bater.
+   - "Escolher arquivo…" (pendrive, sem rede) copia o arquivo para `.parcial` e calcula o hash
+     **sobre a cópia**, nunca sobre a origem.
+   - O SHA-256 é conferido de novo logo antes de executar. Arquivo guardado com o hash certo é
+     reaproveitado.
+   - Hash diferente: o arquivo é apagado e a ação recusa. O log recebe `Id` e os 12 caracteres
+     do hash esperado e do obtido; não há nova tentativa automática.
+   - A limpeza apaga o que não corresponde a **nenhuma** linha ativa de Instaladores. Sem
+     cadastros, nada é apagado.
+   - O `Link` nunca vai ao log.
+5. **Execução** só pelo executor (ADR-011), com lista de argumentos e caminho absoluto:
+   - **GLPI Agent:** `msiexec.exe /i <msi> /quiet /norestart SERVER= [TAG=] ADD_FIREWALL_EXCEPTION=1
+     RUNNOW=1`.
+   - **RustDesk:** `msiexec.exe /i <msi> /qn /norestart` sem atalhos nem impressora.
+   - **AnyDesk:** `<exe> --install <Program Files (x86)>\AnyDesk --start-with-win --silent`, sem
+     ícone na área de trabalho. A pasta vem de `SHGetKnownFolderPath`.
+   - Códigos do `msiexec`: 0 é sucesso; 3010 e 1641 são sucesso com reinício pendente (aviso, não
+     falha); 1618 significa outra instalação em andamento (mensagem própria).
+   - O instalador não é interrompido no meio (matar o cliente não para o Windows Installer). O
+     cancelamento vale entre passos, no download e nas esperas. Timeout de 600 s.
+6. **Espera:** um trecho PowerShell por espera, com polling de 1 s até 90 s (serviço existe e
+   está `Running`; no RustDesk, também até o `RustDesk.toml` existir). Parar o RustDesk:
+   `Stop-Service`, espera de `Stopped` e encerramento só dos `rustdesk.exe` da pasta instalada.
+7. **Versão numérica:** a primeira sequência `\d+(\.\d+)*` do texto vira uma tupla de inteiros
+   (cobre `ad 8.0.14`), lida em `DisplayVersion` das chaves `Uninstall` por `winreg`.
+   - Ausente: instala.
+   - Mais velha ou ilegível: instala por cima.
+   - Igual: só "Reconfigurar".
+   - Mais nova: não rebaixa; só "Reconfigurar", com "atualize o cadastro".
+8. **Senhas fora de argumento:**
+   - **AnyDesk:** `--set-password` com a senha na entrada padrão (`Sensivel`), sem shell nem
+     `echo`.
+   - **RustDesk:** sem o serviço rodando, o Bench grava só a linha `password` da seção de topo do
+     `RustDesk.toml` do perfil do serviço
+     (`%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config`). O resto do arquivo
+     é preservado (`id`, `key_pair`, `salt`). Ao iniciar, o RustDesk a regrava cifrada (prefixo
+     `00`), e o Bench confere isso. Se sobrar texto puro, o Bench tira a linha e falha.
+   - Escritas atômicas (`.tmp` + `replace`), com o `.tmp` apagado em `finally`. A pasta (e o
+     caminho até ela) não pode ser ponto de reparse.
+   - O Configurador não gravava método de verificação; o padrão do RustDesk fica.
+   - Não é exceção ao executor: gravar arquivo não abre processo.
+9. **`RustDesk2.toml`:** o Bench grava `rendezvous_server`, `relay_server`, `nat_type`, `serial`
+   e, em `[options]`, `custom-rendezvous-server`, `relay-server`, `key`, `direct-server` e
+   `direct-access-port`, **preservando as outras chaves** de `[options]`. As strings são escapadas
+   por `json.dumps` (string básica TOML válida). As opções `stop-service-hide-tray` e `hide-icon`
+   vão por `rustdesk.exe --option` depois da gravação.
+10. **Forçar inventário:** `GET http://127.0.0.1:62354/now`, o endpoint local do agente. Não abre
+    processo e não fala com o GLPI. Reconfigurar o GLPI grava `server` e `tag` em
+    `HKLM\SOFTWARE\GLPI-Agent` por `winreg` e reinicia o serviço.
+11. **Tela e log:**
+    - A tela mostra programa, versão (instalada e do cadastro), serviço e configuração conferida
+      (servidor e tag do GLPI; servidor, chave por `hmac.compare_digest` e senha cifrada do
+      RustDesk).
+    - O ID do RustDesk e do AnyDesk (`--get-id`) aparece na tela.
+    - Senhas e o valor da chave nunca aparecem.
+    - O log recebe programa, versão, passo, resultado, código, `Id` e os 12 caracteres do hash.
+      Nunca senha, chave, URL, host, tag, `Link` ou ID.
+    - `--dev` sem admin: só leitura.
+
+**Alternatives considered**
+- `rustdesk.exe --password` — a senha aparece na linha de comando (`Win32_Process`, auditoria
+  4688).
+- Reescrever o `RustDesk.toml` inteiro — troca o ID e as chaves da máquina.
+- Cópia do TOML no `%APPDATA%` — vai para a conta de quem roda o Bench, não para a do usuário.
+- `glpi-agent.bat --force` via `cmd.exe /c` — regras de aspas do cmd com caminho com espaço.
+- Hash sobre o arquivo de origem escolhido — a origem pode ser trocada entre a conferência e a
+  cópia.
+- Uma chamada ao executor por tentativa de polling — até 90 PowerShells.
+- Deixar o serviço de instaladores para o 10 — duas versões do mesmo código.
+- Rebaixar para a versão do cadastro — desfaz uma atualização sem motivo.
+
+**Riscos aceitos (responsável, 05/11/2026)**
+- A senha do RustDesk fica alguns segundos em texto puro numa pasta só de SYSTEM, LocalService e
+  Administradores; a forma cifrada é reversível por admin local, como pelo `--password`.
+- A aceitação da senha em texto puro pelo RustDesk não foi testada; é cenário obrigatório da
+  máquina real. Se falhar, a decisão volta ao responsável.
+- GLPI em `http://` até a migração para HTTPS.
+
+**Consequences**
+O responsável cadastra as cinco linhas de Servidores e as três de Instaladores e troca as senhas
+do RustDesk e do AnyDesk. O 10 usa `servicos/instaladores.py` e a mesma pasta. O 13 chama
+`servicos/remoto.py`.

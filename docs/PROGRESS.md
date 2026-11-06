@@ -2,25 +2,28 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-08-identificacao-wifi`, PR para `develop` (merge commit).
-- **Feito:** Módulo 08 no código. `servicos/identificacao.py` (validação NetBIOS, `Rename-Computer`
-  pelo executor com `ITC_NOME`, nome pendente, domínio/Azure AD recusa, reiniciar) e
-  `servicos/wifi.py` + `nucleo/wlan.py` (`wlanapi.dll` por ctypes: perfis, comparação da senha,
-  instalar WPA2 sem arquivo nem processo). Telas Identificação e Wi-Fi com ajuda.
-  366 testes. ADR-018; auditoria com 1 baixo corrigido e 4 informativos.
-- **Pela metade:** nada no código. Pendência do 08: cenários V1–V9
-  (`docs/modules/08-identificacao-wifi.md`) numa máquina real, com o instalador.
-- **Próximo passo:** responsável: `Unidades` no NocoDB no formato `<SIGLA><nn>`, mesmos códigos em
-  `WiFi.Unidade`; merge do PR. Depois, Módulo 09.
+- **Branch:** `feat/modulo-09-acesso-remoto`, PR para `develop` (merge commit).
+- **Feito:** Módulo 09 no código. `servicos/instaladores.py` (instalador do cadastro em
+  `protegido\instaladores\<sha256>`, download `https`, cópia de arquivo escolhido, SHA-256 sobre a
+  cópia e de novo antes de executar, limpeza contra todas as linhas) e `servicos/remoto.py` (GLPI
+  Agent, RustDesk, AnyDesk pelo executor; senha do AnyDesk pela entrada padrão; senha do RustDesk
+  pela linha `password` do `RustDesk.toml` do serviço, retirada em qualquer saída sem cifra;
+  versão numérica; polling; `msiexec` 3010/1641/1618). Tela Acesso remoto com ajuda.
+  433 testes. ADR-019; auditoria com 1 médio corrigido e 5 informativos.
+- **Pela metade:** nada no código. Pendência do 09: cenários V1–V11
+  (`docs/modules/09-acesso-remoto.md`), em especial o V2 (o RustDesk aceita a senha pelo arquivo).
+- **Próximo passo:** responsável: cinco linhas em Servidores, três em Instaladores, `TagGLPI`
+  (opcional), trocar as senhas do RustDesk e do AnyDesk; merge do PR. Depois, Módulo 10.
 - **Tarefas futuras:** trocar a pasta de deploy no servidor para `itc-bench`; PR no TA trocando o
   README; teste de borda pelo túnel; rótulos de módulo antigos em `ui/navegacao.py`; corrigir no
   pendrive o `Sort-Object LocalPort -Unique` se ele continuar em uso.
-- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–08 em máquina real; release #24.
+- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–09 em máquina real; release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-05 | 09 — Acesso remoto | GLPI Agent, RustDesk e AnyDesk pelo executor, com dados de Servidores (`GLPI Agent`/`servidor`, `RustDesk`/`servidor`/`chave`/`senha`, `AnyDesk`/`senha`) e tag opcional de `Unidades.TagGLPI`. Instaladores do cadastro em `protegido\instaladores\` com SHA-256 (download `https` ou arquivo escolhido, hash sobre a cópia, conferido antes de executar), serviço comum para o 10. Senha do AnyDesk pela entrada padrão; do RustDesk pelo `RustDesk.toml` do serviço, cifrada pelo próprio RustDesk e retirada em qualquer falha; `RustDesk2.toml` mesclado. Versão pela primeira sequência numérica; não rebaixa. Polling no lugar do `sleep`. Forçar inventário pelo `/now` local. Log sem senha, chave, host, tag, link ou ID. Tela com ajuda. App 433 testes. ADR-019. Auditoria: 1 médio corrigido, 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-05 | 08 — Identificação e Wi-Fi | Renomear por `Rename-Computer` no executor (`ITC_NOME`), validação NetBIOS em Python e no PS, nome pendente na tela, domínio/Azure AD recusa, reiniciar agora ou depois. Wi-Fi pela `wlanapi.dll` (ctypes): XML por `ElementTree` com SSID em hex, só WPA2, senha vazia/inválida = erro de cadastro, comparação da senha instalada sem sair da função, instalar com cancelamento. Wi-Fi é exceção registrada ao executor único. "Testar conexão" saiu na revisão (a conexão é conferida na carreta). Sem `netsh`, arquivo ou processo no Wi-Fi; log só por `Id`. Telas com ajuda. `Unidades.Codigo` = `<SIGLA><nn>` documentado. App 366 testes. ADR-018. Auditoria: 1 baixo corrigido, 4 informativos. Cenários em máquina real pendentes. |
 | 2026-11-05 | 07 — Contas | `servicos/contas.py` + trechos PS (executor, `ITC_*`, `Sensivel`), alvo por SID, grupos pelo SID, sem `wmic`/`net user`. Regras (nativo RID 500, conta Microsoft só leitura, Suporte pelo nome cadastrado e `Suporte`, conta logada, último admin ativo, sessão aberta) em Python e de novo no PS. Conta Suporte de Servidores (`Conta Suporte`/`usuario`/`senha`). Lote: tornar todos admins; remover admin de todos exceto Suporte (inclui a logada). Cópia de pastas fora. Tela Contas com ajuda. App 313 testes. ADR-017. Auditoria: 5 informativos. Ajustes da revisão: Suporte logada pode ser aplicada (com aviso), log só com código. Cenários em máquina real pendentes. |
 | 2026-11-04 | 06 — Diagnóstico | App: coletores portados (trechos PS embutidos, regras em Python), executor com cancelamento, contrato 1.3 saneado, fila DPAPI 10/14 dias, telas Coleta e laudo e Histórico, laudo só com `insertText`, paridade com o pendrive sobre gravações anonimizadas (achou 2 defeitos de PS 5.1). API: `/v1/bench/relatorio` e `/historico` com sessão, 30/h por técnico, idempotência por `envio_id`, `0006` reconstrói `diagnosticos`. `itcta_` fora dos notebooks. App 265 testes, API 240. ADR-015, ADR-016, TA-ADR-028. Auditoria: 4 informativos. Deploy e bancada pendentes do responsável. |

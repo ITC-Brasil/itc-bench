@@ -40,6 +40,8 @@ from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
 from itc_bench.ui.identificacao import PainelIdentificacao
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
+from itc_bench.ui.remoto import AJUDA as AJUDA_REMOTO
+from itc_bench.ui.remoto import PainelRemoto
 from itc_bench.ui.wifi import AJUDA as AJUDA_WIFI
 from itc_bench.ui.wifi import PainelWifi
 
@@ -356,12 +358,14 @@ class Janela(QMainWindow):
         tela.ajuda.texto.setText(AJUDA_CONTAS)
 
     def _preparar(self) -> None:
-        """Identificação e Wi-Fi (ADR-018): leem ao abrir; ações só com administrador."""
+        """Identificação, Wi-Fi e Acesso remoto (ADR-018, ADR-019): leem ao abrir; ação só admin."""
         self.identificacao = PainelIdentificacao(self.admin)
         self.wifi = PainelWifi(self.admin, lambda: self.cadastros, lambda: self.unidade)
+        self.remoto = PainelRemoto(self.admin, lambda: self.cadastros, lambda: self.unidade)
         for chave, painel, ajuda in (
             ("id", self.identificacao, AJUDA_IDENTIFICACAO),
             ("wifi", self.wifi, AJUDA_WIFI),
+            ("remoto", self.remoto, AJUDA_REMOTO),
         ):
             tela = self.telas[chave]
             while tela.corpo.count():

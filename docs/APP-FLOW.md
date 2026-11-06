@@ -41,8 +41,8 @@ que resolve, atalhos (forçar inventário GLPI, limpar temporários).
 "Pausar". Log ao vivo. Se uma etapa pede reinício, agenda retomada e continua depois do boot.
 
 **Tela de cadastro (Wi-Fi como modelo)** — abas filtro (esta unidade / todas / instaladas no
-Windows), tabela com situação no Windows (igual, senha antiga, ausente), ações "Testar conexão",
-"Instalar N redes". Dados vêm do cache dos cadastros.
+Windows), tabela com situação no Windows (igual, senha antiga, ausente), ação "Instalar N
+redes" (a conexão é conferida na carreta, pelo Windows; ADR-018). Dados vêm do cache dos cadastros.
 
 **Acesso remoto** — mostra servidor, tag, instalador, SHA-256 conferido e o comando antes de
 instalar. Se um campo obrigatório estiver vazio em Configurações › Servidores, a instalação não
