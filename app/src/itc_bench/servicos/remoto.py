@@ -278,7 +278,7 @@ def senha_cifrada(texto: str) -> bool:
 # ---------------------------------------------------------------- máquina
 
 
-def _pasta_conhecida(csidl: int) -> Path:
+def pasta_conhecida(csidl: int) -> Path:
     buffer = ctypes.create_unicode_buffer(260)
     if ctypes.windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buffer) != 0:
         raise ErroRemoto("Pasta de programas não encontrada.")
@@ -286,11 +286,11 @@ def _pasta_conhecida(csidl: int) -> Path:
 
 
 def program_files() -> Path:
-    return _pasta_conhecida(0x26)  # CSIDL_PROGRAM_FILES
+    return pasta_conhecida(0x26)  # CSIDL_PROGRAM_FILES
 
 
 def program_files_x86() -> Path:
-    return _pasta_conhecida(0x2A)  # CSIDL_PROGRAM_FILESX86
+    return pasta_conhecida(0x2A)  # CSIDL_PROGRAM_FILESX86
 
 
 def windows() -> Path:
