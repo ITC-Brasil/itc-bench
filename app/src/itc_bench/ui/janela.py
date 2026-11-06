@@ -30,6 +30,14 @@ from itc_bench.servicos.fila import Fila, Reenvio, reenviar
 from itc_bench.servicos.login import Entrada
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
+from itc_bench.ui.aparencia import (
+    AJUDA_ENERGIA,
+    AJUDA_MOUSE,
+    AJUDA_TELA,
+    PainelEnergia,
+    PainelMouse,
+    PainelPapel,
+)
 from itc_bench.ui.configuracoes import AJUDA as AJUDA_CONFIGURACOES
 from itc_bench.ui.configuracoes import PainelConfiguracoes
 from itc_bench.ui.contas import AJUDA as AJUDA_CONTAS
@@ -44,6 +52,8 @@ from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
 from itc_bench.ui.politicas import AJUDA_USB, PainelPoliticas
 from itc_bench.ui.programas import AJUDA as AJUDA_PROGRAMAS
 from itc_bench.ui.programas import AJUDA_REMOVER, PainelProgramas, PainelRemover
+from itc_bench.ui.protecao import AJUDA as AJUDA_PROTECAO
+from itc_bench.ui.protecao import PainelProtecao
 from itc_bench.ui.remoto import AJUDA as AJUDA_REMOTO
 from itc_bench.ui.remoto import PainelRemoto
 from itc_bench.ui.wifi import AJUDA as AJUDA_WIFI
@@ -372,7 +382,12 @@ class Janela(QMainWindow):
         # Segurança (ADR-021): Políticas e USB pelo mesmo serviço; leem ao abrir; ação só admin.
         self.politicas = PainelPoliticas(self.admin, lambda: self.cadastros)
         self.usb = PainelPoliticas(self.admin, lambda: self.cadastros, usb=True)
-        for chave, painel, ajuda in (
+        # Proteção do login e Aparência (ADR-022): leem ao abrir; ação só admin.
+        self.protecao = PainelProtecao(self.admin)
+        self.papel = PainelPapel(self.admin, lambda: self.cadastros)
+        self.mouse = PainelMouse(self.admin, lambda: self.cadastros)
+        self.energia = PainelEnergia(self.admin)
+        paineis: tuple[tuple[str, QWidget, str], ...] = (
             ("id", self.identificacao, AJUDA_IDENTIFICACAO),
             ("wifi", self.wifi, AJUDA_WIFI),
             ("remoto", self.remoto, AJUDA_REMOTO),
@@ -380,7 +395,12 @@ class Janela(QMainWindow):
             ("remover", self.remover, AJUDA_REMOVER),
             ("gpo", self.politicas, AJUDA_POLITICAS),
             ("usb", self.usb, AJUDA_USB),
-        ):
+            ("protecao", self.protecao, AJUDA_PROTECAO),
+            ("aparencia", self.papel, AJUDA_TELA),
+            ("mouse", self.mouse, AJUDA_MOUSE),
+            ("energia", self.energia, AJUDA_ENERGIA),
+        )
+        for chave, painel, ajuda in paineis:
             tela = self.telas[chave]
             while tela.corpo.count():
                 item = tela.corpo.takeAt(0)
