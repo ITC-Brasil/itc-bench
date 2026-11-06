@@ -428,4 +428,4 @@ def test_situacao_mistura_tipos(monkeypatch) -> None:
 def test_resumo() -> None:
     item = pg.Item(inst())
     rs = [pg.Resultado(item, e, "") for e in ("ok", "ok", "falha", "em_execucao")]
-    assert pg.resumo(rs) == "2 ok, 1 com falha, 1 ainda em execução"
+    assert pg.resumo(r.estado for r in rs) == "2 ok, 1 com falha, 1 ainda em execução"

@@ -672,8 +672,9 @@ def instalar(
     return resultados
 
 
-def resumo(resultados: list[Resultado]) -> str:
-    contagem = Counter(r.estado for r in resultados)
+def resumo(estados: Iterable[str]) -> str:
+    """Contagem por estado, para a tela (também usada em Remover programas)."""
+    contagem = Counter(estados)
     nomes: dict[Estado, str] = {
         "ok": "ok",
         "reinicio": "com reinício pendente",
