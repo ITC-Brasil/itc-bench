@@ -178,7 +178,8 @@ def test_do_cadastro_ignora_winget_e_webapp_com_o_mesmo_nome() -> None:
 
     winget = replace(linha(2), tipo="winget", identificador="Exemplo.Pacote")
     webapp = replace(linha(3), tipo="webapp", identificador="https://exemplo.invalid")
-    assert inst.do_cadastro(cadastros(linha(), winget, webapp), "RustDesk") == linha()
+    papel = replace(linha(4), tipo="papel", arquivo="p.jpg")  # ADR-022
+    assert inst.do_cadastro(cadastros(linha(), winget, webapp, papel), "RustDesk") == linha()
     assert "Cadastre" in str(inst.do_cadastro(cadastros(winget), "RustDesk"))
 
 
@@ -188,15 +189,19 @@ def test_icone_sem_versao_e_valido() -> None:
     icone = replace(linha(arquivo="jogo.ico", versao=""), tipo="webapp")
     assert inst.validar(icone, ".ico") is None
     assert "versão" in str(inst.validar(linha(versao=""), ".msi"))
+    # Papel de parede (ADR-022) não tem versão.
+    papel = Instalador(8, "Papel", "", "p.jpg", SHA, LINK, "", tipo="papel")
+    assert inst.validar(papel, ".jpg") is None
 
 
-def test_limpar_sem_base_trata_instaladores_e_icones(tmp_path: Path, monkeypatch) -> None:
-    pastas = tmp_path / "instaladores", tmp_path / "icones"
+def test_limpar_sem_base_trata_instaladores_icones_e_papel(tmp_path: Path, monkeypatch) -> None:
+    pastas = tmp_path / "instaladores", tmp_path / "icones", tmp_path / "papel"
     for p in pastas:
         p.mkdir()
         (p / f"{'c' * 64}.ico").write_bytes(b"x")
         (p / f"{SHA}.ico").write_bytes(b"x")
     monkeypatch.setattr(inst, "pasta", lambda: pastas[0])
     monkeypatch.setattr(inst, "icones", lambda: pastas[1])
-    assert len(inst.limpar(cadastros(linha()))) == 2
+    monkeypatch.setattr(inst, "papeis", lambda: pastas[2])
+    assert len(inst.limpar(cadastros(linha()))) == 3
     assert all((p / f"{SHA}.ico").exists() for p in pastas)

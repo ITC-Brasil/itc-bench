@@ -33,7 +33,7 @@ marcada como obrigatória nem única: validação fica na API.
 | `Link` | URL | Origem do download |
 | `Ativo` | Checkbox | |
 | `Observacao` | LongText | |
-| `Tipo` | SingleSelect: `instalador`, `winget`, `webapp` | Vazio = `instalador` (ADR-020) |
+| `Tipo` | SingleSelect: `instalador`, `winget`, `webapp`, `papel` | Vazio = `instalador` (ADR-020); `papel` = papel de parede (ADR-022) |
 | `Categoria` | SingleSelect: `Programas`, `Jogos` | Vazio = `Programas`; dá as abas da tela |
 | `Identificador` | SingleLineText | winget: ID do pacote; webapp: URL `https://` |
 | `Argumentos` | LongText | Só instalador: um argumento por linha (MSI: `PROPRIEDADE=valor`). Vazio em `.exe` = instalação interativa |
@@ -46,6 +46,9 @@ Contrato de Programas (ADR-020, TA-ADR-029):
   usa como prefixo para dizer se está instalado; MSI é achado pelo `ProductCode` do arquivo).
 - **winget:** `Programa` e `Identificador` (ID exato do repositório `winget`). `Versao` é só
   referência. `Link`, `SHA256` e `Arquivo` vazios.
+- **papel** (ADR-022, TA-ADR-030): `Programa` (nome na tela), `Arquivo` `.jpg`/`.jpeg`/`.png`,
+  `SHA256` e `Link` `https://`. JPG ou PNG de até 20 MB, de 640x480 a 7680x4320. Guardado em
+  `%ProgramData%\ITC\Bench\papel\` e aplicado pela tela Tela e papel de parede.
 - **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
   opcional: `Link` `https://` do `.ico`, `SHA256` e `Arquivo` `.ico`.
 - Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não

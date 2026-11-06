@@ -5,8 +5,18 @@ Hive-Escrita $env:ITC_HIVE
 $ops = @($env:ITC_OPERACOES | ConvertFrom-Json | ForEach-Object { $_ })
 foreach ($o in $ops) {
     if (-not (Raiz-Aceita $env:ITC_HIVE $o.chave)) { Falhar 'raiz' }
+    if (-not (Valor-Aceito $o.chave $o.nome)) { Falhar 'valor' }
     if ($o.acao -notin @('gravar', 'apagar', 'apagar_se_igual', 'apagar_se_vazia')) { Falhar 'acao' }
-    if ($o.tipo -notin @('dword', 'sz')) { Falhar 'tipo' }
+    if ($o.tipo -notin @('dword', 'sz', 'expand_sz')) { Falhar 'tipo' }
+    if ($PERFIL -ceq 'aparencia' -and $o.chave -eq $CHAVE_PAPEL -and $o.acao -eq 'gravar') {
+        # Papel de parede (ADR-022): só o caminho que o Bench monta, e o estilo da lista fechada.
+        if ($o.nome -eq 'WallpaperStyle' -and [string]$o.dado -cnotin @('0', '6', '10', '22')) { Falhar 'valor' }
+        if ($o.nome -eq 'Wallpaper') {
+            $pasta = [Environment]::GetFolderPath('CommonApplicationData') + '\ITC\Bench\papel\'
+            if ([string]$o.dado -notmatch ('^' + [regex]::Escape($pasta) + '[0-9a-f]{64}\.(jpg|jpeg|png)$')) { Falhar 'valor' }
+            if (-not (Test-Path -LiteralPath ([string]$o.dado) -PathType Leaf)) { Falhar 'imagem' }
+        }
+    }
 }
 $base = Base $env:ITC_HIVE
 
@@ -16,7 +26,7 @@ function Abrir-Criando($base, [string]$chave) {
     foreach ($parte in $chave.Split('\')) {
         $k = $atual.OpenSubKey($parte, $true)
         if (-not $k) {
-            if ($nova) {
+            if ($nova -and (Sob-Politica $chave)) {
                 # Primeira chave que falta: ACL explícita, dono Administradores; as de baixo herdam.
                 $sec = New-Object Security.AccessControl.RegistrySecurity
                 $sec.SetSecurityDescriptorSddlForm($SDDL_NOVA)
@@ -35,6 +45,7 @@ foreach ($o in $ops) {
         if ($o.acao -eq 'gravar') {
             $k = Abrir-Criando $base $o.chave
             if ($o.tipo -eq 'dword') { $k.SetValue($o.nome, [int]$o.dado, 'DWord') }
+            elseif ($o.tipo -eq 'expand_sz') { $k.SetValue($o.nome, [string]$o.dado, 'ExpandString') }
             else { $k.SetValue($o.nome, [string]$o.dado, 'String') }
             $k.Close()
         } else {
