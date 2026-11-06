@@ -281,3 +281,25 @@ def test_unidade_trocada_e_api_fora_filtra_o_cache(armazem, chamadas):
     r = sincronizar("b", TOKEN, armazem, "ana", "UM-01")
     assert r.estado == "offline" and r.cadastros.unidade == "UM-01"
     assert [w.id for w in armazem.carregar().redes] == [10]
+
+
+def test_instalador_de_cache_antigo_vira_tipo_instalador() -> None:
+    """Cache gravado antes do ADR-020 não tem os campos novos."""
+    from itc_bench.servicos.cadastros import _de_dados
+
+    antigo = {"id": 1, "programa": "P", "versao": "1", "arquivo": "p.msi", "sha256": "a" * 64}
+    antigo |= {"link": "https://exemplo.invalid/p.msi", "observacao": ""}
+    registro = {
+        "versao": "v" * 64,
+        "sincronizado_em": "2026-11-06T10:00:00+00:00",
+        "por": "teste",
+        "unidade": None,
+        "dados": {"servidores": [], "instaladores": [antigo], "wifi": [], "unidades": []},
+    }
+    i = _de_dados(registro).instaladores[0]
+    assert (i.tipo, i.categoria, i.modo, i.identificador) == (
+        "instalador",
+        "Programas",
+        "quiosque",
+        "",
+    )
