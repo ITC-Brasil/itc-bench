@@ -2,15 +2,15 @@
 
 from typing import NamedTuple
 
-M04 = "04 — Cadastros via API com cache DPAPI"
-M05 = "05 — Diagnóstico"
-M06 = "06 — Contas"
-M07 = "07 — Identificação e Wi-Fi"
-M08 = "08 — Acesso remoto"
-M09 = "09 — Programas e Remover programas"
-M10 = "10 — Políticas e USB"
-M11 = "11 — Proteção do login e Aparência"
-M12 = "12 — Preparação completa, Início e Limpeza"
+M04 = "05 — Cadastros via API com cache DPAPI"
+M05 = "06 — Diagnóstico"
+M06 = "07 — Contas"
+M07 = "08 — Identificação e Wi-Fi"
+M08 = "09 — Acesso remoto"
+M09 = "10 — Programas e Remover programas"
+M10 = "11 — Políticas e USB"
+M11 = "12 — Proteção do login e Aparência"
+M12 = "13 — Preparação completa, Início e Limpeza"
 
 
 class Item(NamedTuple):
