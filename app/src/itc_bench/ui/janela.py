@@ -40,6 +40,8 @@ from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
 from itc_bench.ui.identificacao import PainelIdentificacao
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
+from itc_bench.ui.programas import AJUDA as AJUDA_PROGRAMAS
+from itc_bench.ui.programas import AJUDA_REMOVER, PainelProgramas, PainelRemover
 from itc_bench.ui.remoto import AJUDA as AJUDA_REMOTO
 from itc_bench.ui.remoto import PainelRemoto
 from itc_bench.ui.wifi import AJUDA as AJUDA_WIFI
@@ -362,10 +364,15 @@ class Janela(QMainWindow):
         self.identificacao = PainelIdentificacao(self.admin)
         self.wifi = PainelWifi(self.admin, lambda: self.cadastros, lambda: self.unidade)
         self.remoto = PainelRemoto(self.admin, lambda: self.cadastros, lambda: self.unidade)
+        # Software (ADR-020): mesmo padrão, leem ao abrir; ação só admin.
+        self.programas = PainelProgramas(self.admin, lambda: self.cadastros)
+        self.remover = PainelRemover(self.admin)
         for chave, painel, ajuda in (
             ("id", self.identificacao, AJUDA_IDENTIFICACAO),
             ("wifi", self.wifi, AJUDA_WIFI),
             ("remoto", self.remoto, AJUDA_REMOTO),
+            ("prog", self.programas, AJUDA_PROGRAMAS),
+            ("remover", self.remover, AJUDA_REMOVER),
         ):
             tela = self.telas[chave]
             while tela.corpo.count():

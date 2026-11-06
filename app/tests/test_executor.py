@@ -193,3 +193,30 @@ def test_cancelar_com_entrada_no_stdin():
         cancelar=threading.Event(),
     )
     assert r.saida.strip() == "linha"
+
+
+def test_timeout_sem_encerrar_deixa_o_processo_rodando():
+    """ADR-020: instalador não é morto no timeout; o Resultado volta esgotado."""
+    marca = str(4000 + time.monotonic_ns() % 50000)  # -w único, para achar o processo
+    ping = sistema32("PING.EXE")
+    r = executar([ping, "-n", "8", "-w", marca, "127.0.0.1"], timeout=1, encerrar_no_timeout=False)
+    assert (r.esgotado, r.codigo, r.ok) == (True, None, False)
+    vivos = powershell(
+        "@(Get-CimInstance Win32_Process -Filter \"Name='PING.EXE'\" |"
+        ' Where-Object CommandLine -like "*-w $env:ITC_MARCA *").Count',
+        marca=marca,
+    )
+    assert vivos.saida.strip() == "1"
+    powershell(
+        "Get-CimInstance Win32_Process -Filter \"Name='PING.EXE'\" |"
+        ' Where-Object CommandLine -like "*-w $env:ITC_MARCA *" |'
+        " Invoke-CimMethod -MethodName Terminate",
+        marca=marca,
+    )
+
+
+def test_sem_encerrar_nao_aceita_cancelar():
+    import threading
+
+    with pytest.raises(ValueError):
+        executar([PS], cancelar=threading.Event(), encerrar_no_timeout=False)

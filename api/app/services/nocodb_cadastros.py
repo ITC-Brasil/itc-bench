@@ -16,6 +16,12 @@ from pydantic import SecretStr
 
 log = logging.getLogger("tecnico.cadastros")
 SHA256 = re.compile(r"[0-9a-f]{64}")
+# Instaladores by Tipo (TA-ADR-029): value -> default when empty.
+TIPOS = ("instalador", "winget", "webapp")
+CATEGORIAS = ("Programas", "Jogos")
+MODOS = ("quiosque", "app")
+WINGET_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+_-]{1,127}")
+URL_WEBAPP = re.compile(r"https://[A-Za-z0-9.-]+(?::\d+)?(?:[/?#][^\s\x00-\x1f\"'<>\\]*)?")
 
 LIMITE_PAGINA = 1000
 MAXIMO_PAGINAS = 20
@@ -30,7 +36,10 @@ TABELAS = {
     ),
     "instaladores": (
         "nocodb_tabela_instaladores",
-        ("Id", "Programa", "Versao", "Arquivo", "SHA256", "Link", "Ativo", "Observacao"),
+        (
+            "Id", "Programa", "Versao", "Arquivo", "SHA256", "Link", "Ativo", "Observacao",
+            "Tipo", "Categoria", "Identificador", "Argumentos", "Deteccao", "Modo",
+        ),
         "Programa",
     ),
     "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "categoria", "Ativo", "AtualizadoEm"), "SSID"),
@@ -122,6 +131,15 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
                 continue
             validos[nome].append(linha)
 
+    instaladores = []
+    for linha in validos["instaladores"]:
+        motivo = motivo_instalador(linha)
+        if motivo:
+            descartados.setdefault("instaladores", []).append(linha.get("Id"))
+            log.warning("cadastro instaladores Id %s descartado: %s", linha.get("Id"), motivo)
+            continue
+        instaladores.append(instalador(linha))
+
     unidades = [unidade(linha) for linha in validos["unidades"]]
     codigos = {u["codigo"] for u in unidades}
     wifi = []
@@ -133,7 +151,7 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
         wifi.append(rede(linha))
     return {
         "servidores": [servidor(linha) for linha in validos["servidores"]],
-        "instaladores": [instalador(linha) for linha in validos["instaladores"]],
+        "instaladores": instaladores,
         "wifi": wifi,
         "unidades": unidades,
         "descartados": descartados,
@@ -155,6 +173,22 @@ def servidor(linha: dict) -> dict:
     }
 
 
+def motivo_instalador(linha: dict) -> str | None:
+    tipo = texto(linha.get("Tipo")) or "instalador"
+    if tipo not in TIPOS:
+        return "tipo_invalido"
+    if (texto(linha.get("Categoria")) or "Programas") not in CATEGORIAS:
+        return "categoria_invalida"
+    if (texto(linha.get("Modo")) or "quiosque") not in MODOS:
+        return "modo_invalido"
+    ident = texto(linha.get("Identificador"))
+    if tipo == "winget" and not WINGET_ID.fullmatch(ident):
+        return "identificador_invalido"
+    if tipo == "webapp" and not URL_WEBAPP.fullmatch(ident):
+        return "identificador_invalido"
+    return None
+
+
 def instalador(linha: dict) -> dict:
     sha256 = texto(linha.get("SHA256")).lower()
     if sha256 and not SHA256.fullmatch(sha256):
@@ -169,6 +203,12 @@ def instalador(linha: dict) -> dict:
         "sha256": sha256,
         "link": texto(linha.get("Link")),
         "observacao": texto(linha.get("Observacao")),
+        "tipo": texto(linha.get("Tipo")) or "instalador",
+        "categoria": texto(linha.get("Categoria")) or "Programas",
+        "identificador": texto(linha.get("Identificador")),
+        "argumentos": texto(linha.get("Argumentos")),
+        "deteccao": texto(linha.get("Deteccao")),
+        "modo": texto(linha.get("Modo")) or "quiosque",
     }
 
 
