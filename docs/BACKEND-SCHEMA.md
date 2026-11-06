@@ -33,6 +33,24 @@ marcada como obrigatória nem única: validação fica na API.
 | `Link` | URL | Origem do download |
 | `Ativo` | Checkbox | |
 | `Observacao` | LongText | |
+| `Tipo` | SingleSelect: `instalador`, `winget`, `webapp` | Vazio = `instalador` (ADR-020) |
+| `Categoria` | SingleSelect: `Programas`, `Jogos` | Vazio = `Programas`; dá as abas da tela |
+| `Identificador` | SingleLineText | winget: ID do pacote; webapp: URL `https://` |
+| `Argumentos` | LongText | Só instalador: um argumento por linha (MSI: `PROPRIEDADE=valor`). Vazio em `.exe` = instalação interativa |
+| `Deteccao` | SingleLineText | Opcional: começo do nome em "Aplicativos instalados" quando é diferente de `Programa` |
+| `Modo` | SingleSelect: `quiosque`, `app` | Só webapp; vazio = `quiosque` |
+
+Contrato de Programas (ADR-020, TA-ADR-029):
+- **instalador:** `Programa`, `Versao`, `Arquivo` `.msi`/`.exe`, `SHA256`, `Link` `https://`.
+  Cadastre `Programa` com o nome que aparece em "Aplicativos instalados" do Windows (o Bench o
+  usa como prefixo para dizer se está instalado; MSI é achado pelo `ProductCode` do arquivo).
+- **winget:** `Programa` e `Identificador` (ID exato do repositório `winget`). `Versao` é só
+  referência. `Link`, `SHA256` e `Arquivo` vazios.
+- **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
+  opcional: `Link` `https://` do `.ico`, `SHA256` e `Arquivo` `.ico`.
+- Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não
+  aparecem em Programas. Duplicada (mesmo tipo e ID/URL, ou mesmo `Programa` entre
+  instaladores): nenhuma das duas instala.
 
 ### WiFi
 
@@ -104,5 +122,7 @@ Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout
 | Fila de diagnósticos não enviados (`formato`, `envio_id`, `criado_em`, `coletado_por`, hostname, corpo 1.3 já saneado); 10 itens, 14 dias | `%ProgramData%\ITC\Bench\protegido\fila-diagnostico.dpapi`; ilegível vira `fila-diagnostico.corrompida`; sem admin, só memória | DPAPI de máquina + ACL (ADR-015) | 06 |
 | Token da carreta (`itcta_`) | Não vai aos notebooks: o envio usa a sessão (ADR-016) | — | 06 |
 | Instaladores conferidos (nome = SHA-256 + extensão); apagados quando nenhuma linha ativa de Instaladores os usa | `%ProgramData%\ITC\Bench\protegido\instaladores\` | ACL só SYSTEM e `S-1-5-32-544` (ADR-019) | 09 |
+| Ícones dos Web Apps (nome = SHA-256 + `.ico`); limpos com a mesma regra dos instaladores | `%ProgramData%\ITC\Bench\icones\` | ACL gravada pelo Bench: sem herança, SYSTEM e Administradores total, Usuários leitura (ADR-020) | 10 |
+| Atalhos dos Web Apps (descrição "ITC Bench") | Desktop Público | ACL padrão do Windows (gravação só admin) | 10 |
 | Configuração do RustDesk (servidor, chave; senha só cifrada pelo RustDesk) | `%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` | Pasta do perfil do serviço (SYSTEM, LocalService, Administradores) | 09 |
 | `batteryreport.html` do powercfg | Pasta temporária, apagado depois de lido | — | 06 |

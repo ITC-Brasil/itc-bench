@@ -81,7 +81,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] GLPI Agent, RustDesk, AnyDesk com dados de Servidores; senha AnyDesk sem `echo`; polling no lugar de `sleep(10)`; comparação de versão numérica
 
 ### 10 — Programas e Remover programas · `feat/modulo-10-programas`
-- [ ] Apps + Winget + WebApps em lista única; download sob demanda com SHA-256; desinstalador sem shell
+- [x] Apps + Winget + WebApps em lista única; download sob demanda com SHA-256; desinstalador sem shell
 
 ### 11 — Políticas e USB · `feat/modulo-11-politicas-usb`
 - [ ] GPO: local e ACL do `.bat` de logon (achado 4 da análise); USB
