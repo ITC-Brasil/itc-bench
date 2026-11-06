@@ -1351,3 +1351,138 @@ Configurador é copiar uma pasta para pendrives. Desenho proposto e aprovado com
 **Consequences**
 Sem passos do responsável (sem API, NocoDB nem `.env`). Os cenários de escrita (Default User,
 perfil descarregado, Home/Pro, Windows em inglês) ficam para a máquina real com o instalador.
+
+---
+
+## ADR-022 — Proteção do login, papel de parede, mouse e teclado e energia sem conta errada e sem shell
+
+**Status:** Accepted
+**Date:** 2026-11-06
+**Module:** 12
+
+**Context**
+O Configurador grava papel de parede, ponteiros, velocidade do mouse e as flags do Shift 5x no
+`HKEY_CURRENT_USER` do processo elevado (a conta que elevou, não a do aluno), chama
+`SystemParametersInfo` na mesma conta, roda `powercfg` com `shell=True` e restaura energia com
+`-restoredefaultschemes`. A proteção do `utilman.exe`/`sethc.exe` usa `takeown` e `icacls`, mas
+troca a ACE de Administradores, nega também a leitura ao SYSTEM e lê a situação pelo texto
+`(DENY)` do `icacls`. Resolução e escala usam ctypes, e a escala usa uma API não documentada.
+Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
+
+**Decision**
+1. **Inventário.** Entram proteção do login (reescrita), detecção de troca e de IFEO, papel de
+   parede por política, mouse e teclado por alvo e energia. Saem resolução, frequência e escala
+   (fica só "Abrir configurações de vídeo", `explorer.exe ms-settings:display`), todo
+   `SystemParametersInfo`, `-restoredefaultschemes`, a troca para Alto desempenho, a lista de
+   hashes de intrusos e a tela de bloqueio. Sem exceção nova ao executor.
+2. **Proteção do login** (`servicos/protecao.py`, `recursos/protecao/`):
+   - **Proteger** = uma ACE `(D;;FX;;;SY)` (nega só execução ao SYSTEM) no `utilman.exe` e no
+     `sethc.exe`, pelo executor: `takeown.exe /f <arq> /a` → `icacls.exe <arq> /deny
+     *S-1-5-18:(X)` → `icacls.exe <arq> /setowner *<SID do TrustedInstaller>`. Desproteger troca o
+     passo do meio por `/remove:d *S-1-5-18`. O `setowner` roda sempre, mesmo se o passo do meio
+     falhar, e nunca é cancelado. O resto da ACL não muda. Proteger só roda com o binário
+     "original".
+   - **Detecção** dos 7 binários de acessibilidade da tela de login (`utilman`, `sethc`, `osk`,
+     `Magnify`, `Narrator`, `DisplaySwitch`, `AtBroker`):
+     - **original** = `Get-AuthenticodeSignature` `Valid` com `IsOSBinary` e `OriginalFilename`
+       igual ao esperado;
+     - **trocado** = `NotSigned`/`HashMismatch`/`NotTrusted`, não é binário do Windows, ou outro
+       `OriginalFilename` (um `cmd.exe` copiado é assinado pela Microsoft, mas tem outro nome
+       original);
+     - **não lida** = `CryptSvc` parado, `UnknownError` ou exceção. Nunca "trocado" sem a
+       verificação ter rodado.
+     - **IFEO:** `Debugger` na chave do exe e nas subchaves com `UseFilter = 1`
+       (`FilterFullPath` + `Debugger`); `SilentProcessExit\<exe>\MonitorProcess`. Só 64 bits.
+     - **ACL:** protegido, não protegido, dono diferente do TrustedInstaller.
+   - **Shift 5x na tela de login:** `Flags` de `StickyKeys`/`Keyboard Response`/`ToggleKeys` em
+     `HKU\.DEFAULT` (`506`/`122`/`58`; desfazer `510`/`126`/`62`). Nas contas, pelo Mouse e teclado.
+   - **Incidente** (confirmação dupla, aviso para abrir chamado e trocar as senhas):
+     - "Remover depurador" apaga só `Debugger`/`MonitorProcess` nas chaves e subchaves dos 7 exes
+       fixos;
+     - "Restaurar original" roda `sfc.exe /scanfile=<arq>` e detecta de novo (o código do `sfc`
+       não decide); a tela oferece proteger de novo.
+   - **O que cobre:** troca offline por sobrescrita. **Não cobre:** apagar/renomear e copiar outro
+     arquivo (herda a ACL da pasta), IFEO gravado offline, e a atualização cumulativa que troca o
+     binário (a proteção some). Nesses casos a detecção mostra. "Não protegido" aparece claro na
+     tela e em `situacao()`, que o Início do 13 usa para o alerta. A defesa contra ataque offline
+     é BitLocker + senha de BIOS + boot só pelo disco (fora do escopo; recomendado na ajuda).
+   - **O que quebra:** na tela de login, o botão de Acessibilidade, Win+U e o Shift 5x. Dentro da
+     sessão continuam (o processo roda como o usuário).
+   - Fora do Diagnóstico: mudaria o contrato 1.3 da API.
+3. **Papel de parede** (`servicos/papel_de_parede.py`):
+   - **Origem:** Instaladores com `Tipo = papel` (`Arquivo` `.jpg`/`.jpeg`/`.png`, `SHA256`, `Link`
+     `https://`; TA-ADR-030), baixado pelo `instaladores.obter` ou "Escolher arquivo…" com o hash
+     calculado sobre a cópia e conferido contra o cadastro. Os outros consumidores de
+     Instaladores ignoram `papel` (Programas, Remover programas, Acesso remoto, `do_cadastro`).
+   - **Pasta** `%ProgramData%\ITC\Bench\papel\<sha256>.<ext>`, ACL explícita sem herança (SY/BA
+     total, Usuários leitura e execução, critério do ADR-020), reaplicada a cada uso: pasta
+     existente com dono ou ACL diferentes é corrigida; ponto de reparse recusa. `limpar` cobre a
+     pasta e nunca apaga a imagem de linha ativa.
+   - **Validação:** até 20 MB, assinatura de bytes (JPEG/PNG) igual à extensão, dimensões do
+     cabeçalho entre 640×480 e 7680×4320.
+   - **Aplicação:** `...\Policies\System\Wallpaper` e `WallpaperStyle` (Preencher `10`, Ajustar
+     `6`, Estender `22`, Centralizar `0`) por alvo, pelo hive do 11 (contas e Contas futuras,
+     mesmas recusas). Vale no próximo logon. Desfazer apaga só esses dois valores, nunca a chave.
+   - **Única exceção ao "valor fixo" do ADR-021:** o caminho da imagem não é fixo no código. O
+     único produtor é `papel_de_parede.caminho()`, a partir do SHA-256 do cadastro; o trecho só
+     grava se casar com `^<ProgramData>\ITC\Bench\papel\[0-9a-f]{64}\.(jpg|png)$` (ProgramData
+     lido no trecho) e o arquivo existir.
+4. **Hive comum** (`servicos/hive.py`): carregar, ler, escrever, descarregar e o laço por alvo
+   saem de `politicas.py` sem mudar o comportamento do 11. O trecho recebe `ITC_PERFIL`
+   (`politicas` | `aparencia`), e as raízes ficam fixas no `comum.ps1`:
+   - `aparencia`: chaves exatas de mouse, teclado, cursores e acessibilidade; em
+     `...\Policies\System`, só os **valores** `Wallpaper` e `WallpaperStyle`.
+   - Chave criada sob raiz de política recebe a ACL do ADR-021; chave de preferência só herda
+     (o aluno continua podendo mudar). Tipos nativos: `REG_SZ` em `Control Panel`,
+     `REG_EXPAND_SZ` nos caminhos de cursor, `REG_DWORD` em `Accessibility`.
+5. **Mouse e teclado** (`servicos/aparencia.py`), por alvo, numa lista fechada:
+   - ponteiro: branco, preto ou invertido × normal, grande ou extra grande, com arquivos de
+     `%SystemRoot%\cursors`;
+   - velocidade 1–20;
+   - duplo clique 200–900 ms;
+   - botões invertidos;
+   - atraso e velocidade de repetição do teclado;
+   - atalho Shift 5x.
+
+   Desfazer = padrão do Windows. Situação: padrão, ajustado (com o valor), diferente, não lida.
+   Vale no próximo logon.
+6. **Energia** (`servicos/energia.py`):
+   - **Esquema:** o ativo, sem trocar.
+   - **Escrita:** `powercfg.exe` com aliases (`SCHEME_CURRENT`; `SUB_VIDEO VIDEOIDLE`,
+     `SUB_SLEEP STANDBYIDLE`, `SUB_SLEEP HIBERNATEIDLE`, `SUB_DISK DISKIDLE`), AC/DC, depois
+     `/setactive SCHEME_CURRENT`. Lista fechada: Nunca, 5, 10, 15, 30, 60 min.
+   - **Leitura:** `powercfg /query`, só os dois últimos `0x…` (AC, DC), sem texto.
+   - **Desfazer:** volta ao padrão do esquema (`Power\User\Default\PowerSchemes`, fallback
+     `PowerSettings\...\DefaultPowerSchemeValues`); sem padrão, não mexe.
+   - **Hibernação:** `/hibernate off|on`, lida de `HibernateEnabled`. A tela mostra a atual, e a
+     confirmação do desfazer avisa que volta para ligada.
+   - Tampa e botão de energia ficam para depois (alias `SUB_BUTTONS`, lista fechada).
+7. **Executor:** trechos fixos com `ITC_*` e erros só como código; nativos por caminho absoluto.
+   - Proteção: uma chamada por passo e arquivo, cancelamento entre arquivos.
+   - Aparência: uma escrita por alvo, como no 11.
+   - Energia: cancelável entre chamadas.
+   - Timeout 60 s (`sfc`, 600 s). Falha parcial não para o lote.
+8. **Log:** item, escopo, resultado e código. Nunca nome de conta, SID, caminho de perfil, hive
+   temporário ou caminho da imagem (só `Id` e 12 caracteres do hash).
+9. **Telas:** Segurança › Proteção do login; Aparência › Tela e papel de parede, Mouse e teclado,
+   Energia. Confirmação do que muda, "Cancelar depois deste passo", "?" com ajuda, `--dev` só
+   leitura. Serviços sem Qt, por id, para o 13.
+
+**Alternatives considered**
+- ACL negando leitura e execução (Configurador) — o Defender, o `sfc` e o servicing leem como
+  SYSTEM.
+- Lista de SHA-256 legítimos ou de intrusos — muda a cada build; só pega o que lista.
+- Assinatura pelo texto do certificado — `IsOSBinary` confere a cadeia até a raiz do Windows.
+- `SystemParametersInfo` — o processo elevado é de outra conta.
+- Papel de parede só por "Escolher arquivo…" ou recurso do app — o 13 não reproduz; a imagem
+  não entra no repo.
+- Resolução e escala por ctypes com confirmação — fora do critério do ADR-018 e API não
+  documentada; o Windows já escolhe a resolução nativa.
+- WMI `root\cimv2\power` para ler energia — falha em algumas máquinas com Modern Standby.
+- `-restoredefaultschemes` — apaga esquemas criados e os do fabricante.
+- Tela de bloqueio por `PersonalizationCSP` — HKLM fora das raízes e sem efeito documentado no
+  Home.
+
+**Consequences**
+O responsável cria a opção `papel` em `Tipo` no NocoDB, cadastra a linha da imagem e faz o deploy
+da API antes do app novo. Os cenários de escrita ficam para a máquina real com o instalador.
