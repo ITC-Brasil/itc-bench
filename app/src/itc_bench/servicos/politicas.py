@@ -6,28 +6,48 @@ O catálogo é fechado aqui; o 13 escolhe só por id. Leitura e escrita pelos tr
 SID, caminho de perfil nem nome do hive temporário.
 """
 
-import json
 import os
-import secrets
-import struct
+import struct  # noqa: F401  (os testes trocam struct.calcsize por aqui)
 import threading
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
-from importlib import resources
 from pathlib import Path
 from typing import Any, Literal
 
 from itc_bench.nucleo.log import log
-from itc_bench.servicos import contas, executor
+from itc_bench.servicos import executor, hive
+from itc_bench.servicos.hive import (
+    MAQUINA,
+    MENSAGENS,
+    PADRAO,
+    TENTATIVAS_DESCARREGAR,
+    Acao,
+    Alvo,
+    Escopo,
+    Feito,
+    Rodar,
+    alvos,
+    recusa_alvo,
+    script,
+    sids_protegidos,
+)
 
-RECURSOS = resources.files("itc_bench.recursos") / "politicas"
-TIMEOUT_LER, TIMEOUT_ESCREVER, TIMEOUT_HIVE = 60.0, 60.0, 30.0
-TENTATIVAS_DESCARREGAR = 3
+__all__ = [
+    "MAQUINA",
+    "MENSAGENS",
+    "PADRAO",
+    "TENTATIVAS_DESCARREGAR",
+    "Acao",
+    "Alvo",
+    "Escopo",
+    "Feito",
+    "alvos",
+    "recusa_alvo",
+    "script",
+    "sids_protegidos",
+]
 
-Escopo = Literal["usuario", "maquina"]
-Acao = Literal["aplicar", "desfazer"]
 Estado = Literal["aplicada", "nao_aplicada", "diferente", "nao_lida", "sem_acesso"]
-Rodar = Callable[..., executor.Resultado]
 
 RAIZES: dict[Escopo, tuple[str, ...]] = {
     "usuario": ("software\\policies\\", "software\\microsoft\\windows\\currentversion\\policies\\"),
@@ -38,22 +58,6 @@ EXATAS_MAQUINA = frozenset({"system\\currentcontrolset\\services\\sharedaccess"}
 # Sobras do Configurador: só estes dois nomes, sem curinga (ADR-021, item 9).
 SOBRAS_NOMES = ("itc_security_check.bat", "itc_security_check.ps1")
 
-MENSAGENS = {
-    "nativo": "O Administrador nativo do Windows não recebe políticas pelo Bench.",
-    "suporte": "A conta Suporte não recebe políticas (o técnico precisa dela livre).",
-    "dono": "É a conta que está rodando o Bench: entre com outra conta para aplicar nesta.",
-    "sem_perfil": "A conta ainda não tem perfil (nunca entrou): entre nela uma vez.",
-    "perfil_fora": "O perfil não fica em Usuários do disco do Windows: recusado.",
-    "perfil_temporario": "Perfil temporário do Windows: recusado.",
-    "em_uso": "O perfil está em uso por outro programa: reinicie e tente de novo.",
-    "carregar": "O Windows não abriu o perfil da conta: reinicie e tente de novo.",
-    "nao_encontrada": "A conta não existe mais. Atualize a lista.",
-    "carregado": "O perfil foi carregado nesse meio-tempo. Atualize e tente de novo.",
-    "descarregar": "O perfil ainda está carregado: reinicie antes de entrar nessa conta.",
-    "tempo_esgotado": "Tempo esgotado.",
-    "cancelado": "Cancelado pelo técnico (antes deste alvo).",
-    "bits": "O Bench precisa rodar em 64 bits para ler o registro certo.",
-}
 ESTADO_ROTULO: dict[Estado, str] = {
     "aplicada": "aplicada",
     "nao_aplicada": "não aplicada",
@@ -269,58 +273,6 @@ def aviso_edicao(politica: Politica, edicao: str) -> str | None:
     return AVISO_EDICAO if edicao_tipo(edicao) in politica.sem_confirmar else None
 
 
-# ---------------------------------------------------------------- alvos
-
-
-@dataclass(frozen=True)
-class Alvo:
-    chave: str  # "maquina", "padrao" ou o SID
-    rotulo: str  # só para a tela
-    carregado: bool = False
-    admin: bool = False
-
-    @property
-    def escopo(self) -> Escopo:
-        return "maquina" if self.chave == "maquina" else "usuario"
-
-    @property
-    def tipo(self) -> str:
-        return self.chave if self.chave in ("maquina", "padrao") else "usuario"
-
-
-MAQUINA = Alvo("maquina", "Máquina")
-PADRAO = Alvo("padrao", "Contas futuras")
-
-
-def alvos(lista: contas.Lista) -> list[Alvo]:
-    return [MAQUINA, PADRAO] + [Alvo(c.sid, c.nome, c.carregado, c.admin) for c in lista.contas]
-
-
-def sids_protegidos(lista: contas.Lista, protegidas_: Iterable[str]) -> list[str]:
-    prot = {n.lower() for n in protegidas_}
-    return [c.sid for c in lista.contas if c.nativo or c.nome.lower() in prot]
-
-
-def recusa_alvo(
-    alvo: Alvo, lista: contas.Lista, protegidas_: Iterable[str], dono: str | None
-) -> str | None:
-    """Código da recusa (chave de MENSAGENS) ou None. O trecho confere de novo."""
-    if alvo.tipo != "usuario":
-        return None
-    conta = lista.por_sid(alvo.chave)
-    if conta is None:
-        return "nao_encontrada"
-    if conta.nativo:
-        return "nativo"
-    if conta.nome.lower() in {n.lower() for n in protegidas_}:
-        return "suporte"
-    if dono and conta.sid == dono:
-        return "dono"
-    if not conta.perfil:
-        return "sem_perfil"
-    return None
-
-
 # ---------------------------------------------------------------- situação
 
 
@@ -350,19 +302,6 @@ class Leitura:
     alteravel: dict[tuple[str, str], bool]
 
 
-def _bits() -> None:
-    if struct.calcsize("P") != 8:
-        raise RuntimeError(MENSAGENS["bits"])
-
-
-def script(nome: str) -> str:
-    return (
-        (RECURSOS / "comum.ps1").read_text("utf-8")
-        + "\n"
-        + (RECURSOS / f"{nome}.ps1").read_text("utf-8")
-    )
-
-
 def _chaves(escopos: Iterable[Escopo]) -> list[dict[str, Any]]:
     grupos: dict[tuple[str, str], list[str]] = {}
     for p in CATALOGO:
@@ -370,46 +309,6 @@ def _chaves(escopos: Iterable[Escopo]) -> list[dict[str, Any]]:
             for v in p.valores:
                 grupos.setdefault((escopo, v.chave), []).append(v.nome)
     return [{"escopo": e, "chave": c, "nomes": n} for (e, c), n in grupos.items()]
-
-
-def _grupos(alvo: Alvo) -> list[str]:
-    """Quem, se tiver escrita ou for dono da chave, deixa o usuário alterar a política."""
-    base = ["S-1-1-0", "S-1-5-11", "S-1-5-4", "S-1-5-32-545"]
-    if alvo.tipo == "padrao":
-        return base
-    return [alvo.chave, *base, *(["S-1-5-32-544"] if alvo.admin else [])]
-
-
-def _linhas(r: executor.Resultado) -> list[str]:
-    return [linha.strip() for linha in r.saida.splitlines() if linha.strip()]
-
-
-def _codigo(r: executor.Resultado) -> str:
-    if r.esgotado:
-        return "tempo_esgotado"
-    for linha in _linhas(r):
-        if linha.startswith("ERRO|"):
-            return linha.split("|")[1] or "erro"
-    return f"powershell_{r.codigo}"
-
-
-def _ler_hives(
-    pedidos: Sequence[tuple[str, Alvo]], rodar: Rodar
-) -> tuple[str, str, dict[str, Any]]:
-    leitura = [{"hive": h, "grupos": _grupos(a) if a.tipo != "maquina" else []} for h, a in pedidos]
-    r = rodar(
-        script("ler"),
-        timeout=TIMEOUT_LER,
-        leitura=json.dumps(leitura),
-        chaves=json.dumps(_chaves(["usuario", "maquina"])),
-    )
-    if not r.ok:
-        raise RuntimeError(f"Leitura das políticas falhou ({_codigo(r)}).")
-    try:
-        cru = json.loads(r.saida)
-        return str(cru["edicao"]), str(cru["dono"]), dict(cru["hives"] or {})
-    except (json.JSONDecodeError, KeyError, TypeError) as erro:
-        raise RuntimeError(f"Saída inválida da leitura ({type(erro).__name__}).") from None
 
 
 def _preencher(alvo: Alvo, dados: dict[str, Any] | None, leitura: Leitura) -> None:
@@ -434,78 +333,19 @@ def ler(
 ) -> Leitura:
     """Situação de todo o catálogo nos alvos. Perfil descarregado (e Contas futuras) só com
     `descarregados=True` (botão "Ler"), que passa pelo carregar/descarregar; senão "não lida"."""
-    _bits()
-    diretos = [
-        (("MAQUINA" if a.tipo == "maquina" else a.chave), a)
-        for a in alvos_
-        if a.tipo == "maquina" or (a.tipo == "usuario" and a.carregado)
-    ]
-    edicao, dono, hives = _ler_hives(diretos, rodar)
+    edicao, dono, dados = hive.ler(
+        alvos_, _chaves(["usuario", "maquina"]), rodar=rodar, descarregados=descarregados
+    )
     leitura = Leitura(edicao, dono, {}, {})
-    for hive, a in diretos:
-        _preencher(a, hives.get(hive), leitura)
     for a in alvos_:
-        if a.tipo == "maquina" or (a.tipo == "usuario" and a.carregado):
-            continue
-        if not descarregados:
+        d = dados.get(a.chave)
+        if d == hive.NAO_LIDA:
             for p in CATALOGO:
                 if "usuario" in p.escopos:
                     leitura.situacao[(p.id, a.chave)] = "nao_lida"
             continue
-        _limpar_sobras(rodar)
-        temp = _carregar(a, rodar)
-        if not temp.startswith("ITCBench_"):
-            log.warning("Políticas: ler alvo %s: %s", a.tipo, temp)
-            _preencher(a, None, leitura)
-            continue
-        try:
-            _, _, h = _ler_hives([(temp, a)], rodar)
-            _preencher(a, h.get(temp), leitura)
-        finally:
-            _descarregar(temp, rodar)
+        _preencher(a, d if isinstance(d, dict) else None, leitura)
     return leitura
-
-
-# ---------------------------------------------------------------- hive
-
-
-def _limpar_sobras(rodar: Rodar) -> str:
-    """Descarrega `HKU\\ITCBench_*` que sobraram; devolve o SID dono do processo."""
-    r = rodar(script("hive"), timeout=TIMEOUT_HIVE, acao="sobras")
-    linhas = _linhas(r)
-    falhas = sum(1 for linha in linhas if linha == "SOBRA|falhou")
-    feitas = sum(1 for linha in linhas if linha == "SOBRA|ok")
-    if feitas or falhas:
-        log.warning("Políticas: perfis temporários de antes: %s ok, %s falharam", feitas, falhas)
-    for linha in linhas:
-        if linha.startswith("DONO|"):
-            return linha[5:]
-    raise RuntimeError(f"Não foi possível conferir a conta do Bench ({_codigo(r)}).")
-
-
-def _carregar(alvo: Alvo, rodar: Rodar, prot: Sequence[str] = ()) -> str:
-    """Nome do hive temporário, ou o código da falha."""
-    temp = f"ITCBench_{secrets.token_hex(4)}"
-    sid = "DEFAULT" if alvo.tipo == "padrao" else alvo.chave
-    r = rodar(
-        script("hive"),
-        timeout=TIMEOUT_HIVE,
-        acao="carregar",
-        sid=sid,
-        hive=temp,
-        protegidos="\n".join(prot),
-    )
-    return temp if r.ok and "OK" in _linhas(r) else _codigo(r)
-
-
-def _descarregar(temp: str, rodar: Rodar) -> bool:
-    """Sem cancelamento; até 3 tentativas. False = ficou carregado (a tela avisa)."""
-    for _ in range(TENTATIVAS_DESCARREGAR):
-        r = rodar(script("hive"), timeout=TIMEOUT_HIVE, acao="descarregar", hive=temp)
-        if r.ok:
-            return True
-    log.error("Políticas: perfil temporário não descarregado (código %s)", _codigo(r))
-    return False
 
 
 # ---------------------------------------------------------------- aplicar / desfazer
@@ -538,36 +378,6 @@ def operacoes(acao: Acao, ids: Iterable[str], escopo: Escopo) -> list[dict[str, 
     return ops
 
 
-@dataclass(frozen=True)
-class Feito:
-    alvo: Alvo
-    ok: bool
-    mensagem: str
-    politicas: dict[str, bool] = field(default_factory=dict)
-    avisos: tuple[str, ...] = ()
-
-
-def _escrever(
-    acao: Acao, hive: str, ops: list[dict[str, Any]], prot: list[str], rodar: Rodar
-) -> tuple[dict[str, bool], str | None, executor.Resultado]:
-    r = rodar(
-        script("escrever"),
-        timeout=TIMEOUT_ESCREVER,
-        hive=hive,
-        operacoes=json.dumps(ops),
-        protegidos="\n".join(prot),
-    )
-    por: dict[str, bool] = {}
-    for linha in _linhas(r):
-        partes = linha.split("|")
-        if partes[0] == "OK" and len(partes) == 2:
-            por.setdefault(partes[1], True)
-        elif partes[0] == "ERRO" and len(partes) == 3:
-            por[partes[2]] = False
-    geral = None if r.ok else _codigo(r)
-    return por, geral, r
-
-
 def aplicar(
     acao: Acao,
     ids: Sequence[str],
@@ -579,70 +389,23 @@ def aplicar(
     avisar: Callable[[str], None] = lambda _: None,
 ) -> list[Feito]:
     """Uma chamada de escrita por alvo, nunca interrompida; cancelar vale entre alvos."""
-    _bits()
+    hive.bits()
     for pid in ids:
         if pid not in POR_ID:
             raise ValueError(f"Política desconhecida: {pid!r}")
-    prot_nomes = frozenset(protegidas_)
-    dono = _limpar_sobras(rodar)
-    lista = contas.listar(rodar=rodar)
-    prot = sids_protegidos(lista, prot_nomes)
-    feitos: list[Feito] = []
-    for n, alvo in enumerate(alvos_, 1):
-        rotulo_log = alvo.tipo if alvo.tipo != "usuario" else f"usuario {n}"
-        if cancelar is not None and cancelar.is_set():
-            feitos.append(Feito(alvo, False, MENSAGENS["cancelado"]))
-            log.warning("Políticas: %s alvo %s: cancelado", acao, rotulo_log)
-            continue
-        ops = operacoes(acao, ids, alvo.escopo)
-        if not ops:
-            continue
-        motivo = recusa_alvo(alvo, lista, prot_nomes, dono)
-        if motivo:
-            feitos.append(Feito(alvo, False, MENSAGENS[motivo]))
-            log.warning("Políticas: %s alvo %s: recusado (%s)", acao, rotulo_log, motivo)
-            continue
-        avisar(f"{alvo.rotulo}: {acao}…")
-        conta = lista.por_sid(alvo.chave) if alvo.tipo == "usuario" else None
-        temp: str | None = None
-        avisos: list[str] = []
-        if alvo.tipo == "maquina":
-            hive = "MAQUINA"
-        elif conta is not None and conta.carregado:
-            hive = alvo.chave
-        else:
-            carregado = _carregar(alvo, rodar, prot)
-            if not carregado.startswith("ITCBench_"):
-                feitos.append(Feito(alvo, False, MENSAGENS.get(carregado, carregado)))
-                log.error("Políticas: %s alvo %s: carregar: %s", acao, rotulo_log, carregado)
-                continue
-            hive = temp = carregado
-        try:
-            por, geral, _ = _escrever(acao, hive, ops, prot, rodar)
-        finally:
-            if temp is not None and not _descarregar(temp, rodar):
-                avisos.append(MENSAGENS["descarregar"])
-        pedidos = list(dict.fromkeys(op["p"] for op in ops))
-        for pid in pedidos:
-            ok = por.get(pid, False) and geral is None
-            log.info(
-                "Políticas: %s alvo %s politica=%s resultado=%s codigo=%s",
-                acao,
-                rotulo_log,
-                pid,
-                "ok" if ok else "erro",
-                "0" if ok else (geral or "parcial"),
-            )
-        resultado = {pid: bool(por.get(pid)) and geral is None for pid in pedidos}
-        ok = all(resultado.values())
-        if ok:
-            msg = "Feito."
-        elif geral:
-            msg = MENSAGENS.get(geral, f"Falhou ({geral}).")
-        else:
-            msg = "Falhou em: " + ", ".join(POR_ID[p].nome for p, v in resultado.items() if not v)
-        feitos.append(Feito(alvo, ok, msg, resultado, tuple(avisos)))
-    return feitos
+    return hive.aplicar(
+        acao,
+        alvos_,
+        lambda a: operacoes(acao, ids, a.escopo),
+        nomes={p.id: p.nome for p in CATALOGO},
+        rotulo="Políticas",
+        item="politica",
+        perfil="politicas",
+        protegidas_=protegidas_,
+        rodar=rodar,
+        cancelar=cancelar,
+        avisar=avisar,
+    )
 
 
 # ---------------------------------------------------------------- sobras do Configurador
