@@ -222,6 +222,11 @@ def powershell(
     )
 
 
+def linha_de_comando(argumentos: Sequence[str]) -> str:
+    """Como o executor junta a lista (regras do `CommandLineToArgvW`)."""
+    return subprocess.list2cmdline(argumentos)
+
+
 def _texto(valor: str | Sensivel) -> str:
     return valor.revelar() if isinstance(valor, Sensivel) else valor
 
