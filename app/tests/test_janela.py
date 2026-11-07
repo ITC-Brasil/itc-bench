@@ -2,7 +2,8 @@ from PySide6.QtWidgets import QApplication
 
 from itc_bench.nucleo.log import log
 from itc_bench.ui import tema
-from itc_bench.ui.janela import TEXTO_AJUDA, Janela
+from itc_bench.ui.janela import Janela
+from itc_bench.ui.limpeza import AJUDA as AJUDA_LIMPEZA
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS
 
@@ -46,11 +47,11 @@ def test_botao_ajuda_abre_e_fecha_popup(qtbot):
     j, _ = janela(qtbot)
     j.show()
     j.raiz.setCurrentWidget(j.conteudo)  # sem login: o conteúdo fica atrás da Entrar
-    tela = j.telas["limpeza"]  # tela ainda sem conteúdo (Módulo 13)
+    tela = j.telas["limpeza"]
     j.abrir("limpeza")
     tela.botao_ajuda.click()
     assert tela.ajuda.isVisible()
-    assert tela.ajuda.texto.text() == TEXTO_AJUDA
+    assert tela.ajuda.texto.text() == AJUDA_LIMPEZA
     tela.ajuda.fechar.click()
     assert not tela.ajuda.isVisible()
     assert not tela.botao_ajuda.isChecked()

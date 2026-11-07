@@ -76,7 +76,7 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 | `Cidade` | SingleLineText | |
 | `UF` | SingleLineText | |
 | `TagGLPI` | SingleLineText | Tag do GLPI Agent |
-| `PerfilPadrao` | SingleLineText | Perfil da Preparação completa |
+| `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
 | `Ativo` | Checkbox | |
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
@@ -119,7 +119,7 @@ Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout
 | Verificador do login offline por técnico (scrypt) + datas, validade 7 dias | `%ProgramData%\ITC\Bench\protegido\logins.dpapi` | DPAPI de máquina + ACL (ADR-013) | 04 |
 | Sessão da API (`itcbs_`) | Só memória | — | 04 |
 | Endereço da API | `HKLM\SOFTWARE\ITC\Bench`, valor `ApiUrl` | Escrita só por admin | 04 |
-| Estado da Preparação completa (etapas, retomada após reinício) | `%ProgramData%\ITC\Bench` | ACL de admin | migração do Master |
+| Estado da Preparação completa para a retomada (`formato`, perfil, etapas desmarcadas, nome pedido, alvos por SID, horário, reinícios); 24 h, até 2 reinícios; sem senha, token, técnico ou nome de conta | `%ProgramData%\ITC\Bench\protegido\preparacao.json` | ACL só SYSTEM e `S-1-5-32-544`, conferida ao ler (ADR-023) | 13 |
 | Log rotativo (sem segredo nem SSID; versão com 12 caracteres) | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
 | Fila de diagnósticos não enviados (`formato`, `envio_id`, `criado_em`, `coletado_por`, hostname, corpo 1.3 já saneado); 10 itens, 14 dias | `%ProgramData%\ITC\Bench\protegido\fila-diagnostico.dpapi`; ilegível vira `fila-diagnostico.corrompida`; sem admin, só memória | DPAPI de máquina + ACL (ADR-015) | 06 |
