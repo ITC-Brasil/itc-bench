@@ -54,7 +54,7 @@ def main() -> int:
         )
         return 1
 
-    admin = elevacao.eh_admin()
+    admin = elevacao.modo_admin(argv, elevacao.eh_admin())
     erro_acl: acl.ErroAcl | None = None
     try:
         caminhos.inicializar(admin)

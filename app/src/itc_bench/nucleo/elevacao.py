@@ -19,6 +19,11 @@ def precisa_elevar(argv: list[str], admin: bool) -> bool:
     return not (admin or "--dev" in argv or "--teste" in argv)
 
 
+def modo_admin(argv: list[str], admin: bool) -> bool:
+    """`--dev` nunca altera a máquina, nem num terminal elevado (Módulo 14): roda só leitura."""
+    return admin and "--dev" not in argv
+
+
 def comando_elevado(argv: list[str], executavel: str, congelado: bool) -> tuple[str, list[str]]:
     """Executável e argumentos para reabrir o app elevado."""
     if congelado:
