@@ -323,3 +323,57 @@ def test_varredura_nao_segue_junction(tmp_path, acao):
         assert list(raiz.iterdir()) == []
     else:
         assert (raiz / "sub" / "b.tmp").exists()
+
+
+# ---------------------------------------------------------------- Administrador nativo (ADR-017)
+
+
+def test_parcial_fica_pendente_e_nao_bloqueia_dependentes():
+    c = Falsa(
+        "contas",
+        [Leitura("pendente"), Leitura("pendente", "nativo", "nativo_ativo")],
+        Resultado("parcial", "desative", "nativo_ativo"),
+    )
+    pol = Falsa("politicas", [Leitura("pendente"), Leitura("feito")])
+    a = prep.rodar([c, pol], _andamento("contas", "politicas"), pausar=threading.Event())
+    assert a.situacao["contas"].situacao == "pendente"
+    assert a.situacao["contas"].codigo == "nativo_ativo"
+    assert pol.aplicou == 1 and a.situacao["politicas"].situacao == "feito"
+
+
+def _lista_nativo(ativo: bool, extra_admin: bool) -> contas.Lista:
+    return contas.Lista(
+        (
+            _c(500, "Administrador", admin=True, ativo=ativo),
+            _c(1001, "Suporte", admin=True),
+            _c(1002, "Teste01", admin=extra_admin),
+        ),
+        (),
+        "PC",
+    )
+
+
+@pytest.mark.parametrize("extra_admin", [True, False])
+def test_contas_com_nativo_ativo_fica_pendente_sem_mexer_nele(monkeypatch, extra_admin):
+    # leitura e início do aplicar veem o estado antigo; depois do lote, ninguém sobra.
+    listas = [_lista_nativo(True, extra_admin)] * 2 + [_lista_nativo(True, False)]
+    chamadas = []
+    monkeypatch.setattr(
+        contas, "listar", lambda **k: listas.pop(0) if len(listas) > 1 else listas[0]
+    )
+    monkeypatch.setattr(contas, "protegidas", lambda cad: frozenset({"suporte"}))
+    monkeypatch.setattr(contas, "suporte_do_cadastro", lambda cad: ("Suporte", None))
+    monkeypatch.setattr(
+        contas, "aplicar_suporte", lambda cad: chamadas.append("suporte") or contas.Feito(True, "")
+    )
+    monkeypatch.setattr(contas, "lote", lambda t, **k: chamadas.append(t) or contas.Feito(True, ""))
+    ctx = etapas.Contexto(admin=True, cadastros=object())  # type: ignore[arg-type]
+    pol = Falsa("politicas", [Leitura("pendente"), Leitura("feito")])
+    a = prep.rodar(
+        [etapas.Contas(ctx), pol], _andamento("contas", "politicas"), pausar=threading.Event()
+    )
+    assert a.situacao["contas"].situacao == "pendente"
+    assert a.situacao["contas"].detalhe == etapas.NATIVO_ATIVO
+    assert a.situacao["politicas"].situacao == "feito"
+    # Suporte já certa não é reaplicada; o lote só roda se havia outro administrador.
+    assert chamadas == (["padrao"] if extra_admin else [])

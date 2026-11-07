@@ -163,22 +163,30 @@ class Contas:
             falta.append("conta Suporte")
         if extra := _admins_extra(lista, prot):
             falta.append(f"{len(extra)} conta(s) administradora(s) além da Suporte")
+        if falta:
+            return Leitura("pendente", "Falta: " + ", ".join(falta))
         if any(c.nativo and c.ativo for c in lista.contas):
-            falta.append("Administrador nativo ativo")
-        return Leitura("pendente", "Falta: " + ", ".join(falta)) if falta else Leitura("feito")
+            return Leitura("pendente", NATIVO_ATIVO, "nativo_ativo")
+        return Leitura("feito")
 
     def aplicar(self, cancelar: threading.Event) -> Resultado:
-        f = contas.aplicar_suporte(self.ctx.cadastros)
-        if not f.ok:
-            return Resultado("falha", f.mensagem, "suporte")
+        """Só o que falta: Suporte e o lote não rodam de novo se já estão certos."""
         prot = self.ctx.protegidas()
-        f = contas.lote("padrao", protegidas_=prot)
-        if not f.ok:
-            return Resultado("falha", f.mensagem, "lote_padrao")
         lista = self.ctx.lista(nova=True)
+        if not contas.suporte_ok(lista, prot):
+            f = contas.aplicar_suporte(self.ctx.cadastros)
+            if not f.ok:
+                return Resultado("falha", f.mensagem, "suporte")
+            lista = self.ctx.lista(nova=True)
+        if _admins_extra(lista, prot):
+            f = contas.lote("padrao", protegidas_=prot)
+            if not f.ok:
+                return Resultado("falha", f.mensagem, "lote_padrao")
+            lista = self.ctx.lista(nova=True)
         if any(c.nativo and c.ativo for c in lista.contas):
-            # ADR-017: o Bench não altera o Administrador nativo; o técnico desativa no Windows.
-            return Resultado("falha", NATIVO_ATIVO, "nativo_ativo")
+            # ADR-017: o Bench não altera o Administrador nativo. A etapa fica pendente com o
+            # aviso e não bloqueia as dependentes (o pré-requisito delas é a lista e a Suporte).
+            return Resultado("parcial", NATIVO_ATIVO, "nativo_ativo")
         return Resultado("ok")
 
     def mudancas(self) -> str:

@@ -37,7 +37,8 @@ class Leitura:
 
 @dataclass(frozen=True)
 class Resultado:
-    estado: Literal["ok", "reinicio", "falha"]
+    # "parcial": aplicou o que cabe ao Bench; o resto fica pendente sem bloquear dependentes.
+    estado: Literal["ok", "parcial", "reinicio", "falha"]
     detalhe: str = ""
     codigo: str = ""
 
@@ -146,7 +147,12 @@ def rodar(
         except Exception as erro:  # noqa: BLE001 — falha parcial: segue para a próxima
             log.error("Preparação: etapa %s falhou: %s", e.id, type(erro).__name__)
             r = Resultado("falha", "Falha inesperada; veja o Registro.", type(erro).__name__)
-        if r.estado == "ok":
+        if r.estado == "parcial":
+            final = _ler(e)
+            if final.situacao == "pendente":
+                final = Leitura("pendente", r.detalhe or final.detalhe, r.codigo)
+            andamento.situacao[e.id] = final
+        elif r.estado == "ok":
             final = _ler(e)
             if final.situacao == "pendente":
                 final = Leitura(
