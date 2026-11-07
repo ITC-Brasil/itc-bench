@@ -13,6 +13,13 @@ function Eh-Reparse([string]$c) {
     return ($null -eq $i) -or (($i.Attributes -band $RP) -ne 0)
 }
 
+function Cadeia-Ok([string]$temp) {
+    # Perfil, AppData, Local e Temp sem reparse, conferidos de novo logo antes de varrer.
+    $c = $temp
+    for ($n = 0; $n -lt 4; $n++) { if (Eh-Reparse $c) { return $false }; $c = Split-Path $c -Parent }
+    return $c.TrimEnd([char]92) -ieq $usuarios
+}
+
 function Varrer([string]$raiz, $acc) {
     $di = New-Object IO.DirectoryInfo $raiz
     if (-not $di.Exists) { return }
@@ -100,7 +107,10 @@ foreach ($id in @($env:ITC_ITENS -split ',' | Where-Object { $_ })) {
                 }
             }
         }
-        foreach ($raiz in @(Raizes $id)) { Varrer $raiz $acc }
+        foreach ($raiz in @(Raizes $id)) {
+            if ($id -eq 'temp_usuarios' -and -not (Cadeia-Ok $raiz)) { $acc.codigo = 'reparse'; continue }
+            Varrer $raiz $acc
+        }
     } catch [System.ServiceProcess.TimeoutException] {
         $acc.codigo = 'servico_nao_parou'; $acc.limpo = $false
     } catch {
