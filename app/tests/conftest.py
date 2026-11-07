@@ -31,3 +31,19 @@ def _sem_rede_nem_registro(request, monkeypatch):
         raise api.SemConexao("teste")
 
     monkeypatch.setattr(api, "cadastros", sem_conexao)
+
+
+@pytest.fixture(autouse=True)
+def _telas13_sem_leitura_real(request, monkeypatch):
+    """Telas do Módulo 13 leem o Windows ao aparecer; nos testes da janela, não leem."""
+    if request.module.__name__ == "test_modulo13_tela":
+        return
+    from itc_bench.ui import inicio, limpeza, preparacao, registro
+
+    monkeypatch.setattr(inicio.PainelInicio, "carregar", lambda self, forcar=False: None)
+    monkeypatch.setattr(limpeza.PainelLimpeza, "calcular", lambda self: None)
+    monkeypatch.setattr(registro.PainelRegistro, "carregar", lambda self: None)
+    monkeypatch.setattr(
+        preparacao.PainelPreparacao, "_carregar_alunos", lambda self, marcar=None: None
+    )
+    monkeypatch.setattr(preparacao.PainelPreparacao, "_ver_guardado", lambda self: None)

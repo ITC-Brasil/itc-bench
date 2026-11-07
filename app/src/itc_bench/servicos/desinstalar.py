@@ -8,6 +8,7 @@ resíduos. O log nunca recebe a `UninstallString`, só o nome do executável e o
 """
 
 import ctypes
+import json
 import os
 import re
 import threading
@@ -357,4 +358,101 @@ def desinstalar(
         if f.estado == "em_execucao":
             travado = f"Não iniciado: {e.nome} ainda estava em execução."
         feitos.append(f)
+    return feitos
+
+
+# ---------------------------------------------------------------- pré-instalados Appx (ADR-023)
+
+# Apps de consumidor da própria Microsoft, por nome de família do pacote. Lista fechada: o trecho
+# recebe só esta lista e confere de novo cada nome pedido.
+APPX_PREINSTALADOS: tuple[str, ...] = (
+    "Clipchamp.Clipchamp",
+    "Microsoft.BingNews",
+    "Microsoft.BingWeather",
+    "Microsoft.GamingApp",
+    "Microsoft.GetHelp",
+    "Microsoft.Getstarted",
+    "Microsoft.MicrosoftOfficeHub",
+    "Microsoft.MicrosoftSolitaireCollection",
+    "Microsoft.MixedReality.Portal",
+    "Microsoft.People",
+    "Microsoft.PowerAutomateDesktop",
+    "Microsoft.SkypeApp",
+    "Microsoft.Todos",
+    "Microsoft.WindowsFeedbackHub",
+    "Microsoft.WindowsMaps",
+    "Microsoft.XboxGameOverlay",
+    "Microsoft.XboxGamingOverlay",
+    "Microsoft.XboxSpeechToTextOverlay",
+    "Microsoft.YourPhone",
+    "Microsoft.ZuneMusic",
+    "Microsoft.ZuneVideo",
+    "microsoft.windowscommunicationsapps",
+)
+NOME_APPX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.]{2,63}$")
+RECUSA_APPX = {
+    "fora_da_lista": "fora da lista fechada",
+    "sistema": "pacote de sistema",
+    "nao_removivel": "marcado como não removível",
+    "framework": "framework usado por outros apps",
+    "remover": "o Windows recusou a remoção",
+}
+
+
+def script_appx() -> str:
+    for nome in APPX_PREINSTALADOS:
+        if not NOME_APPX.fullmatch(nome):
+            raise ValueError(f"Nome Appx inválido na lista: {nome!r}")
+    lista = ", ".join(f"'{n}'" for n in APPX_PREINSTALADOS)
+    return f"$LISTA = @({lista})\n" + programas.script("appx")
+
+
+def appx_situacao(*, rodar: Rodar = executor.powershell) -> dict[str, str]:
+    """Nome → código da recusa ('' = removível) dos pacotes da lista presentes."""
+    r = rodar(script_appx(), timeout=programas.TIMEOUT_LEITURA, acao="ver")
+    if not r.ok:
+        raise RuntimeError(f"Leitura dos pré-instalados falhou (código {r.codigo}).")
+    try:
+        lido = json.loads(r.saida or "[]")
+    except json.JSONDecodeError:
+        raise RuntimeError("Saída inválida da leitura dos pré-instalados.") from None
+    return {
+        str(i["nome"]): str(i.get("recusa") or "")
+        for i in lido
+        if isinstance(i, dict) and i.get("nome") in APPX_PREINSTALADOS
+    }
+
+
+def appx_presentes(*, rodar: Rodar = executor.powershell) -> list[str]:
+    """Pacotes da lista presentes e removíveis, em ordem."""
+    return sorted(n for n, recusa in appx_situacao(rodar=rodar).items() if not recusa)
+
+
+def remover_appx(
+    nomes: list[str],
+    *,
+    rodar: Rodar = executor.powershell,
+    cancelar: threading.Event | None = None,
+) -> list[Feito]:
+    """Remove para todas as contas e o provisionado. Nome fora da lista é recusado aqui e no
+    trecho. Uma chamada por pacote; cancela entre eles."""
+    feitos = []
+    for nome in nomes:
+        e = Entrada(nome, "programa", "silencioso")
+        if nome not in APPX_PREINSTALADOS:
+            log.warning("Remover: Appx recusado: fora_da_lista")
+            feitos.append(Feito(e, "pulado", f"{nome}: {RECUSA_APPX['fora_da_lista']}."))
+            continue
+        if cancelar is not None and cancelar.is_set():
+            feitos.append(Feito(e, "cancelado", "Cancelado antes de começar."))
+            continue
+        r = rodar(script_appx(), timeout=TIMEOUT, acao="remover", nomes=nome)
+        linha = next((x for x in r.saida.splitlines() if x.endswith("|" + nome)), "")
+        if r.ok and linha.startswith("OK|"):
+            log.info("Remover: Appx %s removido (contas e provisionado)", nome)
+            feitos.append(Feito(e, "ok", f"{nome} removido."))
+            continue
+        codigo = linha.split("|")[1] if linha.startswith("ERRO|") else f"powershell_{r.codigo}"
+        log.error("Remover: Appx %s: %s", nome, codigo)
+        feitos.append(Feito(e, "falha", f"{nome}: {RECUSA_APPX.get(codigo, codigo)}."))
     return feitos

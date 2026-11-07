@@ -90,7 +90,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] Proteção, Tela e papel de parede (resolução e escala só pelo atalho do Windows), Mouse e teclado, Energia, com ajuda (ADR-022)
 
 ### 13 — Preparação completa, Início e Limpeza · `feat/modulo-13-preparacao`
-- [ ] Perfis, etapas, retomada após reinício; tela Início; Limpeza; Registro; Ajuda consolidada
+- [x] Perfis, etapas, retomada após reinício; tela Início; Limpeza; Registro; Ajuda consolidada (ADR-023; cenários em máquina real pendentes)
 
 ### 14 — Revisão de segurança e testes de ponta a ponta · `chore/modulo-14-revisao`
 - [ ] Máquina limpa preparada do zero; auditoria completa

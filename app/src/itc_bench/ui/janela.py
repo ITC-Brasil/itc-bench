@@ -3,6 +3,7 @@
 import getpass
 import html
 import socket
+import threading
 from datetime import UTC, datetime
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
@@ -23,13 +24,15 @@ from PySide6.QtWidgets import (
 
 from itc_bench import __version__
 from itc_bench.nucleo.log import definir_tecnico, log
-from itc_bench.servicos import api, cadastros
+from itc_bench.servicos import api, cadastros, coleta, contas, diagnostico, perfis
+from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
 from itc_bench.servicos.executor import Sensivel
 from itc_bench.servicos.fila import Fila, Reenvio, reenviar
 from itc_bench.servicos.login import Entrada
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
+from itc_bench.ui.ajuda import TEXTOS, PainelAjuda
 from itc_bench.ui.aparencia import (
     AJUDA_ENERGIA,
     AJUDA_MOUSE,
@@ -46,14 +49,18 @@ from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO, PainelColeta
 from itc_bench.ui.entrar import Ocioso, TelaEntrar
 from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
 from itc_bench.ui.identificacao import PainelIdentificacao
+from itc_bench.ui.inicio import PainelInicio
+from itc_bench.ui.limpeza import PainelLimpeza
 from itc_bench.ui.log_qt import HandlerTela
 from itc_bench.ui.navegacao import GRUPOS, Item
 from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
 from itc_bench.ui.politicas import AJUDA_USB, PainelPoliticas
+from itc_bench.ui.preparacao import PainelPreparacao
 from itc_bench.ui.programas import AJUDA as AJUDA_PROGRAMAS
 from itc_bench.ui.programas import AJUDA_REMOVER, PainelProgramas, PainelRemover
 from itc_bench.ui.protecao import AJUDA as AJUDA_PROTECAO
 from itc_bench.ui.protecao import PainelProtecao
+from itc_bench.ui.registro import PainelRegistro
 from itc_bench.ui.remoto import AJUDA as AJUDA_REMOTO
 from itc_bench.ui.remoto import PainelRemoto
 from itc_bench.ui.wifi import AJUDA as AJUDA_WIFI
@@ -90,8 +97,11 @@ class PopupAjuda(QWidget):
         corpo = QVBoxLayout(cartao)
         corpo.setContentsMargins(18, 14, 18, 18)
         corpo.setSpacing(12)
+        self.ver_tudo = QPushButton("Ver toda a ajuda")
+        self.ver_tudo.setObjectName("link")
         corpo.addLayout(cab)
         corpo.addWidget(self.texto)
+        corpo.addWidget(self.ver_tudo, 0, Qt.AlignmentFlag.AlignLeft)
         fora = QVBoxLayout(self)
         fora.setContentsMargins(28, 72, 28, 0)
         fora.addWidget(cartao, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
@@ -240,6 +250,7 @@ class Janela(QMainWindow):
         self._diagnostico()
         self._contas()
         self._preparar()
+        self._modulo13()
         self.abrir("inicio")
 
         centro = QWidget()
@@ -597,12 +608,80 @@ class Janela(QMainWindow):
         return marca
 
     def _log_na_tela(self, handler: HandlerTela) -> None:
-        """A tela Registro mostra, ao vivo, as mesmas linhas gravadas no arquivo."""
-        self.log = QPlainTextEdit()
-        self.log.setObjectName("log")
-        self.log.setReadOnly(True)
-        self.log.setPlainText("\n".join(handler.historico))
-        handler.ponte.linha.connect(self.log.appendPlainText)
-        corpo = self.telas["registro"].corpo
-        corpo.takeAt(corpo.count() - 1)  # tira o espaçador; o log ocupa o painel
-        corpo.addWidget(self.log, 1)
+        """Registro (ADR-023): o arquivo com filtro e exportação; linhas novas chegam ao vivo."""
+        self.registro = PainelRegistro(handler, contas=self._nomes_contas)
+        self.log: QPlainTextEdit = self.registro.texto
+        self._trocar("registro", self.registro)
+
+    @staticmethod
+    def _nomes_contas() -> list[str]:
+        """Para a máscara do Exportar; sem a lista, exporta só com computador e perfil."""
+        try:
+            return [c.nome for c in contas.listar().contas]
+        except (contas.ErroContas, OSError) as erro:
+            log.warning("Registro: contas não lidas para a máscara: %s", type(erro).__name__)
+            return []
+
+    def _trocar(self, chave: str, painel: QWidget) -> None:
+        tela = self.telas[chave]
+        while tela.corpo.count():
+            item = tela.corpo.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+        tela.corpo.addWidget(painel, 1)
+
+    def _modulo13(self) -> None:
+        """Início, Preparação completa, Limpeza e Ajuda (ADR-023); ajuda de todas as telas."""
+        self.preparacao = PainelPreparacao(
+            self.admin, lambda: self.cadastros, lambda: self.unidade, self._diagnosticar
+        )
+        self.preparacao.selo.connect(self._selo_preparacao)
+        self.preparacao.selo.connect(lambda _s: self.reenviar_fila())
+        self.inicio = PainelInicio(
+            self.admin,
+            lambda: self.cadastros,
+            self.codigo_unidade,
+            lambda: len(self.fila.itens()),
+            lambda: self.preparacao.perfil_da_unidade()[0],
+            lambda: self.preparacao.andamento,
+        )
+        self.inicio.abrir.connect(self._abrir_do_inicio)
+        self.inicio.criticos.connect(self._selo_alertas)
+        self.limpeza = PainelLimpeza(self.admin)
+        self.ajuda_geral = PainelAjuda()
+        for chave, painel in (
+            ("inicio", self.inicio),
+            ("prep", self.preparacao),
+            ("limpeza", self.limpeza),
+            ("ajuda", self.ajuda_geral),
+        ):
+            self._trocar(chave, painel)
+        for chave, tela in self.telas.items():
+            tela.ajuda.texto.setText(TEXTOS.get(chave, TEXTO_AJUDA))
+            tela.ajuda.ver_tudo.clicked.connect(lambda _c=False, k=chave: self._ver_ajuda(k))
+
+    def _ver_ajuda(self, chave: str) -> None:
+        self.telas[chave].ajuda.hide()
+        self.abrir("ajuda")
+        self.ajuda_geral.ir_para(chave)
+
+    def _abrir_do_inicio(self, chave: str) -> None:
+        if chave == "limpeza":
+            self.limpeza.marcar(perfis.LIMPEZA[:2])  # atalho "Limpar temporários"
+        self.abrir(chave)
+
+    def _selo_preparacao(self, selo: str) -> None:
+        self.nav["prep"].setText(f"Preparação completa  {selo}")
+
+    def _selo_alertas(self, criticos: int) -> None:
+        self.nav["inicio"].setText(f"Início  ⛔ {criticos}" if criticos else "Início")
+        self.nav["inicio"].setToolTip(f"{criticos} alerta(s) crítico(s)" if criticos else "")
+
+    def _diagnosticar(self, cancelar: threading.Event) -> prep.Resultado:
+        """Etapa Diagnóstico: coleta e põe na fila; o envio segue pela fila (ADR-015)."""
+        c = coleta.coletar(elevado=self.admin, cancelar=cancelar)
+        login = self.entrada.login if self.entrada else "-"
+        corpo = diagnostico.montar(c, login, diagnostico.novo_envio_id(), self.unidade)
+        self.fila.guardar(corpo, login)
+        return prep.Resultado("ok", "Coleta guardada na fila de envio.")
