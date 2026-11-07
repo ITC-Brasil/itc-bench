@@ -2,19 +2,20 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-13-preparacao`, PR para `develop` (merge commit).
-- **Feito:** Módulo 13 no código (ADR-023).
-  - Perfis fechados (`sala_de_aula`, `administrativo`, `so_diagnostico`), motor com leitura antes
-    de aplicar, dependências, falha parcial e pausa; 14 etapas só chamando os serviços de 07 a 12.
-  - Remover pré-instalados (Appx, lista fechada da Microsoft).
-  - Retomada assistida por `protegido\preparacao.json` (ACL conferida, 24 h, 2 reinícios).
-  - Limpeza de manutenção com prévia, sem seguir reparse; Início com máquina e alertas; selos;
-    Registro com exportação mascarada; Ajuda consolidada com busca.
-- **Pela metade:** nada no código. Pendência do 13: cenários V1–V11
-  (`docs/modules/13-preparacao.md`).
-- **Próximo passo:** responsável: `Unidades.PerfilPadrao` com o id do perfil; revisão e merge do
-  PR. Depois, Módulo 14 (revisão de segurança e ponta a ponta).
+- **Branch:** `chore/modulo-14-revisao`, PR para `develop` (merge commit).
+- **Feito:** Módulo 14 (revisão transversal, ADR-024, TA-ADR-031).
+  - Corrigidos 1 médio (pastas da máquina pelo ambiente do usuário) e 5 baixos (limite de login
+    atômico, propriedades MSI, rich text em dicas e caixas, `--dev` elevado, `certifi`).
+  - Testes de invariantes no app (`test_invariantes.py`, `test_texto_puro.py`) e na API
+    (`test_rotas_auth.py`); ponta a ponta simulado da Preparação (`test_ponta_a_ponta.py`).
+  - Roteiro consolidado de máquina real em `docs/testes/maquina-real.md`.
+  - `pip-audit` no CI (aviso); varredura do histórico e gitleaks limpos.
+- **Pela metade:** nada no código. Execução do roteiro de máquina real (depois do 15).
+- **Próximo passo:** responsável: revisão e merge do PR; deploy da API depois do merge (limite de
+  login e `certifi`). Depois, Módulo 15 (empacotamento, instalador e CI).
 - **Tarefas futuras:**
+  - senha por máquina para a Suporte (LAPS), no lugar da senha única;
+  - exigir `https` no GLPI quando ele tiver certificado (TA-ADR-031);
   - contas por turno (opção B do ADR-023), se a carreta pedir;
   - alerta de USB por conta no Início (exige carregar hives);
   - trocar a pasta de deploy no servidor para `itc-bench`;
@@ -23,14 +24,16 @@
   - corrigir no pendrive o `Sort-Object LocalPort -Unique`, se ele continuar em uso;
   - cadeado por edição no catálogo de políticas, depois do teste em Home/Pro;
   - estado do BitLocker no Diagnóstico (recomendação do ADR-022);
-  - tampa e botão de energia (`SUB_BUTTONS`), se a carreta pedir.
-- **Pendências externas:** UAC real do 01 (cenário 7); bancada de 04–13 em máquina real;
+  - tampa e botão de energia (`SUB_BUTTONS`), se a carreta pedir;
+  - no 15: lock da API com hash, strings do EXE, endereço da API só no instalador.
+- **Pendências externas:** UAC real do 01 e bancada de 04–14 pelo roteiro de máquina real;
   release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-07 | 14 — Revisão de segurança e ponta a ponta | Auditoria transversal de app e API com inventário dos 56 itens abertos de 00 a 13 (origem e destino). Corrigidos: `%ProgramData%` e perfis pelo HKLM sem o ambiente do usuário (médio), limite de login conferido e reservado na mesma transação, propriedades MSI que carregam arquivo, dicas e caixas do Qt em texto puro (`ui/texto.py`), `--dev` só leitura também elevado, `certifi`. Testes de invariantes (trechos PS, `ITC_*`, script nunca montado, `winreg`/`ctypes` em lista fechada, SID de Administradores, rich text, rotas da API) e ponta a ponta simulado dos três perfis sem vazar marcador. Roteiro único de máquina real. `pip-audit` no CI. Histórico: conta de dev num doc, mascarada. App 708 testes, API 246. ADR-024, TA-ADR-031. Auditoria: 1 médio e 5 baixos corrigidos, 2 informativos. Roteiro de máquina real pendente (depois do 15). |
 | 2026-11-06 | 13 — Preparação completa, Início e Limpeza | Perfis fechados no código (`Unidades.PerfilPadrao` escolhe), motor sem Qt (etapa lida do Windows antes de aplicar, feita pulada, dependência Contas → Políticas/USB/papel/mouse, falha parcial, pausa depois da etapa), 14 etapas sobre os serviços de 07 a 12. Appx da Microsoft por lista fechada (todas as contas e provisionado; recusa sistema, `NonRemovable`, framework). Retomada assistida: `protegido\preparacao.json` com ACL conferida, ids validados, 24 h, 2 reinícios, sem Run/RunOnce. Limpeza de manutenção (temporários por SID, lixeira, WU com serviços devolvidos, WER) com prévia e sem seguir reparse (teste com junction real). Início por CIM sem texto localizado, alertas com atalho e selos. Registro com exportação mascarada. Ajuda consolidada com busca. Contas por turno fora. App 691 testes. ADR-023. Auditoria: 1 médio corrigido (corrida na cadeia do Temp), 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-06 | 12 — Proteção do login e Aparência | Hive do 11 extraído para `servicos/hive.py` sem mudar o 11; perfil `aparencia` com chaves exatas e só `Wallpaper`/`WallpaperStyle` em `Policies\System`. Proteção: `(D;;FX;;;SY)` no utilman/sethc por `takeown`/`icacls`, dono de volta ao TrustedInstaller num `finally`; detecção por `IsOSBinary` + `OriginalFilename` (lista por exe) + IFEO (chave e subchaves) + `SilentProcessExit`, "não lida" sem `CryptSvc`; Shift 5x em `.DEFAULT`; remover depurador e `sfc /scanfile` com confirmação dupla. Papel de parede do cadastro (`Tipo = papel`) em `papel\` com ACL, imagem conferida, política por alvo. Mouse e teclado por alvo em tipo nativo, ACL herdada. Energia por `powercfg` com aliases, leitura só dos números, desfazer pelo padrão do plano, hibernação. Resolução/escala fora (atalho do Windows). App 641 testes, API 242. ADR-022, TA-ADR-030. Auditoria: 6 informativos. Cenários em máquina real pendentes. Revisão do PR #35: qualquer `Debugger` em subchave IFEO conta; troca da imagem no cadastro exige reaplicar. |
 | 2026-11-06 | 11 — Políticas e USB | Catálogo fechado no código (CMD, Regedit, Painel, Programas e Recursos, Temas, ponteiros, PowerShell pelo Explorer com legado do Configurador, Store, compartilhamento, Wi-Fi Direct, ICS com desfazer em Manual, armazenamento removível `Deny_All`). Alvo por SID: máquina, Contas futuras (Default User) e contas; perfil fechado carregado em `HKU\ITCBench_<hex>` pelo trecho e sempre descarregado (finally do Python, sobras na próxima operação); Python sem `winreg`; 64 bits. Recusa nativo, Suporte e a conta que roda o Bench. Chave nova com dono Administradores e Usuários leitura; situação com "usuário pode alterar". Sem reaplicação no logon; sobras do Configurador removíveis. USB = Desabilitar/Habilitar, sem cópia. Aviso de edição no lugar de cadeado. App 581 testes. ADR-021. Auditoria: 5 informativos (1 risco aceito). Cenários em máquina real pendentes. |
