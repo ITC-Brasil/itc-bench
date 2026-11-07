@@ -23,6 +23,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from itc_bench.nucleo import caminhos
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import executor
 
@@ -643,7 +644,7 @@ def nomes_de_perfil(raiz: Path) -> list[str]:
 
 
 def raiz_perfis() -> Path:
-    return Path(os.environ.get("SYSTEMDRIVE", "C:") + "\\") / "Users"
+    return caminhos.pasta_do_sistema("ProfilesDirectory")
 
 
 def coletar(
