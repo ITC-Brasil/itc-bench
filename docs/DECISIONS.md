@@ -1529,8 +1529,8 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
    - **Contas:** `aplicar_suporte` e `lote("padrao")`. A confirmação diz que a conta logada
      também perde administrador (ADR-017, item 6) e que depois o UAC pede a Suporte. "Feito" =
      Suporte ativa no `S-1-5-32-544`, nenhuma outra conta ativa no grupo, RID 500 desativado.
-     O Bench não altera o RID 500 (ADR-017): ativo, a etapa falha pedindo para desativá-lo
-     pelo Windows.
+     O Bench não altera o RID 500 (ADR-017): ativo, a etapa fica pendente pedindo para
+     desativá-lo pelo Windows, sem bloquear as dependentes (revisão do PR #37).
    - **Contas de aluno** (`preparacao.contas_de_aluno`): contas locais ativas, não
      administradoras, menos Suporte, RID 500 e a conta logada, com as recusas do ADR-021.
    - **Acesso remoto:** "feito" = os programas com cadastro completo instalados e configurados,

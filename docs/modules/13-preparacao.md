@@ -45,8 +45,9 @@ Só `app/`; a API não muda. O desenho foi proposto e aprovado em `.conversa/` (
 ## Decisões de implementação
 
 - **Administrador nativo.** O ADR-017 proíbe o Bench de alterar o RID 500. A etapa Contas só
-  fica "feita" com ele desativado; se estiver ativo, a etapa falha com a mensagem "desative-o
-  pelo Windows" e não mexe nele.
+  fica "feita" com ele desativado; se estiver ativo, a etapa fica pendente com o aviso
+  "desative-o pelo Windows", não mexe nele e não bloqueia Políticas, USB, papel e mouse
+  (resultado `parcial` do motor; revisão do PR #37). Suporte e lote só rodam se faltam.
 - **Início sem ler as 14 etapas.** Ler tudo leva minutos (winget, hives fechados). O Início lê
   máquina, proteção, políticas da máquina do perfil, nome pendente, Suporte, cadastros e fila, e
   mostra a última leitura da Preparação feita na sessão. USB por conta não entra no alerta (exige
@@ -68,7 +69,7 @@ Só `app/`; a API não muda. O desenho foi proposto e aprovado em `.conversa/` (
 
 ## Verificação
 
-App: 691 testes passando e 4 pulados; ruff e mypy limpos. API sem mudança.
+App: 694 testes passando e 4 pulados; ruff e mypy limpos. API sem mudança.
 
 A máquina de desenvolvimento (Windows 11 Pro em português) foi usada só para leitura, sem
 administrador:
@@ -87,6 +88,7 @@ A única escrita foi numa pasta temporária do pytest (junction criada e apagada
 | S5 | Pausar depois da etapa corrente | `test_pausar_para_depois_da_etapa_corrente` | Passa |
 | S6 | Reinício marca o andamento | `test_reinicio_marca_andamento` | Passa |
 | S7 | Contas de aluno fechadas | `test_contas_de_aluno_fechadas` | Passa |
+| S7b | Nativo ativo: Contas pendente, dependentes seguem, Suporte não reaplicada | `test_parcial_fica_pendente_e_nao_bloqueia_dependentes`, `test_contas_com_nativo_ativo_fica_pendente_sem_mexer_nele` | Passa |
 | S8 | Appx: lista só Microsoft; fora da lista recusado sem chamar o trecho; recusa do trecho | `test_appx_*` | Passa |
 | S9 | Limpeza: item fora da lista recusado; só números | `test_limpeza_*`, `test_trecho_limpeza_raizes_fixas` | Passa |
 | S10 | Varredura não segue junction (prévia e limpar), arquivo fora intacto | `test_varredura_nao_segue_junction` | Passa |
@@ -152,8 +154,8 @@ instalador, cadastros sincronizados com a unidade de teste.
 
 ## Limites conhecidos
 
-- O Administrador nativo ativo deixa a etapa Contas em "falhou" até o técnico desativá-lo pelo
-  Windows (ADR-017).
+- O Administrador nativo ativo deixa a etapa Contas pendente até o técnico desativá-lo pelo
+  Windows (ADR-017); as dependentes seguem.
 - Limpeza e Diagnóstico não têm leitura de "já feito": rodam uma vez por preparação na sessão.
 - O Início não alerta USB por conta (ler exige carregar os hives).
 - A varredura da Limpeza confere a cadeia de pastas logo antes de varrer; uma troca por junction
