@@ -1529,6 +1529,8 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
    - **Contas:** `aplicar_suporte` e `lote("padrao")`. A confirmação diz que a conta logada
      também perde administrador (ADR-017, item 6) e que depois o UAC pede a Suporte. "Feito" =
      Suporte ativa no `S-1-5-32-544`, nenhuma outra conta ativa no grupo, RID 500 desativado.
+     O Bench não altera o RID 500 (ADR-017): ativo, a etapa falha pedindo para desativá-lo
+     pelo Windows.
    - **Contas de aluno** (`preparacao.contas_de_aluno`): contas locais ativas, não
      administradoras, menos Suporte, RID 500 e a conta logada, com as recusas do ADR-021.
    - **Acesso remoto:** "feito" = os programas com cadastro completo instalados e configurados,
@@ -1562,7 +1564,8 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
    cache de 60 s. Atalhos: forçar inventário GLPI e abrir a Limpeza.
 7. **Limpeza de manutenção** (`servicos/limpeza.py`, `recursos/limpeza/limpeza.ps1`), lista
    fechada: temporários do sistema, temporários por usuário (por SID; caminho de `ProfileList`
-   conferido no trecho, perfil e `AppData\Local\Temp` sem reparse), lixeira, cache do Windows
+   conferido no trecho, cadeia perfil → `AppData` → `Local` → `Temp` sem reparse, conferida de
+   novo logo antes de varrer), lixeira, cache do Windows
    Update e relatórios de erro (WER). Enumeração manual que nunca desce em reparse point (o link
    é removido como link), cada caminho conferido contra a raiz, arquivo em uso só contado. Saída
    só números por id. Prévia com tamanho antes, confirmação com o total. Windows Update: com
