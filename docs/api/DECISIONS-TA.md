@@ -1142,3 +1142,38 @@ espelho alterado com a mesma versão seria instalado no container e no CI sem av
 **Consequences**
 Deploy da API depois do merge (`api-deploy.yml`), porque o `Dockerfile` muda. O Dependabot
 regenera o lock com hash, já que lê o comando do cabeçalho do `pip-compile`.
+
+## TA-ADR-033 — Versão do Bench e instalador servidos pela API
+
+**Status:** Accepted
+**Date:** 2026-11-08
+**Module:** Bench 16 (ADR-026)
+
+**Context**
+A atualização automática do Bench precisa de uma fonte de versão e de um lugar para baixar o
+instalador sem token nos notebooks, com o repositório privado.
+
+**Decision**
+- Migração `0007`: `bench_versoes` (versão, ordem numérica única, mínima, sha256, tamanho, notas,
+  manifesto e assinatura em base64, quem e quando publicou e revogou) e `bench_versao_uso`.
+- CLI `python -m app.bench_versao publicar|listar|revogar --operador`: confere o formato do
+  manifesto, assinatura com 64 bytes (P1363), hash e tamanho do arquivo contra o manifesto e
+  versão maior que todas já publicadas (revogadas inclusive). Copia o arquivo para
+  `BENCH_VERSOES_DIR` (`/data/bench`, no volume existente) como `setup-<sha256>.exe`. A API não
+  confere a assinatura nem vê chave privada: quem confia é o Bench.
+- `GET /v1/bench/versao` (sessão do técnico): a mais recente não revogada, ou 204.
+- `GET /v1/bench/versao/arquivo?sha256=`: só o instalador da versão servida (404 para outro
+  hash), por `FileResponse` do Starlette (206 a `Range`, testado), sem extensão no caminho e com
+  `Cache-Control: no-store`.
+- Limite por técnico, janela fixa de uma hora: 30 consultas, 3 downloads a partir do byte 0 e
+  10 retomadas (`Range` com início > 0), contados em separado: a retomada não gasta o limite de
+  download nem vira download ilimitado.
+
+**Alternatives considered**
+- Linha em `Instaladores` no NocoDB — editável por mais gente, pela web.
+- Arquivo de configuração no servidor — sem histórico nem operador.
+- Contar o limite por versão — a janela por tipo cobre o mesmo abuso com uma tabela só.
+
+**Consequences**
+Deploy da API depois do merge (migração com backup, `docs/api/DEPLOY.md`). Publicar uma versão é
+passo do responsável (`docs/BUILD.md`).
