@@ -84,7 +84,10 @@ def test_remover_trava_protegido_e_confirma_modo(qtbot, monkeypatch):
     ]
     p._recebeu(entradas)
     assert not (p.tabela.item(1, 0).flags() & Qt.ItemFlag.ItemIsUserCheckable)
-    assert "protegido" in p.tabela.item(1, 2).text() and p.tabela.item(1, 2).toolTip() == "Driver."
+    assert (
+        "protegido" in p.tabela.item(1, 2).text()
+        and p.tabela.item(1, 2).toolTip() == "<p>Driver.</p>"
+    )
     marcar(p, 0, 2)
     assert p.acao.isEnabled()
     texto = p.confirmacao([entradas[0], entradas[2]])

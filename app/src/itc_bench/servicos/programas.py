@@ -48,6 +48,8 @@ DESINSTALACAO = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
 
 ARGUMENTO = re.compile(r"^[A-Za-z0-9/_=.:+,{}-]+$")
 PROPRIEDADE_MSI = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*=[A-Za-z0-9/_=.:+,{}-]*$")
+# Carregam outro arquivo (.mst/.msp/origem) que não passa pelo SHA-256 do Bench (Módulo 14).
+PROPRIEDADES_MSI_RECUSADAS = {"TRANSFORMS", "PATCH", "MSIPATCHREMOVE", "SOURCELIST"}
 WINGET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+_-]{1,127}$")
 URL_WEBAPP = re.compile(r"^https://[A-Za-z0-9.-]+(?::\d+)?(?:[/?#][^\s\x00-\x1f\"'<>\\]*)?$")
 NOME_PROIBIDO = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
@@ -122,6 +124,10 @@ def argumentos(linha: Instalador) -> list[str]:
         if not (PROPRIEDADE_MSI if msi else ARGUMENTO).fullmatch(a):
             tipo = "PROPRIEDADE=valor" if msi else "letras, números e / _ = . : + , { } -"
             raise ErroPrograma(f"Argumento inválido em “{linha.programa}” (só {tipo}).")
+        if msi and a.split("=", 1)[0].upper() in PROPRIEDADES_MSI_RECUSADAS:
+            raise ErroPrograma(
+                f"Propriedade recusada em “{linha.programa}”: carrega arquivo sem conferência."
+            )
     return itens
 
 

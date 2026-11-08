@@ -34,3 +34,11 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest -q
       - run: uv run itc-bench --teste
+
+      # Known vulnerabilities in the lock (Module 14): warning only.
+      - name: pip-audit (app, warning only)
+        continue-on-error: true
+        shell: bash
+        run: |
+          uv export --frozen --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/req.txt"
+          uvx pip-audit==2.9.0 -r "$RUNNER_TEMP/req.txt" --disable-pip --no-deps

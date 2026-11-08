@@ -1,9 +1,13 @@
 """Pastas do app. Nada é criado no import: só `inicializar()` mexe no disco."""
 
+import ctypes
 import os
-from pathlib import Path
+import winreg
+from pathlib import Path, PureWindowsPath
 
 from itc_bench.nucleo import acl
+
+CHAVE_PERFIS = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 
 
 def _base(variavel: str) -> Path:
@@ -13,9 +17,38 @@ def _base(variavel: str) -> Path:
     return Path(valor) / "ITC" / "Bench"
 
 
+def _unidade_do_sistema() -> str:
+    """Unidade do Windows pela API: `SystemDrive` do ambiente o usuário troca em HKCU."""
+    buffer = ctypes.create_unicode_buffer(260)
+    if not ctypes.WinDLL("kernel32").GetSystemWindowsDirectoryW(buffer, len(buffer)):
+        raise ctypes.WinError()
+    return PureWindowsPath(buffer.value).drive
+
+
+def pasta_do_sistema(valor: str) -> Path:
+    r"""Pasta de `ProfileList` (HKLM) sem expandir pelo ambiente (Módulo 14).
+
+    `PROGRAMDATA`, `SystemDrive` e o próprio `SHGetKnownFolderPath` seguem variáveis de usuário
+    (`HKCU\Environment`), que valem no processo elevado da mesma conta.
+    """
+    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, CHAVE_PERFIS) as chave:
+        cru, _ = winreg.QueryValueEx(chave, valor)
+    texto = str(cru)
+    marca = "%systemdrive%"
+    if texto.lower().startswith(marca):
+        texto = _unidade_do_sistema() + texto[len(marca) :]
+    if "%" in texto or not PureWindowsPath(texto).is_absolute():
+        raise RuntimeError(f"Pasta {valor} do Windows fora do esperado.")
+    return Path(texto)
+
+
+def programdata() -> Path:
+    return pasta_do_sistema("ProgramData")
+
+
 def dados() -> Path:
     r"""%ProgramData%\ITC\Bench: dados da máquina, comuns a todos os usuários."""
-    return _base("PROGRAMDATA")
+    return programdata() / "ITC" / "Bench"
 
 
 def protegida() -> Path:

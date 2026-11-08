@@ -30,6 +30,7 @@ from itc_bench.servicos import instaladores
 from itc_bench.servicos import programas as pg
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
 AJUDA = (
@@ -117,7 +118,7 @@ def _tabela(colunas: tuple[str, ...]) -> QTableWidget:
 def _celula(texto: str, dica: str = "") -> QTableWidgetItem:
     c = QTableWidgetItem(texto)
     if dica:
-        c.setToolTip(dica)
+        c.setToolTip(txt.dica(dica))
     return c
 
 

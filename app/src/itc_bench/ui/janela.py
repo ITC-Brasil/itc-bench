@@ -32,6 +32,7 @@ from itc_bench.servicos.fila import Fila, Reenvio, reenviar
 from itc_bench.servicos.login import Entrada
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tarefa, tema
+from itc_bench.ui import texto as txt
 from itc_bench.ui.ajuda import TEXTOS, PainelAjuda
 from itc_bench.ui.aparencia import (
     AJUDA_ENERGIA,
@@ -676,7 +677,9 @@ class Janela(QMainWindow):
 
     def _selo_alertas(self, criticos: int) -> None:
         self.nav["inicio"].setText(f"Início  ⛔ {criticos}" if criticos else "Início")
-        self.nav["inicio"].setToolTip(f"{criticos} alerta(s) crítico(s)" if criticos else "")
+        self.nav["inicio"].setToolTip(
+            txt.dica(f"{criticos} alerta(s) crítico(s)" if criticos else "")
+        )
 
     def _diagnosticar(self, cancelar: threading.Event) -> prep.Resultado:
         """Etapa Diagnóstico: coleta e põe na fila; o envio segue pela fila (ADR-015)."""

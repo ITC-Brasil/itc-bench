@@ -1084,3 +1084,33 @@ instaladores. A API só aceita `instalador`, `winget` e `webapp`.
 **Consequences**
 Deploy da API antes do app novo. O Bench do Módulo 11 mostra a linha `papel` em Programas como
 "Tipo desconhecido", sem instalar, até o app do 12 chegar.
+
+## TA-ADR-031 — Revisão do Módulo 14 do Bench: limite de login atômico e GLPI em `http://` aceito
+
+**Status:** Accepted
+**Date:** 2026-11-07
+**Module:** 14 do ITC Bench
+
+**Context**
+A auditoria do Módulo 04 registrou que o limite de tentativas do login era conferido e contado em
+transações separadas: tentativas em paralelo passavam do limite. O login fala com o GLPI em
+`http://` interno desde o TA-ADR do login.
+
+**Decision**
+- **Correção de bug, sem regra nova:** conferir e reservar a tentativa na mesma `BEGIN IMMEDIATE`;
+  o lock não fica preso durante a chamada ao GLPI. A tentativa reservada é devolvida quando o
+  GLPI aceita (a do IP; a do usuário é zerada como antes) ou está fora do ar. Os limites, a janela
+  e o alerta não mudam. Teste `test_tentativas_em_paralelo_nao_passam_do_limite`.
+- **GLPI em `http://` interno: risco aceito** até o GLPI ter certificado; quando tiver, a API
+  passa a exigir `https` (decisão do responsável no Módulo 14).
+- `certifi` 2026.10.23 (PYSEC-2026-4320), só ele no lock (TA-ADR-025).
+- `test_rotas_auth.py`: toda rota exige token ou sessão, menos a lista fechada (saúde, login,
+  logout).
+
+**Alternatives considered**
+- Segurar o lock durante a chamada ao GLPI — trava toda escrita da API por até 10 s.
+- Lock por chave em memória — não vale com mais de um worker.
+
+**Consequences**
+Deploy da API depois do merge (`api-deploy.yml`). Uma tentativa em andamento conta para o limite
+enquanto o GLPI responde.

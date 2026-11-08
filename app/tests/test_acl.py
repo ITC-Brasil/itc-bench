@@ -25,7 +25,7 @@ def test_junction_na_raiz_e_recusada_antes_de_criar(tmp_path, monkeypatch):
     programdata = tmp_path / "pd"
     programdata.mkdir()
     _winapi.CreateJunction(str(alvo), str(programdata / "ITC"))
-    monkeypatch.setenv("PROGRAMDATA", str(programdata))
+    monkeypatch.setattr(caminhos, "programdata", lambda: programdata)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "la"))
     with pytest.raises(acl.PontoDeReparse):
         caminhos.inicializar(admin=True)
@@ -99,7 +99,7 @@ def test_falha_que_sobra_vira_erro(tmp_path):
 
 
 def test_sem_admin_nao_mexe_no_acl(tmp_path, monkeypatch):
-    monkeypatch.setenv("PROGRAMDATA", str(tmp_path / "pd"))
+    monkeypatch.setattr(caminhos, "programdata", lambda: tmp_path / "pd")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "la"))
     with mock.patch.object(acl, "proteger") as proteger:
         caminhos.inicializar(admin=False)

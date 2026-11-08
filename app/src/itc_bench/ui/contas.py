@@ -35,6 +35,7 @@ from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.contas import Conta, Feito, Lista
 from itc_bench.servicos.executor import Sensivel
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 
 AJUDA = (
     "Cria, altera e exclui contas locais. A lista mostra o tipo de cada conta (Administrador ou "
@@ -452,10 +453,10 @@ class PainelContas(QWidget):
         if conta is None:
             return
         if not self.nova1.text():
-            QMessageBox.warning(self, "Senha", "Digite a nova senha, ou use Remover senha.")
+            txt.aviso(self, "Senha", "Digite a nova senha, ou use Remover senha.")
             return
         if self.nova1.text() != self.nova2.text():
-            QMessageBox.warning(self, "Senha", "As senhas não conferem.")
+            txt.aviso(self, "Senha", "As senhas não conferem.")
             return
         senha = Sensivel(self.nova1.text())
         self.nova1.clear()
@@ -511,7 +512,7 @@ class PainelContas(QWidget):
         cadastros = self.obter_cadastros()
         origem = contas.suporte_do_cadastro(cadastros)
         if isinstance(origem, str):
-            QMessageBox.warning(self, "Conta Suporte", origem)
+            txt.aviso(self, "Conta Suporte", origem)
             return
         if confirmar(self, "Conta Suporte", texto_suporte(origem[0], self.lista)):
             self._rodar(lambda: contas.aplicar_suporte(cadastros))
@@ -521,11 +522,11 @@ class PainelContas(QWidget):
             return
         prot = self.prot()
         if tipo == "padrao" and not contas.suporte_ok(self.lista, prot):
-            QMessageBox.warning(self, "Contas", contas.MENSAGENS["suporte_ausente"])
+            txt.aviso(self, "Contas", contas.MENSAGENS["suporte_ausente"])
             return
         nomes = contas.mudariam(tipo, self.lista, prot)
         if not nomes:
-            QMessageBox.information(self, "Contas", "Nenhuma conta precisa mudar.")
+            txt.aviso(self, "Contas", "Nenhuma conta precisa mudar.", QMessageBox.Icon.Information)
             return
         if tipo == "admin":
             texto = "Tornar administradoras estas contas?\n\n" + "\n".join(nomes)

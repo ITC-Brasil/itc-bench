@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLineEdit,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -20,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from itc_bench.servicos import registro
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo
 from itc_bench.ui.log_qt import HandlerTela
 
@@ -127,6 +127,6 @@ class PainelRegistro(QWidget):
         try:
             n = registro.exportar(lista, Path(nome), socket.gethostname(), self.contas())
         except OSError as erro:
-            QMessageBox.warning(self, "Registro", f"Não foi possível gravar: {erro.strerror}")
+            txt.aviso(self, "Registro", f"Não foi possível gravar: {erro.strerror}")
             return
         self.estado.setText(f"{n} linha(s) exportada(s), com nomes mascarados.")

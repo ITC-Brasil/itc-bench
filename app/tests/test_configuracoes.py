@@ -49,7 +49,7 @@ def test_mostra_cadastros_com_segredos_mascarados(qtbot, monkeypatch, tmp_path):
     assert p.servidores.item(1, 2).text() == MASCARA and p.servidores.item(1, 4).text() == MASCARA
     assert p.wifi.item(0, 0).text() == "Rede-Ficticia-A" and p.wifi.item(0, 3).text() == MASCARA
     assert p.instaladores.item(0, 3).text() == "ab" * 6
-    assert p.instaladores.item(0, 3).toolTip() == "ab" * 32
+    assert p.instaladores.item(0, 3).toolTip() == f"<p>{'ab' * 32}</p>"
     texto = textos_visiveis(j)
     for marcador in (SENHA_WIFI, CHAVE, OBS):
         assert marcador not in texto

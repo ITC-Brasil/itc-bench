@@ -6,7 +6,6 @@ O catálogo é fechado aqui; o 13 escolhe só por id. Leitura e escrita pelos tr
 SID, caminho de perfil nem nome do hive temporário.
 """
 
-import os
 import struct  # noqa: F401  (os testes trocam struct.calcsize por aqui)
 import threading
 from collections.abc import Callable, Iterable, Sequence
@@ -14,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from itc_bench.nucleo import caminhos
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import executor, hive
 from itc_bench.servicos.hive import (
@@ -412,10 +412,7 @@ def aplicar(
 
 
 def pasta_inicializar() -> Path:
-    base = os.environ.get("PROGRAMDATA")
-    if not base:
-        raise RuntimeError("Variável de ambiente PROGRAMDATA ausente.")
-    return Path(base) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "StartUp"
+    return caminhos.programdata() / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "StartUp"
 
 
 def sobras_configurador(pasta: Path | None = None) -> list[Path]:

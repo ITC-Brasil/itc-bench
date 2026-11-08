@@ -12,11 +12,11 @@ def test_excecao_vai_para_log_e_tela(qapp, caplog):
         raise ValueError("falha inventada")
     except ValueError:
         tipo, valor, rastro = sys.exc_info()
-    with mock.patch.object(entrada, "QMessageBox") as caixa, caplog.at_level(logging.CRITICAL):
+    with mock.patch.object(entrada.txt, "aviso") as caixa, caplog.at_level(logging.CRITICAL):
         entrada._excecao(tipo, valor, rastro)
     assert "Traceback" in caplog.text
     assert "falha inventada" in caplog.text
-    assert "falha inventada" in caixa.critical.call_args.args[2]
+    assert "falha inventada" in caixa.call_args.args[2]
 
 
 def test_falha_no_inicializar_passa_pelo_gancho(monkeypatch):

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.executor import Sensivel
+from itc_bench.ui import texto as txt
 
 MASCARA = "••••••••"
 HEX = re.compile(r"[0-9a-f]{64}")
@@ -108,7 +109,7 @@ class PainelConfiguracoes(QWidget):
                 item = QTableWidgetItem(_texto(valor))
                 # Dica do Qt é rich text: só vai se for hex (dado do NocoDB, validado na API).
                 if j in dicas and HEX.fullmatch(dica := _texto(linha[dicas[j]])):
-                    item.setToolTip(dica)
+                    item.setToolTip(txt.dica(dica))
                 tabela.setItem(i, j, item)
 
     def mostrar(

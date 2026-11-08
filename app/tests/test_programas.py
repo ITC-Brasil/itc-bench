@@ -68,6 +68,13 @@ def test_argumentos_um_por_linha_e_validados() -> None:
         pg.argumentos(inst(argumentos="/quiet"))  # MSI: só PROPRIEDADE=valor
 
 
+def test_propriedade_msi_que_carrega_arquivo_e_recusada() -> None:
+    for ruim in ("TRANSFORMS=//srv/x.mst", "transforms=x.mst", "PATCH=x.msp", "MSIPATCHREMOVE=x"):
+        with pytest.raises(pg.ErroPrograma, match="recusada"):
+            pg.argumentos(inst(argumentos=ruim))
+    assert pg.argumentos(inst(argumentos="TRANSFORMS_X=1")) == ["TRANSFORMS_X=1"]
+
+
 def test_exe_sem_argumentos_e_interativo() -> None:
     assert pg.Item(inst(arquivo="setup.exe")).interativo
     assert not pg.Item(inst(arquivo="setup.exe", argumentos="/S")).interativo

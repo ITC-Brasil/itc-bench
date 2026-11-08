@@ -93,7 +93,8 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [x] Perfis, etapas, retomada após reinício; tela Início; Limpeza; Registro; Ajuda consolidada (ADR-023; cenários em máquina real pendentes)
 
 ### 14 — Revisão de segurança e testes de ponta a ponta · `chore/modulo-14-revisao`
-- [ ] Máquina limpa preparada do zero; auditoria completa
+- [x] Auditoria completa (ADR-024, TA-ADR-031) e roteiro de máquina limpa preparada do zero (`docs/testes/maquina-real.md`)
+- [ ] Execução do roteiro de máquina real (depois do 15)
 
 ### 15 — Empacotamento, instalador e CI · `ci/modulo-15-instalador`
 - [ ] `.spec` do PyInstaller, `.ico` multi-tamanho, Inno Setup x WiX decidido em ADR, endereço da API no instalador, CI
