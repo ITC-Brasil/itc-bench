@@ -1114,3 +1114,31 @@ transações separadas: tentativas em paralelo passavam do limite. O login fala 
 **Consequences**
 Deploy da API depois do merge (`api-deploy.yml`). Uma tentativa em andamento conta para o limite
 enquanto o GLPI responde.
+
+---
+
+## TA-ADR-032 — Lock da API com hash e instalação com `--require-hashes`
+
+**Status:** Accepted
+**Date:** 2026-11-08
+**Module:** Bench 15 (pendência deixada pela revisão do Módulo 14)
+
+**Context**
+O lock do TA-ADR-025 fixa versões com `==`, mas não o conteúdo: um pacote republicado ou um
+espelho alterado com a mesma versão seria instalado no container e no CI sem aviso.
+
+**Decision**
+- `api/requirements.txt` e `api/requirements-dev.txt` passam a ser gerados com
+  `pip-compile --generate-hashes` (mesma imagem, `pip-tools==7.5.3` e `click==8.1.8` do
+  TA-ADR-025). As versões não mudaram na regeneração.
+- O `Dockerfile` e o `api-ci` instalam com `--require-hashes`: pacote sem hash ou com hash
+  diferente do lock não instala.
+- O comando de lock e o de testes do `AGENTS.md` incluem as duas opções.
+
+**Alternatives considered**
+- Só `==` (como estava) — não detecta artefato trocado com a mesma versão.
+- `uv pip compile` na API — troca a ferramenta que o Dependabot entende (TA-ADR-025).
+
+**Consequences**
+Deploy da API depois do merge (`api-deploy.yml`), porque o `Dockerfile` muda. O Dependabot
+regenera o lock com hash, já que lê o comando do cabeçalho do `pip-compile`.

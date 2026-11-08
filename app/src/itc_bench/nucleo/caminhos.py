@@ -8,6 +8,7 @@ from pathlib import Path, PureWindowsPath
 from itc_bench.nucleo import acl
 
 CHAVE_PERFIS = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
+CHAVE_WINDOWS = r"SOFTWARE\Microsoft\Windows\CurrentVersion"
 
 
 def _base(variavel: str) -> Path:
@@ -25,13 +26,13 @@ def _unidade_do_sistema() -> str:
     return PureWindowsPath(buffer.value).drive
 
 
-def pasta_do_sistema(valor: str) -> Path:
+def pasta_do_sistema(valor: str, chave_hklm: str = CHAVE_PERFIS) -> Path:
     r"""Pasta de `ProfileList` (HKLM) sem expandir pelo ambiente (Módulo 14).
 
     `PROGRAMDATA`, `SystemDrive` e o próprio `SHGetKnownFolderPath` seguem variáveis de usuário
     (`HKCU\Environment`), que valem no processo elevado da mesma conta.
     """
-    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, CHAVE_PERFIS) as chave:
+    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, chave_hklm) as chave:
         cru, _ = winreg.QueryValueEx(chave, valor)
     texto = str(cru)
     marca = "%systemdrive%"
@@ -44,6 +45,16 @@ def pasta_do_sistema(valor: str) -> Path:
 
 def programdata() -> Path:
     return pasta_do_sistema("ProgramData")
+
+
+def program_files() -> Path:
+    """Program Files de 64 bits pelo HKLM (Módulo 15), sem o `ProgramFiles` do ambiente."""
+    return pasta_do_sistema("ProgramFilesDir", CHAVE_WINDOWS)
+
+
+def instalacao() -> Path:
+    r"""Pasta fixa do instalador (ADR-025): `Program Files\ITC\Bench`."""
+    return program_files() / "ITC" / "Bench"
 
 
 def dados() -> Path:

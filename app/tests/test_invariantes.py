@@ -30,6 +30,7 @@ WINREG_CTYPES = {
     "nucleo/caminhos.py": "ProgramData e perfis pelo HKLM, sem o ambiente do usuário (Módulo 14)",
     "nucleo/dpapi.py": "DPAPI: segredo nunca passa por processo (ADR-013/018)",
     "nucleo/elevacao.py": "IsUserAnAdmin e ShellExecuteW runas (Módulo 01)",
+    "nucleo/instalacao.py": "DLL fora do PATH, mutex do instalador; ACL por acl.py (ADR-025)",
     "nucleo/wlan.py": "Wi-Fi pela wlanapi: senha fora de processo (ADR-018)",
     "servicos/api.py": "lê ApiUrl em HKLM (ADR-008)",
     "servicos/cadastros.py": "lê e grava Unidade em HKLM (ADR-014)",

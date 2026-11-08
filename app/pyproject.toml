@@ -9,6 +9,10 @@ dependencies = ["PySide6==6.12.0"]
 itc-bench = "itc_bench.__main__:main"
 
 [dependency-groups]
+build = [
+    "pyinstaller==6.22.3",
+    "pyinstaller-hooks-contrib==2026.9",
+]
 dev = [
     "ruff==0.17.3",
     "mypy==2.4.1",
@@ -68,6 +72,7 @@ allowed-confusables = ["›"]  # trilha "Grupo › Tela" do design
 "src/itc_bench/__main__.py" = ["TID251"]
 "src/itc_bench/servicos/executor.py" = ["TID251"]
 "tests/**" = ["TID251", "S101", "S603"]
+"empacotamento/**" = ["TID251"]  # ferramenta de build (ícone), fora do app
 
 [tool.mypy]
 strict = true
