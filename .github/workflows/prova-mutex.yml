@@ -1,0 +1,15 @@
+name: prova-mutex
+# Temporary (module 16, adjustment 1): measures whether a standard user creates Global\ITCBench.
+on:
+  push:
+    branches: [feat/modulo-16-atualizacao]
+    paths: ["instalador/prova-mutex.ps1", ".github/workflows/prova-mutex.yml"]
+permissions:
+  contents: read
+jobs:
+  prova:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: ./instalador/prova-mutex.ps1
+        shell: pwsh
