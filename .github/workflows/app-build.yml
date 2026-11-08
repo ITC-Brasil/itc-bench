@@ -95,6 +95,7 @@ jobs:
             if ($env:GITHUB_REF_TYPE -eq 'tag') { throw "release without the committed public key $nome" }
             Write-Host "::warning::$nome not committed: this build does not install updates (not distributable)"
           }
+          exit 0  # git show of a missing key leaves a nonzero LASTEXITCODE on PR builds
 
       # ADR-026: install N, serve N+1 from a local fake API, update on close. The test installers
       # carry throwaway test keys and are never uploaded (adjustment 7).
