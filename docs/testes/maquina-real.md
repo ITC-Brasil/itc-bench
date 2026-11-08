@@ -1,6 +1,6 @@
 # Roteiro de máquina real — ITC Bench
 
-Roteiro único dos cenários que alteram a máquina (Módulos 01 e 04 a 14). Executado **depois do
+Roteiro único dos cenários que alteram a máquina (Módulos 01 e 04 a 15). Executado **depois do
 Módulo 15** (instalador) e **antes da primeira release com instalador** (decisão do responsável no
 Módulo 14). Situação de todos os passos: **Pendente (máquina real, com o instalador)**.
 
@@ -18,7 +18,8 @@ resultado de cada passo volta para a tabela de verificação do doc de origem e 
   App, um papel de parede) e Wi-Fi (SSID de um roteador de teste, um com acento). Nada de
   instalador ou rede real de carreta.
 - **API:** deploy de `develop` feito (`docs/api/DEPLOY.md`), borda conferida.
-- **Instalador** do Módulo 15, com o endereço da API.
+- **Instalador** do Módulo 15, baixado do artefato do `app-build` ou da Release (nunca de build
+  local, `docs/BUILD.md`), com o SHA-256 conferido contra o `SHA256SUMS`.
 - **Marcadores:** antes de começar, anote fora do repositório as senhas de teste usadas
   (Suporte, Wi-Fi, RustDesk, AnyDesk, `Teste01`). As buscas do passo 11 procuram por elas.
 
@@ -31,6 +32,20 @@ placeholders (`<computador>`, `<conta-1>`, `S-1-5-21-…-1002`, `<ssid>`, `*.exe
 `C:\Users\<conta>`), como manda o ADR-009. Print de tela só sem esses dados.
 
 ## Passos
+
+### 0. Instalador (Módulo 15)
+
+| # | Ação | Esperado | Origem |
+|---|---|---|---|
+| 0.1 | Baixar o instalador pelo navegador e abrir | SmartScreen avisa (sem assinatura, ADR-025); "Mais informações" → "Executar assim mesmo". UAC com "Editor desconhecido". Registrar o texto das duas telas | 15 |
+| 0.2 | No assistente, informar `http://...`, depois `https://u:s@...` | Mensagem de endereço inválido; não avança | 15 |
+| 0.3 | Informar o endereço real `https://` e concluir | Instala em `C:\Program Files\ITC\Bench`; atalho só no Menu Iniciar; `reg query HKLM\SOFTWARE\ITC\Bench /v ApiUrl` mostra o endereço | 15 |
+| 0.4 | `icacls "C:\Program Files\ITC\Bench"` e `...\ITC` | Escrita só para SYSTEM, Administradores, TrustedInstaller e CREATOR OWNER (herdado); Usuários só leitura e execução | 15 |
+| 0.5 | Propriedades do `ITC Bench.exe` → Detalhes; Configurações → Aplicativos | Versão do produto = versão do instalador; "ITC Bench" com a mesma versão e editor Grupo ITC Brasil | 15 |
+| 0.6 | Com o Bench aberto, rodar o instalador de novo (assistente) | Pede para fechar o ITC Bench; não fecha sozinho | 15 |
+| 0.7 | Fechar o Bench e rodar o instalador por cima, numa máquina já preparada (depois do passo 3) | Atualiza sem perguntar de novo o que já está gravado (página vem com o endereço atual); `protegido\`, login offline e cadastros continuam; preparação intacta | 15 |
+| 0.8 | Copiar `ITC Bench.exe` e `_internal` para `C:	empench` e abrir elevado | "A pasta de instalação foi alterada. Reinstale o ITC Bench."; sai sem mexer na máquina; log com "Pasta de instalação recusada" | 15 |
+| 0.9 | No fim do roteiro: desinstalar pelo Configurações | Aviso de que a preparação não é desfeita; somem a pasta, o atalho e `HKLM\SOFTWARE\ITC\Bench`; `protegido\` some; ficam `logs\`, `papel\`, `icones\`; papel de parede e atalhos de Web App continuam funcionando | 15 |
 
 ### 1. Instalação, elevação e `--dev`
 

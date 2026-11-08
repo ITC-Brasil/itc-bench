@@ -2,18 +2,21 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/modulo-14-revisao`, PR para `develop` (merge commit).
-- **Feito:** Módulo 14 (revisão transversal, ADR-024, TA-ADR-031).
-  - Corrigidos 1 médio (pastas da máquina pelo ambiente do usuário) e 5 baixos (limite de login
-    atômico, propriedades MSI, rich text em dicas e caixas, `--dev` elevado, `certifi`).
-  - Testes de invariantes no app (`test_invariantes.py`, `test_texto_puro.py`) e na API
-    (`test_rotas_auth.py`); ponta a ponta simulado da Preparação (`test_ponta_a_ponta.py`).
-  - Roteiro consolidado de máquina real em `docs/testes/maquina-real.md`.
-  - `pip-audit` no CI (aviso); varredura do histórico e gitleaks limpos.
-- **Pela metade:** nada no código. Execução do roteiro de máquina real (depois do 15).
-- **Próximo passo:** responsável: revisão e merge do PR; deploy da API depois do merge (limite de
-  login e `certifi`). Depois, Módulo 15 (empacotamento, instalador e CI).
+- **Branch:** `ci/modulo-15-instalador`, PR para `develop` (merge commit).
+- **Feito:** Módulo 15 (empacotamento, instalador e CI; ADR-025, TA-ADR-032).
+  - PyInstaller `onedir` (`app/empacotamento/`), ícone, versão 0.15.0 no EXE e no instalador.
+  - Inno Setup 6.7.4 (`instalador/`): endereço da API por `/APIURL=` ou página, em
+    `HKLM\SOFTWARE\ITC\Bench\ApiUrl`; `AppMutex`; desinstalação apaga `protegido\`.
+  - App empacotado: pasta fixa conferida, ambiente `QT_*`/`PYTHON*` ignorado, DLL sem `PATH`.
+  - `app-build.yml`: build, varredura do pacote e teste de instalação/desinstalação no runner;
+    Release em rascunho por tag `v*`.
+  - Lock da API com hash e `--require-hashes`.
+- **Pela metade:** nada no código. Execução do roteiro de máquina real (passo 0 novo).
+- **Próximo passo:** responsável: revisão e merge do PR; deploy da API (`--require-hashes` no
+  `Dockerfile`); roteiro de máquina real com o instalador do CI. Depois, Módulo 16 (atualização
+  automática).
 - **Tarefas futuras:**
+  - assinatura de código (OV ou Trusted Signing) antes de distribuir em larga escala;
   - senha por máquina para a Suporte (LAPS), no lugar da senha única;
   - exigir `https` no GLPI quando ele tiver certificado (TA-ADR-031);
   - contas por turno (opção B do ADR-023), se a carreta pedir;
@@ -24,15 +27,15 @@
   - corrigir no pendrive o `Sort-Object LocalPort -Unique`, se ele continuar em uso;
   - cadeado por edição no catálogo de políticas, depois do teste em Home/Pro;
   - estado do BitLocker no Diagnóstico (recomendação do ADR-022);
-  - tampa e botão de energia (`SUB_BUTTONS`), se a carreta pedir;
-  - no 15: lock da API com hash, strings do EXE, endereço da API só no instalador.
-- **Pendências externas:** UAC real do 01 e bancada de 04–14 pelo roteiro de máquina real;
+  - tampa e botão de energia (`SUB_BUTTONS`), se a carreta pedir.
+- **Pendências externas:** UAC real do 01 e bancada de 04–15 pelo roteiro de máquina real;
   release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-08 | 15 — Empacotamento, instalador e CI | PyInstaller `onedir` com `VERSIONINFO`, ícone de 8 tamanhos e OpenSSL fixado no do Python (o `PATH` da máquina de build trazia outro `libcrypto`). Inno Setup 6.7.4 com SHA-256 conferido: pasta fixa `Program Files\ITC\Bench`, endereço da API por `/APIURL=` ou página (`https://`, sem credencial, query ou fragmento, no instalador e no app), `AppMutex` sem matar o Bench, upgrade mantém `protegido\` e `ApiUrl`, desinstalação apaga `protegido\` e a chave HKLM com aviso de que a preparação fica. App empacotado confere pasta, pai e árvore (reparse, dono, ACL), ignora `QT_*`/`QML*`/`PYTHON*`, tira o `PATH` da busca de DLL; `--teste` só leitura e lendo os recursos. `app-build`: varredura do pacote (com o `PYZ`) e da árvore instalada, gitleaks, 37 conferências de instalação/desinstalação no runner, Release em rascunho por tag. Lock da API com hash. App 740 testes, API 246. ADR-025, TA-ADR-032. Auditoria: 1 médio corrigido, 5 informativos. Cenários com GUI, UAC e SmartScreen em máquina real pendentes. |
 | 2026-11-07 | 14 — Revisão de segurança e ponta a ponta | Auditoria transversal de app e API com inventário dos 56 itens abertos de 00 a 13 (origem e destino). Corrigidos: `%ProgramData%` e perfis pelo HKLM sem o ambiente do usuário (médio), limite de login conferido e reservado na mesma transação, propriedades MSI que carregam arquivo, dicas e caixas do Qt em texto puro (`ui/texto.py`), `--dev` só leitura também elevado, `certifi`. Testes de invariantes (trechos PS, `ITC_*`, script nunca montado, `winreg`/`ctypes` em lista fechada, SID de Administradores, rich text, rotas da API) e ponta a ponta simulado dos três perfis sem vazar marcador. Roteiro único de máquina real. `pip-audit` no CI. Histórico: conta de dev num doc, mascarada. App 708 testes, API 246. ADR-024, TA-ADR-031. Auditoria: 1 médio e 5 baixos corrigidos, 2 informativos. Roteiro de máquina real pendente (depois do 15). |
 | 2026-11-06 | 13 — Preparação completa, Início e Limpeza | Perfis fechados no código (`Unidades.PerfilPadrao` escolhe), motor sem Qt (etapa lida do Windows antes de aplicar, feita pulada, dependência Contas → Políticas/USB/papel/mouse, falha parcial, pausa depois da etapa), 14 etapas sobre os serviços de 07 a 12. Appx da Microsoft por lista fechada (todas as contas e provisionado; recusa sistema, `NonRemovable`, framework). Retomada assistida: `protegido\preparacao.json` com ACL conferida, ids validados, 24 h, 2 reinícios, sem Run/RunOnce. Limpeza de manutenção (temporários por SID, lixeira, WU com serviços devolvidos, WER) com prévia e sem seguir reparse (teste com junction real). Início por CIM sem texto localizado, alertas com atalho e selos. Registro com exportação mascarada. Ajuda consolidada com busca. Contas por turno fora. App 691 testes. ADR-023. Auditoria: 1 médio corrigido (corrida na cadeia do Temp), 5 informativos. Cenários em máquina real pendentes. |
 | 2026-11-06 | 12 — Proteção do login e Aparência | Hive do 11 extraído para `servicos/hive.py` sem mudar o 11; perfil `aparencia` com chaves exatas e só `Wallpaper`/`WallpaperStyle` em `Policies\System`. Proteção: `(D;;FX;;;SY)` no utilman/sethc por `takeown`/`icacls`, dono de volta ao TrustedInstaller num `finally`; detecção por `IsOSBinary` + `OriginalFilename` (lista por exe) + IFEO (chave e subchaves) + `SilentProcessExit`, "não lida" sem `CryptSvc`; Shift 5x em `.DEFAULT`; remover depurador e `sfc /scanfile` com confirmação dupla. Papel de parede do cadastro (`Tipo = papel`) em `papel\` com ACL, imagem conferida, política por alvo. Mouse e teclado por alvo em tipo nativo, ACL herdada. Energia por `powercfg` com aliases, leitura só dos números, desfazer pelo padrão do plano, hibernação. Resolução/escala fora (atalho do Windows). App 641 testes, API 242. ADR-022, TA-ADR-030. Auditoria: 6 informativos. Cenários em máquina real pendentes. Revisão do PR #35: qualquer `Debugger` em subchave IFEO conta; troca da imagem no cadastro exige reaplicar. |
