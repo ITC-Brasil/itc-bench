@@ -109,6 +109,7 @@ jobs:
           ./instalador/gerar-chaves-versao.ps1 -Saida "$t/chaves" -Senha $senha -Publicas "$t/pub"
           foreach ($v in $n, $n1) {
             $dist = "$t/dist-$v/ITC Bench"
+            New-Item -ItemType Directory -Force (Split-Path $dist) | Out-Null
             Copy-Item 'app/dist/ITC Bench' (Split-Path $dist) -Recurse
             Copy-Item "$t/pub/*.pub" "$dist/_internal/itc_bench/recursos/atualizacao/" -Force
             if ($v -eq $n1) { Set-Content "$dist/_internal/itc_bench/recursos/atualizacao/marca-n1.txt" 'n1' }
