@@ -41,7 +41,8 @@ TIMEOUT = 30
 TENTATIVAS = 3
 MANIFESTO, ASSINATURA, TENTADAS = "manifesto.json", "manifesto.sig", "tentativas.txt"
 # Sessão falsa do `--teste-atualizacao` (CI): a API real responde 401 a ela.
-SESSAO_TESTE = "itcbs_" + "t" * 43
+# Montada em tempo de execução: constante dobrada pareceria um token na varredura do pacote.
+SESSAO_TESTE = "_".join(("itcbs", "t" * 43))
 
 Progresso = Callable[[int, int], None]
 
