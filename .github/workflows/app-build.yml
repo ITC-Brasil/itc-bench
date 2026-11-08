@@ -82,6 +82,41 @@ jobs:
       - name: install, check and uninstall
         run: ./instalador/testar.ps1 -Setup "app/dist/itc-bench-${{ steps.versao.outputs.valor }}-setup.exe" -Versao ${{ steps.versao.outputs.valor }}
 
+      # ADR-026, adjustment 7: a release carries exactly the public keys committed in the repo.
+      # Without both real keys committed, a tag build fails (never a test key in their place).
+      - name: update public keys (release gate)
+        run: |
+          $pacote = 'app/dist/ITC Bench/_internal/itc_bench/recursos/atualizacao'
+          foreach ($nome in 'principal.pub', 'reserva.pub') {
+            $repo = git show "HEAD:app/src/itc_bench/recursos/atualizacao/$nome" 2>$null
+            $ok = $LASTEXITCODE -eq 0 -and (Test-Path "$pacote/$nome") -and
+              ((Get-Content "$pacote/$nome" -Raw).Trim() -ceq ($repo -join "`n").Trim())
+            if ($ok) { Write-Host "ok    $nome = repository" ; continue }
+            if ($env:GITHUB_REF_TYPE -eq 'tag') { throw "release without the committed public key $nome" }
+            Write-Host "::warning::$nome not committed: this build does not install updates (not distributable)"
+          }
+
+      # ADR-026: install N, serve N+1 from a local fake API, update on close. The test installers
+      # carry throwaway test keys and are never uploaded (adjustment 7).
+      - name: update test (N -> N+1, fake API)
+        run: |
+          $n = '${{ steps.versao.outputs.valor }}'
+          $p = $n.Split('.'); $n1 = "$($p[0]).$($p[1]).$([int]$p[2] + 1)"
+          $t = Join-Path $env:RUNNER_TEMP 'teste-atualizacao'
+          $bytes = [byte[]]::new(24); [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+          $senha = ConvertTo-SecureString ([Convert]::ToBase64String($bytes)) -AsPlainText -Force
+          ./instalador/gerar-chaves-versao.ps1 -Saida "$t/chaves" -Senha $senha -Publicas "$t/pub"
+          foreach ($v in $n, $n1) {
+            $dist = "$t/dist-$v/ITC Bench"
+            Copy-Item 'app/dist/ITC Bench' (Split-Path $dist) -Recurse
+            Copy-Item "$t/pub/*.pub" "$dist/_internal/itc_bench/recursos/atualizacao/" -Force
+            if ($v -eq $n1) { Set-Content "$dist/_internal/itc_bench/recursos/atualizacao/marca-n1.txt" 'n1' }
+            & $env:ISCC /Q "/DAppVersion=$v" "/DDistDir=$((Resolve-Path $dist).Path)" "/O$t" instalador/itc-bench.iss
+            if ($LASTEXITCODE) { throw "ISCC failed for $v" }
+          }
+          ./instalador/testar-atualizacao.ps1 -SetupN "$t/itc-bench-$n-setup.exe" -SetupN1 "$t/itc-bench-$n1-setup.exe" `
+            -VersaoN $n -VersaoN1 $n1 -Chaves "$t/chaves" -Senha $senha
+
       - name: Inno logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
