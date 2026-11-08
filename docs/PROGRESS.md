@@ -17,6 +17,8 @@
   automática).
 - **Tarefas futuras:**
   - assinatura de código (OV ou Trusted Signing) antes de distribuir em larga escala;
+  - no 16: avaliar `AppMutex` só com `Global\ITCBench` (usuário comum não cria), para o aluno
+    não travar a atualização automática com o mutex local;
   - senha por máquina para a Suporte (LAPS), no lugar da senha única;
   - exigir `https` no GLPI quando ele tiver certificado (TA-ADR-031);
   - contas por turno (opção B do ADR-023), se a carreta pedir;

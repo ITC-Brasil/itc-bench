@@ -40,7 +40,10 @@ Nenhuma tela ou regra de preparação nova; a atualização automática fica par
 
 Achado no caminho: o PyInstaller empacotava o `libcrypto-3-x64.dll` de outro programa achado no
 `PATH` da máquina de build, e o `_ssl` não carregava (o EXE saía com 1 antes do log). O `.spec`
-fixa o OpenSSL da pasta `DLLs` do Python.
+fixa o OpenSSL da pasta `DLLs` do Python. Na revisão do PR, a origem de todo binário passou a
+ser conferida em lista fechada (`empacotamento/origens.py`): o build para se algum vier de fora
+do Python base, do ambiente do projeto ou de `System32`. A trava achou 43 DLLs do UCRT vindas
+de um JDK no `PATH`; elas saem do pacote (o Windows 10/11 já tem o UCRT).
 
 ## Verificação
 

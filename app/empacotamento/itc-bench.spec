@@ -61,6 +61,14 @@ OPENSSL = {"libcrypto-3-x64.dll", "libssl-3-x64.dll"}
 a.binaries = [b for b in a.binaries if Path(b[0]).name.lower() not in OPENSSL] + [
     (nome, str(DLLS_PYTHON / nome), "BINARY") for nome in sorted(OPENSSL)
 ]
+# Lista fechada de origens (ADR-025): binário de fora do Python base, do ambiente do projeto ou de
+# System32 para o build (o PATH da máquina de build não entra no pacote).
+sys.path.insert(0, SPECPATH)
+from origens import conferir, raizes, separar_do_sistema  # noqa: E402
+
+a.binaries, ucrt = separar_do_sistema(list(a.binaries))
+print(f"UCRT do Windows fora do pacote: {len(ucrt)} DLL(s)")
+print("Origens dos binários:", dict(conferir(a.binaries, raizes())))
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

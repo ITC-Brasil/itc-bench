@@ -1685,6 +1685,14 @@ O Módulo 16 precisa de versão gravada e caminho fixo. Desenho aprovado em `.co
    O OpenSSL do `_ssl` é fixado na pasta `DLLs` do Python: a análise de dependências do
    PyInstaller procura também no `PATH` da máquina de build e tinha empacotado um `libcrypto` de
    outro programa (o `_ssl` não carregava).
+   **Origem dos binários em lista fechada** (`app/empacotamento/origens.py`, chamado pelo
+   `.spec` depois da `Analysis`): todo item de `a.binaries` tem que vir do Python base
+   (`sys.base_prefix`, inclusive `DLLs`), do ambiente do projeto (`sys.prefix`, o `.venv`) ou de
+   `System32` (pela `GetSystemDirectoryW`); qualquer outro para o build com a lista do que veio
+   de fora. Única exclusão explícita: o UCRT (`ucrtbase.dll` e `api-ms-win-*`), parte do Windows
+   10/11 e resolvido pelo carregador; o PyInstaller só coletava essas 43 DLLs porque achava
+   cópias na pasta de um JDK no `PATH` da máquina de desenvolvimento. Elas saem do pacote e o
+   build registra quantas.
 2. **Inno Setup 6.7.4** (instalador por máquina, 64 bits, `C:\Program Files\ITC\Bench` fixo,
    `UsePreviousAppDir=no`, `DisableDirPage=yes`), `AppId` fixo
    `{8739FD22-418B-43F7-B9B4-2FEF3E8A3A30}`. Compilador baixado da release oficial com SHA-256
