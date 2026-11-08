@@ -20,8 +20,8 @@ def precisa_elevar(argv: list[str], admin: bool) -> bool:
 
 
 def modo_admin(argv: list[str], admin: bool) -> bool:
-    """`--dev` nunca altera a máquina, nem num terminal elevado (Módulo 14): roda só leitura."""
-    return admin and "--dev" not in argv
+    """`--dev` e `--teste` nunca alteram a máquina, nem elevados (Módulos 14 e 15): só leitura."""
+    return admin and "--dev" not in argv and "--teste" not in argv
 
 
 def comando_elevado(argv: list[str], executavel: str, congelado: bool) -> tuple[str, list[str]]:

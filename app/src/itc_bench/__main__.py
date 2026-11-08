@@ -12,7 +12,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from itc_bench import __version__
-from itc_bench.nucleo import acl, caminhos, elevacao
+from itc_bench.nucleo import acl, caminhos, elevacao, instalacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import api
@@ -40,6 +40,9 @@ def _excecao(tipo: type[BaseException], valor: BaseException, rastro: TracebackT
 
 def main() -> int:
     sys.excepthook = _excecao
+    # Antes de qualquer QApplication: plugin, plataforma e DLL nunca vêm do ambiente do usuário.
+    retirados = instalacao.limpar_ambiente()
+    instalacao.restringir_dlls()
     argv = sys.argv
     if elevacao.precisa_elevar(argv, elevacao.eh_admin()):
         if elevacao.pedir_elevacao(argv):
@@ -55,6 +58,15 @@ def main() -> int:
         return 1
 
     admin = elevacao.modo_admin(argv, elevacao.eh_admin())
+    # Pasta de instalação (ADR-025): alterada, o Bench não mexe em nada da máquina.
+    erro_pasta: Exception | None = None
+    try:
+        instalacao.conferir_instalacao()
+        if fora := instalacao.caminho_fora_do_pacote():
+            raise instalacao.PastaAlterada(f"{len(fora)} entrada(s) de sys.path fora do pacote.")
+    except (instalacao.PastaAlterada, OSError) as erro:
+        erro_pasta = erro
+        admin = False
     erro_acl: acl.ErroAcl | None = None
     try:
         caminhos.inicializar(admin)
@@ -72,6 +84,28 @@ def main() -> int:
         argv[1:],
         arquivo,
     )
+    if retirados:
+        log.warning("Variáveis do ambiente ignoradas: %s", ", ".join(retirados))
+    if falhas := instalacao.criar_mutex():
+        log.info("Mutex não criado: %s", ", ".join(falhas))
+    if erro_pasta:
+        log.error("Pasta de instalação recusada: %s", erro_pasta)
+        if "--dev" not in argv:
+            if "--teste" not in argv:  # no CI a caixa modal travaria o runner
+                _ = QApplication(argv)
+                txt.aviso(
+                    None,
+                    "ITC Bench",
+                    f"A pasta de instalação foi alterada. Reinstale o ITC Bench.\n\n{erro_pasta}",
+                    QMessageBox.Icon.Critical,
+                )
+            return 3
+    if "--teste" in argv:
+        try:
+            log.info("Recursos: %d arquivos lidos.", instalacao.ler_recursos())
+        except OSError as erro:
+            log.error("Recursos do pacote incompletos: %s", erro)
+            return 4
     if not admin:
         log.info("Sem administrador: ACL de %s não aplicado.", caminhos.dados().parent)
     elif erro_acl:

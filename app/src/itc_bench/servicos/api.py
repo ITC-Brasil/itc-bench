@@ -90,8 +90,19 @@ def endereco(dev: bool) -> str | None:
 
 
 def validar(url: str, dev: bool) -> str:
-    """HTTPS sempre; http:// só para a própria máquina em `--dev`."""
+    """HTTPS sempre; http:// só para a própria máquina em `--dev`.
+
+    Sem credencial (`usuario:senha@`), query, fragmento nem espaço (Módulo 15): o endereço vai
+    para o registro e para o log do instalador, e não carrega segredo.
+    """
     partes = urlsplit(url)
+    if (
+        partes.username is not None
+        or partes.query
+        or partes.fragment
+        or any(c.isspace() for c in url)
+    ):
+        raise ValueError("Endereço da API inválido: sem usuário, senha, query nem fragmento.")
     if partes.scheme == "https" and partes.hostname:
         return url.rstrip("/")
     if dev and partes.scheme == "http" and partes.hostname in HOSTS_DEV:

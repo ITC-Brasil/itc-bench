@@ -97,7 +97,7 @@ Numeração revista pelo ADR-012: o 03 novo é a migração da API, e os seguint
 - [ ] Execução do roteiro de máquina real (depois do 15)
 
 ### 15 — Empacotamento, instalador e CI · `ci/modulo-15-instalador`
-- [ ] `.spec` do PyInstaller, `.ico` multi-tamanho, Inno Setup x WiX decidido em ADR, endereço da API no instalador, CI
+- [x] `.spec` do PyInstaller, `.ico` multi-tamanho, Inno Setup x WiX decidido em ADR, endereço da API no instalador, CI
 
 ### 16 — Atualização automática · `feat/modulo-16-atualizacao`
 - [ ] Rota de versão disponível em `api/`; download assinado/conferido; "atualizar ao fechar"

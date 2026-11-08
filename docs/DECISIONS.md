@@ -31,7 +31,7 @@ empacotamento (14).
 
 ## ADR-002 — Um app instalável em Python + PySide6, empacotado com PyInstaller
 
-**Status:** Accepted (ferramenta de instalador: planejada para o Módulo 14)
+**Status:** Accepted (ferramenta de instalador decidida no ADR-025: Inno Setup)
 **Date:** 2026-11-03
 **Module:** Pre-implementation
 
@@ -50,7 +50,7 @@ PyInstaller e distribuído por instalador Windows. A UI CustomTkinter é descart
 - App portátil sem instalador — mantém caminhos atrelados ao EXE e segredos ao lado dele.
 
 **Consequences**
-Inno Setup ou WiX: **planejado**, decisão em ADR no Módulo 14. Versões de Python e PySide6
+Inno Setup ou WiX: decidido no ADR-025 (Módulo 15): Inno Setup. Versões de Python e PySide6
 fixadas no manifesto do Módulo 01.
 
 ---
@@ -1659,3 +1659,114 @@ estavam sem ADR nem tarefa. Nenhuma tela ou regra de produto nova.
 Desenvolver com `--dev` não exercita escrita; teste de escrita fica nos testes automatizados com
 executor falso e no roteiro de máquina real (`docs/testes/maquina-real.md`). Mensagens de erro
 com `<` passam a aparecer literalmente.
+
+---
+
+## ADR-025 — Empacotamento `onedir`, instalador Inno Setup, endereço da API no HKLM e Bench endurecido quando empacotado
+
+**Status:** Accepted
+**Date:** 2026-11-08
+**Module:** 15
+
+**Context**
+O ADR-002 deixou a ferramenta de instalador em aberto, e o ADR-008 manda que o endereço da API
+seja o único dado de ambiente no instalador. O Bench roda elevado e lê `.ps1`, DLLs e ícones
+do próprio pacote: quem grava na pasta do pacote ganha administrador. O Módulo 14 (ADR-024)
+mostrou que o ambiente do usuário (`HKCU\Environment`) vale no processo elevado da mesma conta.
+O Módulo 16 precisa de versão gravada e caminho fixo. Desenho aprovado em `.conversa/` em
+08/11/2026, com ajustes.
+
+**Decision**
+1. **PyInstaller `onedir`**, janela (`console=False`), UPX desligado, manifesto `asInvoker` (a
+   elevação continua no `elevacao.py`; `--dev` e `--teste` sem UAC). `recursos/` vai inteiro
+   para `_internal\itc_bench\recursos\` e é lido por `importlib.resources`, como fora do pacote.
+   `VERSIONINFO` gerado no `.spec` a partir de `__version__`. Ícone `.ico` com 8 tamanhos (16 a
+   256) gerado do símbolo por `app/empacotamento/gerar_ico.py` e guardado no repositório.
+   O OpenSSL do `_ssl` é fixado na pasta `DLLs` do Python: a análise de dependências do
+   PyInstaller procura também no `PATH` da máquina de build e tinha empacotado um `libcrypto` de
+   outro programa (o `_ssl` não carregava).
+   **Origem dos binários em lista fechada** (`app/empacotamento/origens.py`, chamado pelo
+   `.spec` depois da `Analysis`): todo item de `a.binaries` tem que vir do Python base
+   (`sys.base_prefix`, inclusive `DLLs`), do ambiente do projeto (`sys.prefix`, o `.venv`) ou de
+   `System32` (pela `GetSystemDirectoryW`); qualquer outro para o build com a lista do que veio
+   de fora. Única exclusão explícita: o UCRT (`ucrtbase.dll` e `api-ms-win-*`), parte do Windows
+   10/11 e resolvido pelo carregador; o PyInstaller só coletava essas 43 DLLs porque achava
+   cópias na pasta de um JDK no `PATH` da máquina de desenvolvimento. Elas saem do pacote e o
+   build registra quantas.
+2. **Inno Setup 6.7.4** (instalador por máquina, 64 bits, `C:\Program Files\ITC\Bench` fixo,
+   `UsePreviousAppDir=no`, `DisableDirPage=yes`), `AppId` fixo
+   `{8739FD22-418B-43F7-B9B4-2FEF3E8A3A30}`. Compilador baixado da release oficial com SHA-256
+   conferido e instalado em modo portátil no CI. O script não extrai nem executa nada de `{tmp}`;
+   o motor do Inno usa uma pasta temporária com nome aleatório (CSPRNG) e liga o
+   `RedirectionGuard` (sem seguir junction criada por não administrador).
+   - **Bench aberto:** `AppMutex=ITCBench,Global\ITCBench`, criado pelo app
+     (`nucleo/instalacao.py`); `CloseApplications=no`. A instalação silenciosa recusa e o
+     assistente pede para fechar: nunca mata uma preparação no meio (Módulo 16).
+   - **Upgrade por cima** não roda o desinstalador: mantém `protegido\` e `ApiUrl`. Apaga
+     `{app}\_internal` antes de copiar, para não sobrar arquivo da versão anterior.
+   - Atalho só no Menu Iniciar de todos os usuários; nenhum na Área de Trabalho Pública.
+3. **Endereço da API em `HKLM\SOFTWARE\ITC\Bench\ApiUrl`** (vista 64 bits, onde o
+   `servicos/api.py` já lia). Chega por `/APIURL=` na silenciosa ou pela página do assistente
+   (preenchida com o valor atual). Instalação nova silenciosa sem `/APIURL` falha; atualização sem
+   ele mantém o valor. Trocar depois: rodar o instalador de novo com `/APIURL=`.
+   - Validação igual no Pascal Script e no `validar()`: `https://`, host, sem `usuario:senha@`,
+     query, fragmento nem espaço. A recusa de credencial, query e fragmento é nova no app.
+   - **Limite aceito:** o log do Inno (`/LOG`) grava a linha de comando, com o endereço. Não é
+     segredo (ADR-008: só ele vai no instalador), mas fica no log da máquina.
+   - O endereço nunca entra no `.iss`, no CI nem no EXE; o CI usa `https://api.exemplo.invalid`.
+4. **Pasta de instalação conferida pelo app** (`nucleo/instalacao.py`, só empacotado), antes de
+   qualquer ação: o EXE tem que estar na pasta fixa (`ProgramFilesDir` do HKLM, sem o ambiente
+   do usuário); a pasta, o pai (`Program Files\ITC`) e tudo dentro sem ponto de reparse; dono
+   SYSTEM, Administradores ou TrustedInstaller; nenhuma ACE de permissão com escrita, `DELETE`,
+   `WRITE_DAC` ou `WRITE_OWNER` para outro SID (`CREATOR OWNER` ignorado: no filho vira o dono).
+   Falhou: sem modo administrador, log, mensagem "Reinstale" e saída 3 (`--dev` segue só
+   leitura). Não corrige a ACL: os arquivos podem já ter sido trocados.
+   **Limite:** a conferência roda depois de Python e Qt carregarem do pacote; ela detecta, não
+   impede. A proteção é a ACL herdada de `Program Files`, que o instalador não altera.
+5. **Ambiente do usuário fora do processo** (ajuste 1): antes de qualquer `QApplication`, o
+   `main` tira `QT_*`, `QML*` e `PYTHON*` do ambiente (no empacotado e no `uv run`; só
+   `QT_QPA_PLATFORM=offscreen`, a do CI, fica). No empacotado, `QT_PLUGIN_PATH` volta apontando
+   para o pacote, e `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS)` com
+   `AddDllDirectory` do pacote tira o `PATH` da busca de DLL (o gancho do PySide6 põe o pacote no
+   `PATH`, mas o `PATH` também traz pastas do usuário). O bootloader do PyInstaller 6 não usa
+   `PYTHONPATH` (testado no runner: `sys.path` só com o pacote); o app recusa, como pasta
+   alterada, se alguma entrada de `sys.path` cair fora do pacote. No `uv run`, `PYTHON*` já foi
+   lido pelo interpretador: a limpeza só evita passar adiante.
+6. **`--teste` nunca altera a máquina**, nem elevado (como o `--dev` no ADR-024): no runner do
+   CI ele roda elevado. Lê todos os arquivos de `recursos/` e sai com 4 se faltar algum.
+7. **Desinstalação:** sai a pasta, o atalho, a chave de desinstalação e
+   `HKLM\SOFTWARE\ITC\Bench`; sai `%ProgramData%\ITC\Bench\protegido\` (cache de cadastros, login
+   offline, fila, `preparacao.json`, instaladores), com a pasta e os pais conferidos contra ponto
+   de reparse antes. Ficam `logs\`, `papel\` e `icones\`, usados pela preparação aplicada. A
+   desinstalação não desfaz a preparação: aviso na confirmação do assistente e no log da
+   silenciosa.
+8. **Versão:** SemVer com fonte única em `itc_bench/__init__.py` (o hatch lê dali). Chega ao EXE
+   (`VERSIONINFO`), ao instalador (`/DAppVersion`), a `DisplayVersion` e `InstallLocation` da
+   chave de desinstalação (o que o 16 lê) e ao rodapé. Tag `vX.Y.Z` diferente de `__version__`
+   falha o CI. Este módulo sobe para 0.15.0; 1.0.0 depois do roteiro de máquina real.
+9. **Sem assinatura de código por enquanto**, com `SHA256SUMS` publicado junto do instalador
+   (UAC mostra "Editor desconhecido"; SmartScreen avisa em arquivo baixado). Passo de assinatura
+   no workflow desligado. OV ou Trusted Signing reavaliados antes de distribuir em larga escala.
+10. **CI (`app-build.yml`):** PR compila, varre e testa a instalação no runner, artefato do
+    Actions por 7 dias; tag `v*` cria Release em rascunho, publicada pelo responsável. Só o CI
+    gera artefato distribuível (`docs/BUILD.md`). Varredura do pacote por `instalador/varrer.py`
+    (árvore, `.zip` e o `PYZ` embutido no EXE descomprimido; árvore instalada no runner) e
+    gitleaks em modo diretório.
+
+**Alternatives considered**
+- `onefile` — extrai Python, Qt e `.pyd` em `%TEMP%\_MEIxxxx`, gravável pelo usuário, e o
+  processo elevado carrega DLL dali (contra ADR-011 e ADR-024); também abre mais devagar.
+- WiX (MSI) — melhor para GPO/Intune, mas o parâmetro e a página do endereço dão mais trabalho e
+  o harvest do `onedir` vira um XML longo; o WiX 6 pede taxa de manutenção a empresas.
+- `requireAdministrator` no manifesto — UAC até para `--dev` e `--teste`.
+- Endereço em arquivo em `%ProgramData%` ou ao lado do EXE — mais uma ACL a conferir, ou proibido.
+- Fechar o Bench pelo Restart Manager na atualização — mataria uma preparação no meio.
+- Corrigir a ACL da pasta de instalação pelo próprio app — legitimaria arquivos já trocados.
+- Apagar `%ProgramData%\ITC\Bench` inteiro na desinstalação — quebra papel de parede e atalhos
+  aplicados.
+
+**Consequences**
+O instalador do CI é o que vai para o roteiro de máquina real (`docs/testes/maquina-real.md`).
+Quem já tem `ApiUrl` gravado à mão não precisa passar `/APIURL` numa atualização. Um usuário
+comum consegue criar o mutex `ITCBench` local e travar a atualização silenciosa (só negação de
+serviço; o técnico fecha a sessão dele). Build local serve para teste, não para distribuir.

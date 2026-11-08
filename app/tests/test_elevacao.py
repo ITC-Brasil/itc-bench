@@ -35,3 +35,8 @@ def test_dev_elevado_roda_sem_admin():
     assert elevacao.modo_admin(["itc-bench"], True)
     assert not elevacao.modo_admin(["itc-bench", "--dev"], True)
     assert not elevacao.modo_admin(["itc-bench"], False)
+
+
+def test_teste_elevado_roda_sem_admin():
+    """`--teste` (CI, runner elevado) nunca altera a máquina (Módulo 15)."""
+    assert not elevacao.modo_admin(["itc-bench", "--teste"], True)

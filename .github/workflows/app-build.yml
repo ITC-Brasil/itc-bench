@@ -1,0 +1,120 @@
+name: app-build
+
+# Empacotamento e instalador (ADR-025). PR: compila, testa a instalação e guarda o artefato por 7
+# dias. Tag vX.Y.Z: o mesmo e uma Release em rascunho, publicada pelo responsável. Só este
+# workflow gera artefato distribuível (docs/BUILD.md).
+on:
+  pull_request:
+    paths: ["app/**", "instalador/**", ".github/workflows/app-build.yml"]
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Same image as app-ci. The hosted runner is a disposable admin machine: testar.ps1 installs,
+    # uninstalls and deletes %ProgramData%\ITC\Bench\protegido.
+    runs-on: windows-2025
+    env:
+      QT_QPA_PLATFORM: offscreen
+      INNO_VERSION: 6.7.4
+      # sha256 of innosetup-6.7.4.exe: GitHub release digest of jrsoftware/issrc is-6_7_4, equal to
+      # the file downloaded and checked on 2026-11-08 (Authenticode valid, Pyrsys B.V.).
+      INNO_SHA256: a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c
+      GITLEAKS_VERSION: 8.30.1
+      # sha256 of gitleaks_8.30.1_windows_x64.zip, from the official release digest.
+      GITLEAKS_SHA256: d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # Same as [tool.uv] required-version in app/pyproject.toml.
+          version: "0.12.17"
+
+      - name: version
+        id: versao
+        run: |
+          $init = Get-Content app/src/itc_bench/__init__.py -Raw
+          if ($init -notmatch '__version__ = "(\d+\.\d+\.\d+)"') { throw 'version not found' }
+          "valor=$($Matches[1])" >> $env:GITHUB_OUTPUT
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$($Matches[1])") {
+            throw "tag $env:GITHUB_REF_NAME differs from __version__ $($Matches[1])"
+          }
+
+      - name: install Inno Setup (portable, hash checked)
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP "innosetup-$env:INNO_VERSION.exe"
+          $tag = 'is-' + $env:INNO_VERSION.Replace('.', '_')
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/$tag/innosetup-$env:INNO_VERSION.exe" -OutFile $exe
+          if ((Get-FileHash $exe -Algorithm SHA256).Hash -ne $env:INNO_SHA256) { throw 'Inno Setup hash mismatch' }
+          $dir = Join-Path $env:RUNNER_TEMP 'inno'
+          $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/PORTABLE=1', "/DIR=$dir" -Wait -PassThru
+          if ($p.ExitCode) { throw "Inno Setup install failed ($($p.ExitCode))" }
+          "ISCC=$dir\ISCC.exe" >> $env:GITHUB_ENV
+
+      - name: build (PyInstaller + Inno Setup)
+        run: ./instalador/build.ps1 -Iscc $env:ISCC
+
+      # Signing: off (ADR-025, decision 4). Turned on only with a certificate in repository
+      # secrets, reviewed in its own ADR.
+      - name: sign (off)
+        if: ${{ false }}
+        run: throw 'signing is not configured'
+
+      - name: scan the package (PyInstaller archive, zips, installer)
+        run: uv --directory app run --frozen --group build python ../instalador/varrer.py dist
+
+      - name: gitleaks (package directory)
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'gitleaks.zip'
+          Invoke-WebRequest "https://github.com/gitleaks/gitleaks/releases/download/v$env:GITLEAKS_VERSION/gitleaks_${env:GITLEAKS_VERSION}_windows_x64.zip" -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $env:GITLEAKS_SHA256) { throw 'gitleaks hash mismatch' }
+          Expand-Archive $zip (Join-Path $env:RUNNER_TEMP 'gitleaks')
+          & (Join-Path $env:RUNNER_TEMP 'gitleaks\gitleaks.exe') dir app/dist --redact --verbose --exit-code 1
+          if ($LASTEXITCODE) { throw "gitleaks found something ($LASTEXITCODE)" }
+
+      - name: install, check and uninstall
+        run: ./instalador/testar.ps1 -Setup "app/dist/itc-bench-${{ steps.versao.outputs.valor }}-setup.exe" -Versao ${{ steps.versao.outputs.valor }}
+
+      - name: Inno logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: inno-logs
+          path: ${{ runner.temp }}/inno-logs
+          retention-days: 7
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: itc-bench-${{ steps.versao.outputs.valor }}
+          path: |
+            app/dist/itc-bench-*-setup.exe
+            app/dist/SHA256SUMS
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artefato
+          pattern: itc-bench-*
+          merge-multiple: true
+      - name: draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" artefato/* --repo "$GITHUB_REPOSITORY"
+          --draft --verify-tag --title "ITC Bench ${GITHUB_REF_NAME#v}"
+          --notes "Instalador e SHA256SUMS gerados pelo app-build. Conferir o SHA-256 antes de instalar."
