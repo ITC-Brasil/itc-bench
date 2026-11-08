@@ -53,13 +53,17 @@ Conferir 'atalho só no Menu Iniciar' ((Test-Path "${env:ProgramData}\Microsoft\
 # 3. ACL: além de SYSTEM, Administradores, TrustedInstaller e CREATOR OWNER, ninguém grava.
 $confiaveis = @('S-1-5-18', 'S-1-5-32-544', 'S-1-3-0',
     'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
-$escrita = 'Write|Modify|FullControl|Delete|ChangePermissions|TakeOwnership|CreateFiles|AppendData|CreateDirectories'
+# Mesma máscara de nucleo/instalacao.py: gravar, anexar, EA, apagar filho, atributos, DELETE,
+# WRITE_DAC, WRITE_OWNER, GENERIC_ALL e GENERIC_WRITE (os genéricos aparecem como número).
+$escrita = 0x2 -bor 0x4 -bor 0x10 -bor 0x40 -bor 0x100 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000 -bor 0x40000000
 $itens = @((Get-Item (Split-Path $pasta)), (Get-Item $pasta)) + @(Get-ChildItem $pasta -Recurse -Force)
 $abertos = foreach ($item in $itens) {
-    foreach ($ace in (Get-Acl $item.FullName).Access) {
-        $sid = $ace.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
+    # Regras já em SID: SIDs de capacidade (ALL APPLICATION PACKAGES etc.) não traduzem para nome.
+    $regras = (Get-Acl $item.FullName).GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])
+    foreach ($ace in $regras) {
+        $sid = $ace.IdentityReference.Value
         if ($ace.AccessControlType -eq 'Allow' -and $sid -notin $confiaveis -and
-            "$($ace.FileSystemRights)" -match $escrita) { "$($item.Name): $sid" }
+            (([int64][int]$ace.FileSystemRights) -band $escrita)) { "$($item.Name): $sid" }
     }
 }
 Conferir "ACL sem escrita de terceiros ($($itens.Count) itens)" (-not $abertos)
