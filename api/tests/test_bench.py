@@ -221,6 +221,39 @@ def test_limite_por_usuario_atinge_e_libera(cliente, settings, fake, monkeypatch
     assert entrar(cliente).status_code == 200
 
 
+def test_tentativas_em_paralelo_nao_passam_do_limite(settings, fake):
+    """Module 14: check and count in one transaction; before, all parallel attempts reached GLPI."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    limite, n = 3, 8
+    barreira = threading.Barrier(n, timeout=2)
+    original = fake.handler
+
+    def lento(request):
+        if request.url.path == glpi.TOKEN:
+            try:
+                barreira.wait()  # every attempt that got past the check waits for the others
+            except threading.BrokenBarrierError:
+                pass
+        return original(request)
+
+    s = configurar(settings, bench_login_falhas_usuario=limite)
+    with TestClient(create_app(s, {"glpi": httpx.MockTransport(lento)}, lambda f: f())) as c:
+        with ThreadPoolExecutor(n) as pool:
+            codigos = list(pool.map(lambda _: entrar(c, senha="errada").status_code, range(n)))
+    assert codigos.count(401) == limite
+    assert codigos.count(429) == n - limite
+
+
+def test_glpi_fora_do_ar_nao_conta_tentativa(cliente, settings, fake):
+    fake.falha = "rede"
+    for _ in range(settings.bench_login_falhas_usuario + 1):
+        assert entrar(cliente).status_code == 503
+    fake.falha = None
+    assert entrar(cliente).status_code == 200
+
+
 def test_limite_por_ip_com_usuarios_diferentes(settings, fake, monkeypatch):
     s = configurar(settings, bench_login_falhas_ip=3)
     with TestClient(create_app(s, {"glpi": httpx.MockTransport(fake.handler)}, lambda f: f())) as c:

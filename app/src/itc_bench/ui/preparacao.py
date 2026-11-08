@@ -28,6 +28,7 @@ from itc_bench.servicos import contas, etapas, identificacao, perfis, retomada
 from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
 AJUDA = (
@@ -367,7 +368,7 @@ class PainelPreparacao(QWidget):
                 continue
             item.setText(1, prep.ROTULO[s.situacao])
             item.setText(2, s.detalhe)
-            item.setToolTip(2, s.detalhe)
+            item.setToolTip(2, txt.dica(s.detalhe))
             item.setForeground(1, QColor(COR[s.situacao]))
             if s.situacao in ("feito", "falhou", "bloqueada", "aguardando_reinicio"):
                 self._linha(f"{perfis.NOMES[eid]}: {prep.ROTULO[s.situacao]}. {s.detalhe}".strip())

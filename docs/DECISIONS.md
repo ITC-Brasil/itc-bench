@@ -1597,3 +1597,65 @@ Desenho proposto e aprovado com ajustes em `.conversa/` em 06/11/2026.
 **Consequences**
 O responsável preenche `Unidades.PerfilPadrao` com o id do perfil. Os cenários de escrita ficam
 para a máquina real com o instalador.
+
+## ADR-024 — Revisão do Módulo 14: caminhos sem ambiente do usuário, texto puro único, `--dev` só leitura e riscos aceitos consolidados
+
+**Status:** Accepted
+**Date:** 2026-11-07
+**Module:** 14
+
+**Context**
+A revisão transversal do Módulo 14 (`docs/security/2026-11-07-modulo-14.md`) achou regras que só
+valiam em parte do código e deu destino às pendências informativas das auditorias de 00 a 13 que
+estavam sem ADR nem tarefa. Nenhuma tela ou regra de produto nova.
+
+**Decision**
+1. **Pastas da máquina sem o ambiente do usuário.** `%ProgramData%` e a raiz dos perfis vêm de
+   `HKLM\...\ProfileList` (`ProgramData`, `ProfilesDirectory`), com `%SystemDrive%` trocado pela
+   unidade de `GetSystemWindowsDirectoryW`; outra variável no valor é recusada.
+   `PROGRAMDATA`, `SystemDrive` e o próprio `SHGetKnownFolderPath` seguem variáveis de
+   `HKCU\Environment`, que valem no processo elevado da mesma conta. Vale para todas as pastas
+   de `protegido\`, para a Inicializar das sobras do Configurador e para a lista de perfis do
+   Diagnóstico. `%LOCALAPPDATA%` (preferências, sem segredo) continua pelo ambiente.
+2. **Texto puro num lugar só.** Caixa de mensagem estática do Qt e dica (`setToolTip`) usam rich
+   text automático; dado que não é constante do código passa por `ui/texto.py` (`aviso` em texto
+   puro, `dica` com o dado escapado). `test_texto_puro.py` barra `QMessageBox.warning()` e afins,
+   `setHtml`, `setMarkdown` e dica não constante fora do helper.
+3. **`--dev` nunca altera a máquina**, nem de um terminal elevado (`elevacao.modo_admin`): os
+   ADR-017 a 023 já diziam "`--dev`: só leitura", mas valia só sem elevação.
+4. **Propriedades MSI que carregam outro arquivo** (`TRANSFORMS`, `PATCH`, `MSIPATCHREMOVE`,
+   `SOURCELIST`) são recusadas em `Argumentos`: o arquivo apontado não passa pelo SHA-256 do
+   Bench (ADR-019/020).
+5. **Lista fechada de quem fala com a API do Windows fora do executor** (`winreg`/`ctypes`), com
+   motivo por módulo, em `test_invariantes.py`. Entrou `nucleo/caminhos.py` (item 1).
+6. **Riscos aceitos consolidados** (informativos das auditorias, sem mudança de código):
+   - corrida antes do Job Object (02);
+   - texto da senha no `QLineEdit` até ser limpo (04);
+   - cancelar a espera do laudo não aborta o HTTP; o timeout do cliente encerra (06);
+   - senha em memória como `str` (07, 08);
+   - formas cifradas do RustDesk/AnyDesk reversíveis por administrador local (09);
+   - chave do RustDesk é segredo fraco por desenho do produto (09);
+   - desinstalador só interativo roda como administrador, com aviso e confirmação (10);
+   - janela com dono Administradores durante a proteção do utilman/sethc (12);
+   - "Restaurar original" confia no WinSxS (12);
+   - corrida residual na Limpeza entre a checagem da cadeia e a abertura da pasta (13);
+   - atributo `Normal` posto num hard link criado pelo aluno para arquivo em que ele já grava (13).
+7. **Mantidos como estão (verificados no 14):** segredos de todas as unidades sem `?unidade=`
+   (ADR-014) e senha Suporte igual em todos os notebooks (ADR-017), com senha por máquina (LAPS)
+   como tarefa futura; histórico de qualquer hostname com sessão ou token (ADR-016, TA-ADR das
+   duas rotas); link simbólico de registro em `HKCU\Software\Policies` não é possível ao aluno
+   (dono Administradores, só leitura para o usuário) e em chaves de preferência não dá ganho.
+
+**Alternatives considered**
+- `SHGetKnownFolderPath(FOLDERID_ProgramData)` — testado: com `SystemDrive` trocado no ambiente,
+  falha ou devolve o caminho desviado.
+- Corrigir só a pasta Inicializar (item 40 do inventário) — as pastas de 05, 10, 12 e 13 vinham
+  da mesma variável.
+- `setTextFormat` em cada caixa e dica tela a tela — já existia em parte e divergiu; um helper e
+  um teste não deixam voltar.
+- Um ADR por risco aceito — espalha o que é uma decisão só (fechar o 14).
+
+**Consequences**
+Desenvolver com `--dev` não exercita escrita; teste de escrita fica nos testes automatizados com
+executor falso e no roteiro de máquina real (`docs/testes/maquina-real.md`). Mensagens de erro
+com `<` passam a aparecer literalmente.

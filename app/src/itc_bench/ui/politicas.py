@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from itc_bench.servicos import contas, politicas
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
 _COMUM = (
@@ -245,8 +246,8 @@ class PainelPoliticas(QWidget):
             )
             texto = _situacao(self.leitura, p, alvos_) if self.leitura else ""
             item = QTreeWidgetItem([p.nome, escopo, texto])
-            item.setToolTip(0, p.descricao)
-            item.setToolTip(2, texto)
+            item.setToolTip(0, txt.dica(p.descricao))
+            item.setToolTip(2, txt.dica(texto))
             self.itens[p.id] = item
             if not self.usb:
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)

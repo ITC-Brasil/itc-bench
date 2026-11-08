@@ -29,3 +29,9 @@ def test_pedir_elevacao_chama_runas():
         assert params.endswith('"a b"')
         windll.shell32.ShellExecuteW.return_value = 5  # recusado
         assert not elevacao.pedir_elevacao(["itc-bench"])
+
+
+def test_dev_elevado_roda_sem_admin():
+    assert elevacao.modo_admin(["itc-bench"], True)
+    assert not elevacao.modo_admin(["itc-bench", "--dev"], True)
+    assert not elevacao.modo_admin(["itc-bench"], False)

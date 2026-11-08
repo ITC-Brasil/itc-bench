@@ -21,6 +21,7 @@ from itc_bench.servicos.fila import NOME as NOME_FILA
 from itc_bench.servicos.fila import Fila
 from itc_bench.servicos.offline import Cofre
 from itc_bench.ui import tema
+from itc_bench.ui import texto as txt
 from itc_bench.ui.janela import Janela
 from itc_bench.ui.log_qt import HandlerTela
 
@@ -29,10 +30,11 @@ def _excecao(tipo: type[BaseException], valor: BaseException, rastro: TracebackT
     """Exceção não tratada: traceback no log e mensagem na tela."""
     log.critical("Erro não tratado.", exc_info=(tipo, valor, rastro))
     _ = QApplication.instance() or QApplication(sys.argv)
-    QMessageBox.critical(
+    txt.aviso(
         None,
         "ITC Bench",
         f"Erro inesperado: {valor}\n\nDetalhes em bench.log, na pasta de logs do ITC Bench.",
+        QMessageBox.Icon.Critical,
     )
 
 
@@ -43,15 +45,16 @@ def main() -> int:
         if elevacao.pedir_elevacao(argv):
             return 0
         app = QApplication(argv)
-        QMessageBox.critical(
+        txt.aviso(
             None,
             "ITC Bench",
             "O ITC Bench precisa de privilégios de administrador.\n\n"
             "A elevação foi recusada. Abra o programa de novo e aceite o aviso do Windows.",
+            QMessageBox.Icon.Critical,
         )
         return 1
 
-    admin = elevacao.eh_admin()
+    admin = elevacao.modo_admin(argv, elevacao.eh_admin())
     erro_acl: acl.ErroAcl | None = None
     try:
         caminhos.inicializar(admin)
@@ -77,7 +80,7 @@ def main() -> int:
     app = QApplication(argv)
     tema.aplicar(app)
     if erro_acl:
-        QMessageBox.warning(None, "ITC Bench", f"{erro_acl}\n\nDetalhes em {arquivo}.")
+        txt.aviso(None, "ITC Bench", f"{erro_acl}\n\nDetalhes em {arquivo}.")
     dev = "--dev" in argv
     base = api.endereco(dev)
     if base:
@@ -85,7 +88,7 @@ def main() -> int:
             base = api.validar(base, dev)
         except ValueError as erro:
             log.error("Endereço da API recusado: %s", erro)
-            QMessageBox.warning(None, "ITC Bench", f"{erro}\n\nO login só funciona offline.")
+            txt.aviso(None, "ITC Bench", f"{erro}\n\nO login só funciona offline.")
             base = None
     else:
         log.warning("Endereço da API não configurado; só o login offline funciona.")

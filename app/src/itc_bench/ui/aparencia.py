@@ -32,6 +32,7 @@ from itc_bench.servicos import contas, energia, executor, hive
 from itc_bench.servicos import papel_de_parede as pp
 from itc_bench.servicos.cadastros import Cadastros, Instalador
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
 _ALVOS = (
@@ -495,7 +496,7 @@ class PainelMouse(_PainelAlvos):
         for aid, item in self.itens.items():
             texto = self._texto(aid, alvos_)
             item.setText(2, texto)
-            item.setToolTip(2, texto)
+            item.setToolTip(2, txt.dica(texto))
 
     def confirmacao(self, acao: hive.Acao, alvos_: Sequence[hive.Alvo]) -> str | None:
         escolhas = self.escolhas()

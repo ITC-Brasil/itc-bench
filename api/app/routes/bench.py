@@ -101,39 +101,52 @@ def login(entrada: Login, request: Request):
     chave_usuario, chave_ip = f"u:{ref}", f"ip:{ip}"
     janela_atual, restante = janela(agora)
 
-    # Checked before GLPI: a locked user never reaches it. ponytail: check and count are two
-    # transactions, so parallel attempts can pass the limit by a few; one lock per key if needed.
+    # Checked before GLPI: a locked user never reaches it. Check and reserve in one BEGIN
+    # IMMEDIATE (Module 14): parallel attempts cannot pass the limit. The lock is not held
+    # during the GLPI call; the reserved attempt is given back when GLPI accepts or is down.
     conn = db.connect(settings.database_path)
     try:
-        contagens = dict(
-            conn.execute(
-                "SELECT chave, contagem FROM bench_login_tentativas WHERE janela = ? AND chave IN (?, ?)",
-                (janela_atual, chave_usuario, chave_ip),
-            ).fetchall()
-        )
+        with db.immediate(conn):
+            contagens = dict(
+                conn.execute(
+                    "SELECT chave, contagem FROM bench_login_tentativas WHERE janela = ? AND chave IN (?, ?)",
+                    (janela_atual, chave_usuario, chave_ip),
+                ).fetchall()
+            )
+            bloqueado = (
+                contagens.get(chave_usuario, 0) >= settings.bench_login_falhas_usuario
+                or contagens.get(chave_ip, 0) >= settings.bench_login_falhas_ip
+            )
+            if not bloqueado:
+                conn.execute(COUNT, (chave_usuario, janela_atual))
+                conn.execute(COUNT, (chave_ip, janela_atual))
     finally:
         conn.close()
-    if (
-        contagens.get(chave_usuario, 0) >= settings.bench_login_falhas_usuario
-        or contagens.get(chave_ip, 0) >= settings.bench_login_falhas_ip
-    ):
+    if bloqueado:
         gravar(settings, auditoria(quando, ref, entrada.maquina, ip, "limite_excedido"))
         limite_atingido(request.app, ref, ip)
         raise Refusal(429, "limite_excedido", {"Retry-After": str(restante)})
 
-    falha = [(COUNT, (chave_usuario, janela_atual)), (COUNT, (chave_ip, janela_atual))]
+    def devolver(*chaves):
+        sql = "UPDATE bench_login_tentativas SET contagem = contagem - 1 WHERE chave = ? AND janela = ?"
+        return [*((sql, (c, janela_atual)) for c in chaves), ("DELETE FROM bench_login_tentativas WHERE contagem <= 0", ())]
+
     try:
         tecnico = glpi.autenticar(settings, usuario, entrada.senha, request.app.state.transports.get("glpi"))
     except glpi.CredenciaisInvalidas:
-        gravar(settings, *falha, auditoria(quando, ref, entrada.maquina, ip, "credenciais_invalidas"))
+        gravar(settings, auditoria(quando, ref, entrada.maquina, ip, "credenciais_invalidas"))
         raise Refusal(401, "credenciais_invalidas") from None
     except glpi.GlpiIndisponivel as erro:
-        gravar(settings, auditoria(quando, ref, entrada.maquina, ip, "glpi_indisponivel"))
+        gravar(
+            settings,
+            *devolver(chave_usuario, chave_ip),
+            auditoria(quando, ref, entrada.maquina, ip, "glpi_indisponivel"),
+        )
         log.warning("login sem GLPI (%s)", erro.code)
         raise Refusal(503, "glpi_indisponivel") from None
 
     if not tecnico.tem_perfil:
-        gravar(settings, *falha, auditoria(quando, tecnico.login, entrada.maquina, ip, "fora_do_perfil"))
+        gravar(settings, auditoria(quando, tecnico.login, entrada.maquina, ip, "fora_do_perfil"))
         raise Refusal(403, "fora_do_perfil")
 
     sessao = SESSAO_PREFIX + secrets.token_urlsafe(32)
@@ -146,6 +159,7 @@ def login(entrada: Login, request: Request):
             (hash_token(sessao), tecnico.login, tecnico.nome, tecnico.glpi_id, entrada.maquina, ip, quando, expira),
         ),
         ("DELETE FROM bench_login_tentativas WHERE chave = ?", (chave_usuario,)),
+        *devolver(chave_ip),
         auditoria(quando, tecnico.login, entrada.maquina, ip, "ok"),
         # Retention: old audit rows and sessions expired long ago.
         ("DELETE FROM bench_login_auditoria WHERE quando < strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)", (RETENCAO,)),
