@@ -2,11 +2,13 @@
 
 import getpass
 import html
+import os
 import socket
 import threading
 from datetime import UTC, datetime
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -23,8 +25,9 @@ from PySide6.QtWidgets import (
 )
 
 from itc_bench import __version__
+from itc_bench.nucleo import instalacao
 from itc_bench.nucleo.log import definir_tecnico, log
-from itc_bench.servicos import api, cadastros, coleta, contas, diagnostico, perfis
+from itc_bench.servicos import api, atualizacao, cadastros, coleta, contas, diagnostico, perfis
 from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
 from itc_bench.servicos.executor import Sensivel
@@ -42,6 +45,7 @@ from itc_bench.ui.aparencia import (
     PainelMouse,
     PainelPapel,
 )
+from itc_bench.ui.atualizacao import FaixaAtualizacao
 from itc_bench.ui.configuracoes import AJUDA as AJUDA_CONFIGURACOES
 from itc_bench.ui.configuracoes import PainelConfiguracoes
 from itc_bench.ui.contas import AJUDA as AJUDA_CONTAS
@@ -199,8 +203,11 @@ class Janela(QMainWindow):
         armazem: Armazem | None = None,
         admin: bool = False,
         fila: Fila | None = None,
+        atualizar: bool = False,
     ) -> None:
         super().__init__()
+        # Atualização (ADR-026): só elevado, fora de --dev e --teste (que não alteram a máquina).
+        self.atualizar = atualizar and admin
         self.fila = fila or Fila(None)
         self.base = base
         self.admin = admin
@@ -267,7 +274,17 @@ class Janela(QMainWindow):
         rolagem.setFrameShape(QFrame.Shape.NoFrame)
         rolagem.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         h.addWidget(rolagem)
-        h.addWidget(self.pilha, 1)
+        # Faixa da atualização (ADR-026) acima de todas as telas.
+        self.faixa = FaixaAtualizacao()
+        self.faixa.fechar_agora.connect(self.close)
+        self.oferta: atualizacao.Oferta | None = None
+        direita = QVBoxLayout()
+        direita.setContentsMargins(0, 0, 0, 0)
+        direita.setSpacing(0)
+        direita.addWidget(self.faixa)
+        direita.addWidget(self.pilha, 1)
+        h.addLayout(direita, 1)
+        self._atualizacao_guardada()
 
         # Entrar cobre tudo antes do login e no bloqueio; o conteúdo (e as tarefas) seguem vivos.
         self.entrar = TelaEntrar(base, cofre, maquina or socket.gethostname())
@@ -520,6 +537,7 @@ class Janela(QMainWindow):
             self.sincronia.start()
             self.sincronizar()
             self.reenviar_fila()
+            self.procurar_atualizacao()
         else:
             self.sincronia.stop()
             self.cadastros_offline = True
@@ -527,6 +545,63 @@ class Janela(QMainWindow):
         self.coleta.atualizar_estado()
         self.historico.atualizar()
         self._mostrar_conteudo()
+
+    def _atualizacao_guardada(self) -> None:
+        """Ao abrir: só elevado (a pasta é protegida). Vale offline (assinatura local)."""
+        if not self.atualizar:
+            return
+        try:
+            if aviso := atualizacao.situacao_no_inicio():
+                log.warning("%s", aviso)
+                self.faixa.aviso(aviso)
+            self.oferta = atualizacao.guardada()
+        except OSError as erro:
+            log.error("Atualização: pasta ilegível (%s).", erro)
+            return
+        if self.oferta is not None:
+            self.faixa.mostrar(self.oferta)
+
+    def procurar_atualizacao(self) -> None:
+        """Depois do login online: consulta e baixa em segundo plano (decisão 5)."""
+        sessao = self.sessao_online()
+        if not self.atualizar or sessao is None:
+            return
+        base, token, _ = sessao
+
+        def trabalho() -> atualizacao.Oferta | None:
+            oferta = atualizacao.consultar(base, token)
+            atualizacao.limpar(manter=oferta)
+            if oferta is not None:
+                atualizacao.baixar(base, token, oferta)
+            return oferta
+
+        tarefa.iniciar(trabalho, self._atualizacao_pronta, self._atualizacao_falhou)
+
+    def _atualizacao_pronta(self, oferta: atualizacao.Oferta | None) -> None:
+        if oferta is None:
+            return
+        self.oferta = oferta
+        self.faixa.mostrar(oferta)
+
+    def _atualizacao_falhou(self, motivo: str) -> None:
+        log.warning("Atualização não oferecida: %s", motivo)
+
+    def closeEvent(self, evento: QCloseEvent) -> None:
+        oferta = self.oferta
+        if oferta is not None and (self.faixa.confirmada or oferta.obrigatoria):
+            preparando = bool(getattr(self.preparacao, "ocupado", False))
+            motivo = atualizacao.motivo_para_nao_instalar(preparando)
+            if motivo:
+                txt.aviso(self, "ITC Bench", f"{motivo}\n\nO Bench fecha sem atualizar.")
+            else:
+                try:
+                    atualizacao.instalar_ao_fechar(
+                        oferta, os.getpid(), preparando, soltar_mutex=instalacao.soltar_mutex
+                    )
+                except (OSError, ValueError) as erro:
+                    log.error("Atualização não disparada: %s", erro)
+                    txt.aviso(self, "ITC Bench", f"A atualização não foi iniciada.\n\n{erro}")
+        super().closeEvent(evento)
 
     def _destravou(self) -> None:
         log.info("Bench destravado por %s.", self.entrada.login if self.entrada else "-")

@@ -5,6 +5,7 @@ itc-bench --dev      sem administrador, para desenvolver
 itc-bench --teste    abre, escreve no log e fecha sozinho
 """
 
+import os
 import sys
 from types import TracebackType
 
@@ -15,8 +16,9 @@ from itc_bench import __version__
 from itc_bench.nucleo import acl, caminhos, elevacao, instalacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
-from itc_bench.servicos import api
+from itc_bench.servicos import api, atualizacao
 from itc_bench.servicos.cadastros import Armazem
+from itc_bench.servicos.executor import Sensivel
 from itc_bench.servicos.fila import NOME as NOME_FILA
 from itc_bench.servicos.fila import Fila
 from itc_bench.servicos.offline import Cofre
@@ -86,8 +88,11 @@ def main() -> int:
     )
     if retirados:
         log.warning("Variáveis do ambiente ignoradas: %s", ", ".join(retirados))
-    if falhas := instalacao.criar_mutex():
-        log.info("Mutex não criado: %s", ", ".join(falhas))
+    estado_mutex = instalacao.criar_mutex(admin)
+    if estado_mutex == "alheio":
+        log.warning("Outro usuário ocupa o nome do mutex do Bench; ignorado (ADR-026).")
+    elif estado_mutex != "criado":
+        log.info("Mutex do Bench não criado (%s).", estado_mutex)
     if erro_pasta:
         log.error("Pasta de instalação recusada: %s", erro_pasta)
         if "--dev" not in argv:
@@ -106,6 +111,8 @@ def main() -> int:
         except OSError as erro:
             log.error("Recursos do pacote incompletos: %s", erro)
             return 4
+    if "--teste-atualizacao" in argv:
+        return _teste_atualizacao(admin and not erro_acl)
     if not admin:
         log.info("Sem administrador: ACL de %s não aplicado.", caminhos.dados().parent)
     elif erro_acl:
@@ -137,7 +144,8 @@ def main() -> int:
         log.info("Cache dos cadastros só em memória (sem administrador ou sem pasta protegida).")
     # Fila dos diagnósticos não enviados (ADR-015): mesma regra do cache.
     fila = Fila(caminhos.protegida() / NOME_FILA if protegida_ok else None)
-    janela = Janela(tela, base, cofre, armazem=armazem, admin=admin, fila=fila)
+    atualizar = protegida_ok and not dev and "--teste" not in argv
+    janela = Janela(tela, base, cofre, armazem=armazem, admin=admin, fila=fila, atualizar=atualizar)
     janela.show()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")
@@ -145,6 +153,43 @@ def main() -> int:
     codigo = app.exec()
     log.info("Encerrado com código %s.", codigo)
     return codigo
+
+
+def _teste_atualizacao(protegida_ok: bool) -> int:
+    """CI (ADR-026): consulta, baixa e "fecha" sem janela, com a sessão falsa de teste.
+
+    A API real responde 401 a essa sessão, e nada roda sem manifesto assinado pelas chaves do
+    pacote. Sai 0 com o instalador disparado (ele espera este processo sair), 5 se recusou.
+    """
+    base = api.endereco(False)
+    if not protegida_ok or not base:
+        log.error("Teste de atualização: sem administrador, pasta protegida ou endereço.")
+        return 5
+    try:
+        base = api.validar(base, False)
+        oferta = atualizacao.consultar(base, Sensivel(atualizacao.SESSAO_TESTE))
+        atualizacao.limpar(manter=oferta)
+        if oferta is None:
+            log.error("Teste de atualização: nenhuma versão anunciada.")
+            return 5
+        atualizacao.baixar(base, Sensivel(atualizacao.SESSAO_TESTE), oferta)
+        pid = atualizacao.instalar_ao_fechar(
+            oferta, os.getpid(), False, soltar_mutex=instalacao.soltar_mutex
+        )
+    except (
+        atualizacao.Recusada,
+        api.SemConexao,
+        api.ErroApi,
+        api.Recusado,
+        OSError,
+        ValueError,
+    ) as erro:
+        log.error("Teste de atualização recusado: %s", erro)
+        return 5
+    if pid is None:
+        return 5
+    log.info("Teste de atualização: instalador disparado (PID %s).", pid)
+    return 0
 
 
 if __name__ == "__main__":

@@ -8,7 +8,9 @@ são encerrados.
 
 import base64
 import ctypes
+import hashlib
 import logging
+import msvcrt
 import os
 import re
 import subprocess
@@ -220,6 +222,81 @@ def powershell(
         codificacao="utf-8",
         descricao=f"PowerShell ({len(script)} caracteres): {script.strip().splitlines()[0][:80]}",
     )
+
+
+INSTALADOR_ATUALIZACAO = re.compile(r"setup-([0-9a-f]{64})\.exe")
+_GENERIC_READ = 0x80000000
+_FILE_SHARE_READ = 0x1
+_OPEN_EXISTING = 3
+_FILE_FLAG_OPEN_REPARSE_POINT = 0x200000
+_INVALIDO = ctypes.c_void_p(-1).value
+
+
+def disparar(argumentos: Sequence[str], pasta: PureWindowsPath | str) -> int:
+    r"""Inicia o instalador da atualização e não espera (emenda do ADR-011 no ADR-026).
+
+    Única exceção ao `executar`: o processo segue depois que o Bench sai, então fica fora do
+    Job Object e sem pipe. Continua valendo: lista de argumentos, caminho absoluto, sem shell,
+    ambiente limpo. Só aceita `pasta\setup-<sha256>.exe`; o arquivo é aberto sem
+    compartilhar escrita nem remoção, o hash é recalculado por esse handle e o processo é criado
+    com ele ainda aberto (o que roda é o que foi conferido). Devolve o PID.
+    """
+    if isinstance(argumentos, str | bytes):
+        raise TypeError("O comando é uma lista de argumentos, nunca texto.")
+    argumentos = list(argumentos)
+    if not argumentos or not all(isinstance(a, str) for a in argumentos):
+        raise TypeError("Argumentos têm que ser texto.")
+    programa = PureWindowsPath(argumentos[0])
+    nome = INSTALADOR_ATUALIZACAO.fullmatch(programa.name)
+    if not programa.is_absolute() or nome is None or programa.parent != PureWindowsPath(pasta):
+        raise ValueError("Só o instalador da atualização em protegido\\atualizacao é disparado.")
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    k32.CreateFileW.restype = wintypes.HANDLE
+    # Sem seguir reparse point: um link no lugar do arquivo é aberto como link e o hash falha.
+    handle = k32.CreateFileW(
+        str(programa),
+        _GENERIC_READ,
+        _FILE_SHARE_READ,
+        None,
+        _OPEN_EXISTING,
+        _FILE_FLAG_OPEN_REPARSE_POINT,
+        None,
+    )
+    if handle in (None, _INVALIDO):
+        raise OSError(ctypes.get_last_error(), "Instalador da atualização inacessível.")
+    arquivo = os.fdopen(msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY), "rb")
+    with arquivo:
+        h = hashlib.sha256()
+        while bloco := arquivo.read(1024 * 1024):
+            h.update(bloco)
+        if h.hexdigest() != nome.group(1):
+            raise ValueError("O instalador da atualização mudou depois de conferido.")
+        filho = {k: v for k, v in os.environ.items() if not k.upper().startswith("ITC_")}
+        windows = str(PureWindowsPath(sistema32("")).parent)
+        filho.update({k: windows for k in list(filho) if k.upper() in ("SYSTEMROOT", "WINDIR")})
+        filho.setdefault("SYSTEMROOT", windows)
+        processo = subprocess.Popen(  # noqa: S603 — lista, caminho absoluto conferido
+            argumentos,
+            shell=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=filho,
+            close_fds=True,
+            cwd=str(programa.parent),
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
+    log.info("Disparado sem espera (fora do Job): %s", subprocess.list2cmdline(argumentos))
+    return processo.pid
 
 
 def linha_de_comando(argumentos: Sequence[str]) -> str:
