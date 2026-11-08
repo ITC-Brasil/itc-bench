@@ -25,7 +25,7 @@ jobs:
         run: >
           docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "$PWD/api:/app" -w /app
           python:3.12.14-slim-trixie
-          sh -c "pip install -q --root-user-action=ignore -r requirements-dev.txt && pytest -q"
+          sh -c "pip install -q --root-user-action=ignore --require-hashes -r requirements-dev.txt && pytest -q"
 
       # Known vulnerabilities in the lock (Module 14): warning only, never blocks a deploy.
       - name: pip-audit (api, warning only)

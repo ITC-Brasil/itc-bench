@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
+# Lock com hash (TA-ADR-032): pacote com hash diferente do lock não instala.
+RUN pip install --no-cache-dir --root-user-action=ignore --require-hashes -r requirements.txt
 
 COPY app ./app
 
