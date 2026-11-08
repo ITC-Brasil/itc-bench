@@ -174,6 +174,12 @@ def test_sessao_logout_saude(base):
         ("http://127.0.0.1:8000", True, True),
         ("http://api.exemplo.invalid", True, False),
         ("file:///c:/x", True, False),
+        ("https://u:s@api.exemplo.invalid", False, False),
+        ("https://u@api.exemplo.invalid", False, False),
+        ("https://api.exemplo.invalid/?x=1", False, False),
+        ("https://api.exemplo.invalid/#x", False, False),
+        ("https://api.exemplo.invalid/a b", False, False),
+        ("https://api.exemplo.invalid/base", False, True),
     ],
 )
 def test_validar_endereco(url, dev, ok):
