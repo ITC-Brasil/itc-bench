@@ -10,10 +10,11 @@ foreach ($o in $ops) {
     if ($o.tipo -notin @('dword', 'sz', 'expand_sz')) { Falhar 'tipo' }
     if ($PERFIL -ceq 'aparencia' -and $o.chave -eq $CHAVE_PAPEL -and $o.acao -eq 'gravar') {
         # Papel de parede (ADR-022): só o caminho que o Bench monta, e o estilo da lista fechada.
+        # Nome: <sha>.<ext>, ou c<chave>.<sha>.<ext> sem SHA-256 no cadastro (ADR-028).
         if ($o.nome -eq 'WallpaperStyle' -and [string]$o.dado -cnotin @('0', '6', '10', '22')) { Falhar 'valor' }
         if ($o.nome -eq 'Wallpaper') {
             $pasta = [Environment]::GetFolderPath('CommonApplicationData') + '\ITC\Bench\papel\'
-            if ([string]$o.dado -notmatch ('^' + [regex]::Escape($pasta) + '[0-9a-f]{64}\.(jpg|jpeg|png)$')) { Falhar 'valor' }
+            if ([string]$o.dado -notmatch ('^' + [regex]::Escape($pasta) + '(c[0-9a-f]{64}\.)?[0-9a-f]{64}\.(jpg|jpeg|png)$')) { Falhar 'valor' }
             if (-not (Test-Path -LiteralPath ([string]$o.dado) -PathType Leaf)) { Falhar 'imagem' }
         }
     }
