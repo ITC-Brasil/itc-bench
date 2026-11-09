@@ -204,8 +204,10 @@ class Janela(QMainWindow):
         admin: bool = False,
         fila: Fila | None = None,
         atualizar: bool = False,
+        mutex_alheio: bool = False,
     ) -> None:
         super().__init__()
+        self.mutex_alheio = mutex_alheio
         # Atualização (ADR-026): só elevado, fora de --dev e --teste (que não alteram a máquina).
         self.atualizar = atualizar and admin
         self.fila = fila or Fila(None)
@@ -721,6 +723,7 @@ class Janela(QMainWindow):
             lambda: len(self.fila.itens()),
             lambda: self.preparacao.perfil_da_unidade()[0],
             lambda: self.preparacao.andamento,
+            mutex_alheio=self.mutex_alheio,
         )
         self.inicio.abrir.connect(self._abrir_do_inicio)
         self.inicio.criticos.connect(self._selo_alertas)
