@@ -177,24 +177,129 @@ def conferir_instalacao() -> None:
 
 
 _mutexes: list[int] = []
+# Só SYSTEM e Administradores abrem o mutex do Bench; o dono vem do token elevado (BA).
+SDDL_MUTEX = "D:P(A;;GA;;;SY)(A;;GA;;;BA)"
+_ERROR_ALREADY_EXISTS = 183
+_SE_KERNEL_OBJECT = 6
+_OWNER_SECURITY_INFORMATION = 1
+_SYNCHRONIZE_READ_CONTROL = 0x00100000 | 0x00020000
+_WIN_LOCAL_SYSTEM = 22
+_WIN_BUILTIN_ADMINISTRATORS = 26
 
 
-def criar_mutex() -> list[str]:
-    """Mutex que o instalador espera (`AppMutex`) enquanto o Bench está aberto.
+class _Atributos(ctypes.Structure):
+    _fields_ = (
+        ("nLength", ctypes.c_ulong),
+        ("lpSecurityDescriptor", ctypes.c_void_p),
+        ("bInheritHandle", ctypes.c_int),
+    )
 
-    `Global\\` exige `SeCreateGlobalPrivilege` (administradores têm); sem ele fica só o local.
-    Devolve os nomes que não puderam ser criados.
-    """
+
+def _k32() -> ctypes.WinDLL:
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     k32.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p)
     k32.CreateMutexW.restype = ctypes.c_void_p
-    falhas = []
-    for nome in (MUTEX, f"Global\\{MUTEX}"):
-        if handle := k32.CreateMutexW(None, 0, nome):
-            _mutexes.append(handle)
-        else:
-            falhas.append(nome)
-    return falhas
+    k32.OpenMutexW.argtypes = (ctypes.c_ulong, ctypes.c_int, ctypes.c_wchar_p)
+    k32.OpenMutexW.restype = ctypes.c_void_p
+    k32.CloseHandle.argtypes = (ctypes.c_void_p,)
+    k32.LocalFree.argtypes = (ctypes.c_void_p,)
+    return k32
+
+
+def _dono_administrador(handle: int) -> bool:
+    """Dono do objeto é Administradores ou SYSTEM (mesma regra do `[Code]` do instalador)."""
+    adv = ctypes.WinDLL("advapi32", use_last_error=True)
+    adv.GetSecurityInfo.argtypes = (
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_void_p),
+    )
+    adv.IsWellKnownSid.argtypes = (ctypes.c_void_p, ctypes.c_int)
+    dono, descritor = ctypes.c_void_p(), ctypes.c_void_p()
+    erro = adv.GetSecurityInfo(
+        handle,
+        _SE_KERNEL_OBJECT,
+        _OWNER_SECURITY_INFORMATION,
+        ctypes.byref(dono),
+        None,
+        None,
+        None,
+        ctypes.byref(descritor),
+    )
+    if erro:
+        return False
+    try:
+        return any(
+            adv.IsWellKnownSid(dono, tipo)
+            for tipo in (_WIN_BUILTIN_ADMINISTRATORS, _WIN_LOCAL_SYSTEM)
+        )
+    finally:
+        _k32().LocalFree(descritor)
+
+
+def mutex_de_administrador(nome: str = rf"Global\{MUTEX}") -> bool:
+    r"""O Bench elevado está aberto? Só conta mutex que abre com `READ_CONTROL` e dono BA/SY.
+
+    Usuário comum consegue criar `Global\ITCBench` (prova no runner, Módulo 16); esse fica
+    ignorado aqui e no instalador.
+    """
+    k32 = _k32()
+    handle = k32.OpenMutexW(_SYNCHRONIZE_READ_CONTROL, 0, nome)
+    if not handle:
+        return False
+    try:
+        return _dono_administrador(handle)
+    finally:
+        k32.CloseHandle(handle)
+
+
+def criar_mutex(admin: bool = True) -> str:
+    r"""Mutex `Global\ITCBench` que o instalador confere (ADR-026) enquanto o Bench está aberto.
+
+    Só elevado: sem administrador o mutex não teria dono BA e o instalador o ignoraria. Se o nome
+    já estiver ocupado por outro usuário, avisa e segue (a atualização se apoia no `/ESPERAPID`).
+    Devolve o estado para o log: "criado", "sem_admin", "alheio" ou "falhou".
+    """
+    if not admin:
+        return "sem_admin"
+    k32 = _k32()
+    adv = ctypes.WinDLL("advapi32", use_last_error=True)
+    adv.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = (
+        ctypes.c_wchar_p,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.c_void_p,
+    )
+    descritor = ctypes.c_void_p()
+    if not adv.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        SDDL_MUTEX, 1, ctypes.byref(descritor), None
+    ):
+        return "falhou"
+    atributos = _Atributos(ctypes.sizeof(_Atributos), descritor.value, 0)
+    try:
+        handle = k32.CreateMutexW(ctypes.byref(atributos), 0, rf"Global\{MUTEX}")
+        ultimo = ctypes.get_last_error()
+    finally:
+        k32.LocalFree(descritor)  # o kernel copiou o descritor
+    if not handle:
+        return "alheio" if ultimo == 5 else "falhou"
+    if ultimo == _ERROR_ALREADY_EXISTS and not _dono_administrador(handle):
+        k32.CloseHandle(handle)
+        return "alheio"
+    _mutexes.append(handle)
+    return "criado"
+
+
+def soltar_mutex() -> None:
+    """Antes de disparar a atualização: o instalador não pode ver o Bench que está saindo."""
+    k32 = _k32()
+    while _mutexes:
+        k32.CloseHandle(_mutexes.pop())
 
 
 def ler_recursos(raiz: Traversable | None = None) -> int:

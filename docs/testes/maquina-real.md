@@ -1,6 +1,6 @@
 # Roteiro de máquina real — ITC Bench
 
-Roteiro único dos cenários que alteram a máquina (Módulos 01 e 04 a 15). Executado **depois do
+Roteiro único dos cenários que alteram a máquina (Módulos 01 e 04 a 16). Executado **depois do
 Módulo 15** (instalador) e **antes da primeira release com instalador** (decisão do responsável no
 Módulo 14). Situação de todos os passos: **Pendente (máquina real, com o instalador)**.
 
@@ -167,6 +167,22 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 11.2 | Registro e Exportar | Arquivo sem nome de máquina, contas nem caminho de perfil | 13/V8 |
 | 11.3 | Ajuda com busca em todas as telas | Resultados e "?" em toda tela | 13/V9 |
 | 11.4 | `findstr /s /i` pelos marcadores no `bench.log` (todos os rotacionados), em `%TEMP%`, `protegido\` e na pasta do serviço do RustDesk | Nenhuma senha; sem SSID, host, SID, nome de conta ou caminho de perfil no log | 07/V8, 08/V8, 09/V10, 10/V10, 11/V12, 12/V11 |
+
+### 13. Atualização automática (Módulo 16)
+
+Com a API publicando uma versão de teste maior que a instalada (`docs/BUILD.md`, "Publicar uma
+versão"), assinada com a chave principal real, e o notebook já preparado nos passos anteriores.
+
+| # | Passo | Esperado | Origem |
+|---|---|---|---|
+| 13.1 | Entrar online pelo túnel | Faixa com a versão e as notas; `protegido\atualizacao\setup-<hash>.exe` | 16/V9 |
+| 13.2 | "Instalar ao fechar" e fechar | UAC não aparece de novo; o instalador espera o Bench sair; ao abrir, versão nova no rodapé e em Aplicativos | 16/V9 |
+| 13.3 | Conferir `ApiUrl`, login offline e `protegido\` | Mantidos | 16/V9 |
+| 13.4 | Com retomada pendente (passo 3), confirmar e fechar | Aviso; nada instalado | 16/V10 |
+| 13.5 | Usuário comum logado em outra sessão, com o Bench do técnico fechado | Atualização não trava | 16/V11 |
+| 13.6 | `minima` acima da instalada | Faixa obrigatória, sem "Agora não" | 16/V12 |
+| 13.7 | SmartScreen e UAC no instalador baixado | "Editor desconhecido" (ADR-025) | 15 |
+| 13.8 | `findstr /s /i` pelo endereço da API e pelo token no `bench.log` | Nenhum token; endereço só no log do Inno | 16/V13 |
 
 ### 12. Rodada em Windows Home e em inglês (se houver máquina)
 

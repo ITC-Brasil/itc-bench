@@ -150,5 +150,28 @@ def test_recursos_vazio(tmp_path):
         i.ler_recursos(tmp_path)
 
 
-def test_mutex():
-    assert "ITCBench" not in i.criar_mutex()
+def test_mutex_sem_admin_nao_cria():
+    assert i.criar_mutex(admin=False) == "sem_admin"
+
+
+def test_mutex_de_usuario_comum_e_ignorado():
+    """Como o aluno no runner (Módulo 16): o nome existe, mas o dono não é BA/SY."""
+    import ctypes
+    import secrets
+
+    nome = rf"Local\ITCBenchTeste{secrets.token_hex(4)}"
+    k32 = i._k32()
+    handle = k32.CreateMutexW(None, 0, nome)  # DACL padrão do token do pytest
+    try:
+        assert handle
+        assert i.mutex_de_administrador(nome) is i._dono_administrador(handle)
+        assert i.mutex_de_administrador(nome + "x") is False  # inexistente
+    finally:
+        k32.CloseHandle(handle)
+    assert ctypes.sizeof(i._Atributos) in (12, 24)
+
+
+def test_soltar_mutex_esvazia():
+    i._mutexes.append(i._k32().CreateMutexW(None, 0, None))
+    i.soltar_mutex()
+    assert i._mutexes == []

@@ -50,25 +50,9 @@ Conferir 'varredura da árvore instalada' ($LASTEXITCODE -eq 0)
 Conferir 'atalho só no Menu Iniciar' ((Test-Path "${env:ProgramData}\Microsoft\Windows\Start Menu\Programs\ITC Bench.lnk") -and
     -not (Test-Path "${env:PUBLIC}\Desktop\ITC Bench.lnk"))
 
-# 3. ACL: além de SYSTEM, Administradores, TrustedInstaller e CREATOR OWNER, ninguém grava.
-$confiaveis = @('S-1-5-18', 'S-1-5-32-544', 'S-1-3-0',
-    'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
-# Mesma máscara de nucleo/instalacao.py: gravar, anexar, EA, apagar filho, atributos, DELETE,
-# WRITE_DAC, WRITE_OWNER, GENERIC_ALL e GENERIC_WRITE (os genéricos aparecem como número).
-$escrita = 0x2 -bor 0x4 -bor 0x10 -bor 0x40 -bor 0x100 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000 -bor 0x40000000
-$itens = @((Get-Item (Split-Path $pasta)), (Get-Item $pasta)) + @(Get-ChildItem $pasta -Recurse -Force)
-$abertos = foreach ($item in $itens) {
-    # Regras já em SID: SIDs de capacidade (ALL APPLICATION PACKAGES etc.) não traduzem para nome.
-    $regras = (Get-Acl $item.FullName).GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])
-    foreach ($ace in $regras) {
-        $sid = $ace.IdentityReference.Value
-        if ($ace.AccessControlType -eq 'Allow' -and $sid -notin $confiaveis -and
-            (([int64][int]$ace.FileSystemRights) -band $escrita)) { "$($item.Name): $sid" }
-    }
-}
-Conferir "ACL sem escrita de terceiros ($($itens.Count) itens)" (-not $abertos)
-$abertos | Select-Object -First 5 | ForEach-Object { Write-Host "      $_" }
-Conferir 'sem ponto de reparse' (-not ($itens | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }))
+# 3. ACL e reparse da pasta (conferir-acl.ps1).
+& (Join-Path $PSScriptRoot 'conferir-acl.ps1') -Pasta $pasta
+Conferir 'ACL sem escrita de terceiros e sem ponto de reparse' ($LASTEXITCODE -eq 0)
 
 # 4. Versão e registro.
 Conferir "versão do EXE = $Versao" ((Get-Item $exe).VersionInfo.ProductVersion -eq $Versao)
@@ -89,8 +73,9 @@ Conferir 'log: recursos lidos' ([bool]($log -match 'Recursos: \d+ arquivos lidos
 Conferir 'log: ambiente do usuário ignorado' ([bool]($log -match 'ignoradas: .*PYTHONPATH'))
 Conferir '--teste não aplicou ACL (só leitura)' ([bool]($log -match 'admin=False'))
 
-# 6. Com o Bench aberto, a atualização silenciosa recusa (AppMutex), sem matar o processo.
-$aberto = Start-Process $exe -ArgumentList '--dev' -PassThru
+# 6. Com o Bench (elevado) aberto, a atualização silenciosa recusa pelo mutex de Administradores
+#    (ADR-026), sem matar o processo. O runner já é administrador: abre sem UAC.
+$aberto = Start-Process $exe -PassThru
 Start-Sleep -Seconds 8
 Conferir 'atualização com o Bench aberto recusa' ((Instalar 'aberto' @()) -ne 0)
 Conferir 'Bench continua aberto' (-not $aberto.HasExited)

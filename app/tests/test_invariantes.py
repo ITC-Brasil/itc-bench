@@ -27,12 +27,14 @@ PS_PROIBIDOS = {
 # Quem chama a API do Windows direto, fora do executor, e por quê (critério do ADR-018).
 WINREG_CTYPES = {
     "nucleo/acl.py": "ACL e dono por SDDL (ADR-011): sem processo, sem texto do icacls",
+    "nucleo/assinatura.py": "ECDSA P-256 pela CNG, sem dependência nova (ADR-026)",
     "nucleo/caminhos.py": "ProgramData e perfis pelo HKLM, sem o ambiente do usuário (Módulo 14)",
     "nucleo/dpapi.py": "DPAPI: segredo nunca passa por processo (ADR-013/018)",
     "nucleo/elevacao.py": "IsUserAnAdmin e ShellExecuteW runas (Módulo 01)",
     "nucleo/instalacao.py": "DLL fora do PATH, mutex do instalador; ACL por acl.py (ADR-025)",
     "nucleo/wlan.py": "Wi-Fi pela wlanapi: senha fora de processo (ADR-018)",
     "servicos/api.py": "lê ApiUrl em HKLM (ADR-008)",
+    "servicos/atualizacao.py": "lê DisplayVersion do AppId em HKLM (ADR-026)",
     "servicos/cadastros.py": "lê e grava Unidade em HKLM (ADR-014)",
     "servicos/desinstalar.py": "CommandLineToArgvW, sem shell (ADR-020)",
     "servicos/executor.py": "o próprio executor: pasta de sistema e Job Object (ADR-011)",
