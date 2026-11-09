@@ -54,3 +54,13 @@ def test_confirmacao_sem_segredo(qtbot, monkeypatch):
         assert SENHA_RD not in texto and SENHA_AD not in texto and CHAVE not in texto
     glpi = p.confirmacao(remoto.dados(cad(tag=""), "GLPI Agent", "ABC01"), "Instalar", None)
     assert "Tag: sem tag" in glpi
+
+
+def test_confirmacao_sem_sha_cadastrado(qtbot, monkeypatch):
+    """ADR-028: linha sem SHA-256 é válida; a tela só indica, sem pedir ação."""
+    from dataclasses import replace
+
+    p = painel(qtbot, monkeypatch, admin=False)
+    d = remoto.dados(cad(), "RustDesk", "ABC01")
+    d = replace(d, instalador=replace(d.instalador, sha256=""))
+    assert "SHA-256: não cadastrado" in p.confirmacao(d, "Instalar", None)

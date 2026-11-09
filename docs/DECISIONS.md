@@ -1901,3 +1901,54 @@ ADR-008). Um instalador adulterado continua coberto pelo `SHA256SUMS` da Release
 técnico vai para o endereço embutido; trocar o servidor exige `/APIURL=` ou release nova. O
 responsável cria o environment `release` e o segredo `BENCH_API_URL` (`docs/BUILD.md`). O CI
 testa com endereços `.invalid` (`instalador/testar-endereco.ps1`).
+
+## ADR-028 — SHA256 opcional em Instaladores (`instalador`, `papel` e ícone de `webapp`)
+
+**Status:** Accepted
+**Date:** 2026-11-09
+**Module:** pós-16 (emenda aos ADR-019, ADR-020 e ADR-022)
+
+**Context**
+Os ADR-019, 020 e 022 exigem o SHA256 em toda linha de Instaladores que o Bench baixa. Para
+preencher o hash, alguém precisa baixar cada programa no escritório, e não faz sentido o técnico
+mandar ao escritório um hash gerado na própria máquina. O responsável decidiu que o SHA256 é
+opcional: linha sem hash é válida e instala normalmente, sem pedir ação de ninguém.
+
+**Decision**
+1. **Sem hash.** O link continua só `https://` (redirecionamento só para `https://`), com a
+   extensão conferida e, para `instalador`, a `Versao` obrigatória. O arquivo fica em
+   `c<chave>.<sha>.<ext>`: `chave = sha256("Id\nLink\nVersao")` e `sha` é o hash calculado no
+   download (ou na cópia de "Escolher arquivo…"). Se `Link` ou `Versao` mudarem, a chave muda, o
+   arquivo antigo não é reaproveitado e sai na limpeza.
+2. **Com hash.** Sem mudança: o arquivo fica em `<sha>.<ext>`, conferido no download, na cópia e
+   antes de executar. Divergiu, recusa. SHA256 preenchido e inválido continua recusado.
+3. **Conferência antes de executar** nos dois casos pelo hash do nome do arquivo
+   (`instaladores.conferir`). Uma troca do arquivo no cache continua recusada.
+4. **Registro.** O `bench.log` registra a linha sem hash (`Id`) e o começo do hash calculado. O
+   link continua fora do log, host inclusive: o host pode ser servidor interno, e o teste ponta a
+   ponta já barra o host do download no log. Na tela, só "SHA-256: não cadastrado" no texto secundário, sem
+   aviso nem pedido de ação.
+5. **API.** O `papel` deixa de exigir SHA256 (TA-ADR-034).
+6. A atualização do próprio Bench (manifesto ECDSA, ADR-026) continua obrigatória e não passa
+   por aqui.
+
+**Riscos aceitos**
+- Sem hash, a integridade depende do TLS do `https://`, de o host do link não estar
+  comprometido e do controle de quem edita Instaladores no NocoDB. Um link trocado no NocoDB, ou
+  um site de fabricante comprometido, faz o Bench executar outro binário como administrador.
+- "Escolher arquivo…" sem hash executa o arquivo que o técnico escolheu, sem conferência.
+- Continua protegido: troca do arquivo no cache (hash do nome conferido antes de executar), pasta
+  `protegido` só para SYSTEM e Administradores, teto de 300 MB, `https://` obrigatório.
+- **Mitigação opcional:** para programas sensíveis (RustDesk, AnyDesk), preencher o SHA256 põe a
+  linha de volta no modo estrito.
+
+**Alternatives considered**
+- Hash obrigatório (situação anterior): obriga a baixar cada programa no escritório.
+- Fixar no cadastro o hash do primeiro download do técnico: exige o técnico mandar o hash ao
+  escritório, que é o que se quis evitar.
+- Arquivo auxiliar com o hash ao lado do cache: mais um arquivo para manter; o nome já guarda o
+  hash.
+
+**Consequences**
+Cadastro mais simples; linhas sem hash ficam protegidas só pelo transporte e pelo controle de
+edição do NocoDB. O roteiro de máquina real ganha um cenário sem hash e um com hash divergente.

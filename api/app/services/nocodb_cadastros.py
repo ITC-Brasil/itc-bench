@@ -43,7 +43,7 @@ TABELAS = {
         ),
         "Programa",
     ),
-    "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "categoria", "Ativo", "AtualizadoEm"), "SSID"),
+    "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "Categoria", "Ativo", "AtualizadoEm"), "SSID"),
     "unidades": (
         "nocodb_tabela_unidades",
         ("Id", "Codigo", "Nome", "Cidade", "UF", "TagGLPI", "PerfilPadrao", "Ativo"),
@@ -83,7 +83,11 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
     with httpx.Client(timeout=settings.nocodb_cadastros_timeout_seconds, transport=transport) as client:
         for nome, (id_setting, campos, _) in TABELAS.items():
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
-            brutos[nome] = paginas(client, url, headers, campos, inicio)
+            try:
+                brutos[nome] = paginas(client, url, headers, campos, inicio)
+            except NocodbIndisponivel as erro:
+                # Table name only in the API log (e.g. instaladores:http_400), never to the Bench.
+                raise NocodbIndisponivel(f"{nome}:{erro.code}") from None
     return validar(brutos)
 
 
@@ -187,9 +191,11 @@ def motivo_instalador(linha: dict) -> str | None:
         return "identificador_invalido"
     if tipo == "webapp" and not URL_WEBAPP.fullmatch(ident):
         return "identificador_invalido"
+    sha256 = texto(linha.get("SHA256")).lower()
+    # TA-ADR-034: SHA256 is optional; a filled-in but invalid one is a typo and drops the row.
     if tipo == "papel" and not (
         ARQUIVO_PAPEL.fullmatch(texto(linha.get("Arquivo")))
-        and SHA256.fullmatch(texto(linha.get("SHA256")).lower())
+        and (not sha256 or SHA256.fullmatch(sha256))
         and URL_WEBAPP.fullmatch(texto(linha.get("Link")))
     ):
         return "papel_invalido"
@@ -199,7 +205,7 @@ def motivo_instalador(linha: dict) -> str | None:
 def instalador(linha: dict) -> dict:
     sha256 = texto(linha.get("SHA256")).lower()
     if sha256 and not SHA256.fullmatch(sha256):
-        # Empty, not free text: the Bench refuses to run an installer without a hash (module 10).
+        # Empty, not free text: without a hash the Bench computes its own (ADR-028, TA-ADR-034).
         log.warning("cadastro instaladores Id %s: sha256_invalido", linha.get("Id"))
         sha256 = ""
     return {
@@ -225,7 +231,7 @@ def rede(linha: dict) -> dict:
         "ssid": texto(linha.get("SSID")),
         "senha": SecretStr(texto(linha.get("Senha"))),
         "unidade": texto(linha.get("Unidade")),
-        "categoria": texto(linha.get("categoria")),
+        "categoria": texto(linha.get("Categoria")),
         "atualizado_em": texto(linha.get("AtualizadoEm")),
     }
 

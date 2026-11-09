@@ -153,7 +153,7 @@ class PainelConfiguracoes(QWidget):
         self._preencher(
             self.instaladores,
             [
-                [i.programa, i.versao, i.arquivo, i.sha256[:12], i.link, i.sha256]
+                [i.programa, i.versao, i.arquivo, i.sha256[:12] or "—", i.link, i.sha256]
                 for i in c.instaladores
             ]
             if c

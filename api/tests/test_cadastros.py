@@ -41,10 +41,10 @@ def linhas():
             {"Id": 1, "Programa": "Exemplo", "Versao": "1.0", "Arquivo": "exemplo.msi", "SHA256": "AB" * 32, "Link": "https://exemplo.invalid/a.msi", "Ativo": True},
         ],
         "mWif": [
-            {"Id": 10, "SSID": "Rede-Ficticia-A", "Senha": MARCADOR_WIFI, "Unidade": "UM-01", "categoria": "Carreta", "Ativo": True},
-            {"Id": 11, "SSID": "Rede-Ficticia-B", "Senha": MARCADOR_WIFI, "Unidade": "UM-02", "categoria": "Carreta", "Ativo": True},
-            {"Id": 12, "SSID": "Rede-Ficticia-C", "Senha": MARCADOR_WIFI, "Unidade": "UM-99", "categoria": "Carreta", "Ativo": True},
-            {"Id": 13, "SSID": "Rede-Ficticia-D", "Senha": MARCADOR_WIFI, "Unidade": "UM-03", "categoria": "Carreta", "Ativo": True},
+            {"Id": 10, "SSID": "Rede-Ficticia-A", "Senha": MARCADOR_WIFI, "Unidade": "UM-01", "Categoria": "Carreta", "Ativo": True},
+            {"Id": 11, "SSID": "Rede-Ficticia-B", "Senha": MARCADOR_WIFI, "Unidade": "UM-02", "Categoria": "Carreta", "Ativo": True},
+            {"Id": 12, "SSID": "Rede-Ficticia-C", "Senha": MARCADOR_WIFI, "Unidade": "UM-99", "Categoria": "Carreta", "Ativo": True},
+            {"Id": 13, "SSID": "Rede-Ficticia-D", "Senha": MARCADOR_WIFI, "Unidade": "UM-03", "Categoria": "Carreta", "Ativo": True},
         ],
         "mUni": [
             {"Id": 1, "Codigo": "UM-01", "Nome": "Unidade Um", "Ativo": True},
@@ -257,7 +257,7 @@ def test_teto_total_da_leitura(settings, monkeypatch):
     fake = FakeNocodb(atraso=0.03)
     with pytest.raises(nocodb_cadastros.NocodbIndisponivel) as erro:
         nocodb_cadastros.ler(s, httpx.MockTransport(fake.handler))
-    assert erro.value.code == "timeout"
+    assert erro.value.code.endswith(":timeout")
     assert MARCADOR_NOCODB not in str(erro.value)
 
 
@@ -265,7 +265,7 @@ def test_erro_do_nocodb_sem_token(settings):
     fake = FakeNocodb(falha="401")
     with pytest.raises(nocodb_cadastros.NocodbIndisponivel) as erro:
         nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
-    assert erro.value.code == "http_401" and MARCADOR_NOCODB not in repr(erro.value)
+    assert erro.value.code == "servidores:http_401" and MARCADOR_NOCODB not in repr(erro.value)
 
 
 def test_paginacao(settings):
@@ -421,7 +421,7 @@ def test_instaladores_por_tipo(settings, fake, caplog):
 
 
 def test_papel_de_parede(settings, fake, caplog):
-    """TA-ADR-030: papel needs .jpg/.jpeg/.png, SHA256 and an https Link; dropped by Id only."""
+    """TA-ADR-030/034: papel needs .jpg/.jpeg/.png and an https Link; SHA256 optional but valid."""
     sha = "a" * 64
     base = {"Programa": "Papel", "Tipo": "papel", "Ativo": True}
     link = "https://exemplo.invalid/papel.jpg"
@@ -432,11 +432,36 @@ def test_papel_de_parede(settings, fake, caplog):
         {**base, "Id": 5, "Arquivo": "papel.jpg", "SHA256": "", "Link": link},
         {**base, "Id": 6, "Arquivo": "papel.jpg", "SHA256": sha, "Link": "http://exemplo.invalid/p.jpg"},
         {**base, "Id": 7, "Arquivo": "pasta\\papel.jpg", "SHA256": sha, "Link": link},
+        {**base, "Id": 8, "Arquivo": "papel.jpg", "SHA256": "nao-hex", "Link": link},
     ]
     with caplog.at_level("WARNING", logger="tecnico.cadastros"):
         dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
     por_id = {i["id"]: i for i in dados["instaladores"]}
-    assert set(por_id) == {1, 2, 3}
+    assert set(por_id) == {1, 2, 3, 5}
     assert por_id[2]["tipo"] == "papel" and por_id[2]["sha256"] == sha
-    assert dados["descartados"]["instaladores"] == [4, 5, 6, 7]
+    assert por_id[5]["sha256"] == ""
+    assert dados["descartados"]["instaladores"] == [4, 6, 7, 8]
     assert "papel_invalido" in caplog.text and link not in caplog.text
+
+
+def test_wifi_le_categoria_pelo_titulo(settings, fake):
+    """NocoDB `fields=` uses the column title (`Categoria`); `categoria` came back absent."""
+    dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert {rede["categoria"] for rede in dados["wifi"]} == {"Carreta"}
+
+
+def test_tabela_que_falhou_so_no_log(settings, caplog):
+    """The API log names the table (instaladores:http_400); the Bench only gets cadastros_indisponivel."""
+    s = configurar(settings)
+    criar_sessao(s)
+    fake = FakeNocodb()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.split("/")[-2] == "mIns":
+            return httpx.Response(400, json={"msg": "campo inexistente"})
+        return fake.handler(request)
+
+    with caplog.at_level("WARNING"), TestClient(create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(handler)})) as c:
+        r = c.get("/v1/bench/cadastros", headers=AUT)
+    assert r.status_code == 503 and r.json() == {"erro": "cadastros_indisponivel"}
+    assert "instaladores:http_400" in caplog.text

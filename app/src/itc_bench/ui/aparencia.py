@@ -51,7 +51,8 @@ AJUDA_TELA = (
     "Aplicar\n"
     "1. Escolha a imagem (vem do cadastro em Instaladores, tipo papel) e o estilo.\n"
     "2. Marque as contas. Aplicar baixa a imagem (ou use Escolher arquivo… sem rede: o Bench "
-    "copia e confere o SHA-256 com o cadastro) e grava a política de papel de parede.\n"
+    "copia e confere o SHA-256 com o cadastro, quando houver) e grava a política de papel de "
+    "parede.\n"
     "3. Desfazer apaga a política; a conta volta ao papel de parede dela.\n\n"
     "A imagem fica numa pasta do Bench que o aluno lê, mas não altera. Aceita JPG e PNG, até "
     "20 MB, de 640x480 a 7680x4320.\n\n"
@@ -361,8 +362,9 @@ class PainelPapel(_PainelAlvos):
             self.detalhe.setText("Sem imagem no cadastro (Instaladores, tipo papel).")
             return
         guardada = self.admin and pp.caminho(linha) is not None
+        sha = linha.sha256.strip().lower()
         self.detalhe.setText(
-            f"SHA-256 {linha.sha256.strip()[:12].lower()}… — "
+            (f"SHA-256 {sha[:12]}… — " if sha else "SHA-256: não cadastrado — ")
             + ("conferida nesta máquina." if guardada else "será baixada ao aplicar.")
         )
 

@@ -144,12 +144,69 @@ def test_copiar_arquivo_errado_recusa(tmp_path: Path) -> None:
     assert list(base.iterdir()) == []
 
 
-def test_conferir(tmp_path: Path) -> None:
-    arquivo = tmp_path / "x"
-    arquivo.write_bytes(CONTEUDO)
-    assert inst.conferir(arquivo, SHA.upper())
-    assert not inst.conferir(arquivo, "0" * 64)
-    assert not inst.conferir(tmp_path / "nao-existe", SHA)
+def test_conferir_pelo_nome(tmp_path: Path) -> None:
+    for nome in (f"{SHA.upper()}.msi", f"c{'1' * 64}.{SHA}.msi"):
+        (tmp_path / nome).write_bytes(CONTEUDO)
+        assert inst.conferir(tmp_path / nome)
+    (tmp_path / f"{'0' * 64}.msi").write_bytes(CONTEUDO)
+    assert not inst.conferir(tmp_path / f"{'0' * 64}.msi")
+    assert not inst.conferir(tmp_path / f"{SHA}.msi.nao-existe")
+
+
+# ---------------------------------------------------------------- sem SHA-256 (ADR-028)
+
+
+def test_validar_sem_sha_aceita_e_sha_invalido_recusa() -> None:
+    assert inst.validar(linha(sha=""), ".msi") is None
+    assert "SHA-256" in str(inst.validar(linha(sha="abc"), ".msi"))
+
+
+def test_sem_sha_baixa_e_nomeia_pela_chave_e_hash(tmp_path: Path, caplog) -> None:
+    caplog.set_level(logging.INFO)
+    abrir, pedidos = abrir_fixo()
+    caminho = inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=abrir)
+    assert caminho.name == f"{inst.chave(linha(sha=''))}.{SHA}.msi"
+    assert inst.conferir(caminho) and pedidos == [LINK]
+    assert "sem SHA-256 cadastrado" in caplog.text and SHA[:12] in caplog.text
+    assert "exemplo.invalid" not in caplog.text  # nem o host (ADR-028)
+    inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=abrir)
+    assert pedidos == [LINK]  # reaproveitado
+
+
+def test_sem_sha_link_ou_versao_novos_nao_reaproveitam(tmp_path: Path) -> None:
+    abrir, pedidos = abrir_fixo()
+    velho = inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=abrir)
+    novo_link = linha(sha="", link="https://downloads.exemplo.invalid/programa-2.0.msi")
+    inst.obter(novo_link, ".msi", base=tmp_path, abrir=abrir)
+    inst.obter(linha(sha="", versao="2.0"), ".msi", base=tmp_path, abrir=abrir)
+    assert len(pedidos) == 3
+    apagados = inst.limpar(cadastros(novo_link), tmp_path)
+    assert velho.name in apagados and len(list(tmp_path.iterdir())) == 1
+
+
+def test_sem_sha_guardado_adulterado_rebaixa(tmp_path: Path) -> None:
+    abrir, pedidos = abrir_fixo()
+    caminho = inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=abrir)
+    caminho.write_bytes(b"trocado")
+    assert not inst.conferir(caminho)  # antes de executar, recusa
+    inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=abrir)
+    assert len(pedidos) == 2 and inst.conferir(caminho)
+
+
+def test_sem_sha_conteudo_novo_no_mesmo_link_substitui(tmp_path: Path) -> None:
+    abrir, _ = abrir_fixo()
+    inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=abrir)
+    (next(tmp_path.iterdir())).write_bytes(b"x")  # guardado deixa de conferir
+    outro, _ = abrir_fixo(b"versao nova do fabricante")
+    inst.obter(linha(sha=""), ".msi", base=tmp_path, abrir=outro)
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+def test_sem_sha_copiar_aceita_o_arquivo_escolhido(tmp_path: Path) -> None:
+    origem = tmp_path / "pendrive.msi"
+    origem.write_bytes(b"qualquer")
+    caminho = inst.copiar(linha(sha=""), ".msi", origem, base=tmp_path / "protegido")
+    assert inst.conferir(caminho) and caminho.name.startswith(inst.chave(linha(sha="")))
 
 
 def test_limpar_usa_todas_as_linhas_ativas(tmp_path: Path) -> None:

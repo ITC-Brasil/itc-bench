@@ -1,8 +1,10 @@
-"""Instaladores do cadastro com SHA-256 (ADR-019), sem Qt: acesso remoto (09) e programas (10).
+"""Instaladores do cadastro (ADR-019, SHA-256 opcional pelo ADR-028), sem Qt.
 
-O arquivo fica em `protegido\\instaladores\\<sha256>.<ext>` (só SYSTEM e Administradores): o nome
-vem do hash, nunca de `Instaladores.Arquivo`. O hash é calculado sobre o que foi gravado ali
-(download ou cópia), e conferido de novo logo antes de executar. O log nunca recebe o `Link`.
+O arquivo fica em `protegido\\instaladores` (só SYSTEM e Administradores), com nome que vem do
+hash, nunca de `Instaladores.Arquivo`: `<sha256>.<ext>` quando o cadastro tem SHA-256, e
+`c<chave>.<sha256 calculado>.<ext>` quando não tem (`chave` de Id, Link e Versao). O hash é
+calculado sobre o que foi gravado ali (download ou cópia) e conferido de novo, pelo nome, logo
+antes de executar. O log nunca recebe o `Link`, nem o host.
 """
 
 import hashlib
@@ -63,8 +65,9 @@ def validar(instalador: Instalador, extensao: str) -> str | None:
     nome = instalador.programa
     if instalador.tipo == "instalador" and extensao != ".ico" and not instalador.versao.strip():
         return f"O instalador “{nome}” está sem versão em Instaladores."
-    if not SHA256.fullmatch(instalador.sha256.strip()):
-        return f"O instalador “{nome}” está sem SHA-256 válido (64 hexadecimais)."
+    sha = instalador.sha256.strip()
+    if sha and not SHA256.fullmatch(sha):  # vazio vale (ADR-028); texto errado é digitação
+        return f"O instalador “{nome}” tem SHA-256 inválido (64 hexadecimais)."
     if PurePath(instalador.arquivo.strip()).suffix.lower() != extensao:
         return f"O arquivo do instalador “{nome}” tem que ser {extensao}."
     partes = urlsplit(instalador.link.strip())
@@ -73,8 +76,30 @@ def validar(instalador: Instalador, extensao: str) -> str | None:
     return None
 
 
-def destino(instalador: Instalador, extensao: str, base: Path | None = None) -> Path:
-    return (base or pasta()) / f"{instalador.sha256.strip().lower()}{extensao}"
+def cadastrado(instalador: Instalador) -> str:
+    """SHA-256 do cadastro em minúsculas, ou "" (ADR-028)."""
+    return instalador.sha256.strip().lower()
+
+
+def chave(instalador: Instalador) -> str:
+    """Nome-base do cache sem SHA-256: muda quando Link ou Versao mudam (ADR-028)."""
+    texto = f"{instalador.id}\n{instalador.link.strip()}\n{instalador.versao.strip()}"
+    return "c" + hashlib.sha256(texto.encode()).hexdigest()
+
+
+def destino(
+    instalador: Instalador, extensao: str, base: Path | None = None, calculado: str = ""
+) -> Path:
+    """`<sha>.<ext>` com hash no cadastro; `c<chave>.<calculado>.<ext>` sem."""
+    sha = cadastrado(instalador)
+    nome = sha if sha else f"{chave(instalador)}.{calculado}"
+    return (base or pasta()) / f"{nome}{extensao}"
+
+
+def hash_do_nome(caminho: Path) -> str:
+    """O hash que o arquivo do cache tem que ter, tirado do próprio nome."""
+    partes = caminho.name.split(".")
+    return (partes[1] if len(partes) == 3 else partes[0]).lower()
 
 
 def hash_de(caminho: Path, cancelar: threading.Event | None = None) -> str:
@@ -87,18 +112,30 @@ def hash_de(caminho: Path, cancelar: threading.Event | None = None) -> str:
     return h.hexdigest()
 
 
-def conferir(caminho: Path, sha256: str) -> bool:
-    """Confere de novo logo antes de executar (ADR-019)."""
+def conferir(caminho: Path) -> bool:
+    """Confere de novo, pelo hash do nome, logo antes de executar (ADR-019, ADR-028)."""
     try:
-        return hash_de(caminho) == sha256.strip().lower()
+        return hash_de(caminho) == hash_do_nome(caminho)
     except OSError:
         return False
 
 
 def guardado(instalador: Instalador, extensao: str, base: Path | None = None) -> Path | None:
-    """Arquivo já baixado com o hash certo, ou None."""
-    alvo = destino(instalador, extensao, base)
-    return alvo if alvo.is_file() and conferir(alvo, instalador.sha256) else None
+    """Arquivo já baixado com o hash certo, ou None. Sem hash, apaga o que não confere."""
+    if cadastrado(instalador):
+        alvo = destino(instalador, extensao, base)
+        return alvo if alvo.is_file() and conferir(alvo) else None
+    raiz = base or pasta()
+    if not raiz.is_dir():
+        return None
+    for item in raiz.glob(f"{chave(instalador)}.*{extensao}"):
+        if len(item.name.split(".")) != 3:
+            continue
+        if conferir(item):
+            return item
+        log.warning("Instaladores: Id %s guardado não confere; baixando de novo", instalador.id)
+        item.unlink(missing_ok=True)
+    return None
 
 
 class _SoHttps(urllib.request.HTTPRedirectHandler):
@@ -129,10 +166,10 @@ def _gravar(
     cancelar: threading.Event | None,
     progresso: Progresso | None,
 ) -> Path:
-    """Grava `fonte` em `.parcial` calculando o hash; só vira o arquivo final se bater."""
-    alvo = destino(instalador, extensao, base)
-    alvo.parent.mkdir(parents=True, exist_ok=True)
-    parcial = alvo.with_name(alvo.name + ".parcial")
+    """Grava `fonte` em `.parcial` calculando o hash; com hash no cadastro, só passa se bater."""
+    raiz = base or pasta()
+    raiz.mkdir(parents=True, exist_ok=True)
+    parcial = raiz / f"{cadastrado(instalador) or chave(instalador)}{extensao}.parcial"
     h = hashlib.sha256()
     lidos = 0
     try:
@@ -148,8 +185,8 @@ def _gravar(
                 if progresso is not None:
                     progresso(lidos, total)
         obtido = h.hexdigest()
-        esperado = instalador.sha256.strip().lower()
-        if obtido != esperado:
+        esperado = cadastrado(instalador)
+        if esperado and obtido != esperado:
             log.error(
                 "Instaladores: Id %s com SHA-256 diferente (esperado %s…, obtido %s…)",
                 instalador.id,
@@ -158,6 +195,16 @@ def _gravar(
             )
             raise ErroInstalador(
                 f"O arquivo de “{instalador.programa}” não confere com o cadastro (SHA-256)."
+            )
+        alvo = destino(instalador, extensao, base, obtido)
+        if not esperado:  # uma cópia por chave: a de conteúdo antigo sai
+            for velho in raiz.glob(f"{chave(instalador)}.*{extensao}"):
+                if velho != alvo:
+                    velho.unlink(missing_ok=True)
+            log.info(
+                "Instaladores: Id %s sem SHA-256 cadastrado (calculado %s…)",
+                instalador.id,
+                obtido[:12],
             )
         parcial.replace(alvo)
         return alvo
@@ -261,7 +308,7 @@ def limpar(cadastros: Cadastros | None, base: Path | None = None) -> list[str]:
     """
     if cadastros is None:
         return []
-    ativos = {i.sha256.strip().lower() for i in cadastros.instaladores}
+    ativos = {cadastrado(i) or chave(i) for i in cadastros.instaladores}
     apagados = []
     for raiz in [base] if base is not None else [pasta(), icones(), papeis()]:
         if not raiz.is_dir():

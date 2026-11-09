@@ -171,7 +171,8 @@ def test_offline_mantem_o_cache(armazem, chamadas, erro):
     fila += [corpo(), erro]
     sincronizar("b", TOKEN, armazem, "ana", None)
     r = sincronizar("b", TOKEN, armazem, "ana", None)
-    assert r.estado == "offline" and r.cadastros is not None and len(r.cadastros.redes) == 2
+    estado = "sem_central" if isinstance(erro, api.CadastrosIndisponivel) else "offline"
+    assert r.estado == estado and r.cadastros is not None and len(r.cadastros.redes) == 2
     assert armazem.arquivo.exists()
 
 
