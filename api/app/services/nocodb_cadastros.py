@@ -83,7 +83,11 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
     with httpx.Client(timeout=settings.nocodb_cadastros_timeout_seconds, transport=transport) as client:
         for nome, (id_setting, campos, _) in TABELAS.items():
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
-            brutos[nome] = paginas(client, url, headers, campos, inicio)
+            try:
+                brutos[nome] = paginas(client, url, headers, campos, inicio)
+            except NocodbIndisponivel as erro:
+                # Table name only in the API log (e.g. instaladores:http_400), never to the Bench.
+                raise NocodbIndisponivel(f"{nome}:{erro.code}") from None
     return validar(brutos)
 
 
