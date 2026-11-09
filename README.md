@@ -29,18 +29,20 @@ comandos.
 | Pasta | Conteúdo |
 |---|---|
 | `app/` | Programa Windows (Python 3.13 + PySide6), gerenciado pelo uv |
-| `api/` | API do Técnico Assistente (FastAPI + SQLite), roda no servidor em container |
+| `api/` | API (vinda do Técnico Assistente) (FastAPI + SQLite), roda no servidor em container |
 | `instalador/` | Script do Inno Setup, build, testes do instalador e varredura (`varrer.py`) |
 | `docs/` | Produto, decisões, módulos, segurança e guias (ver mapa abaixo) |
 | `.github/workflows/` | CI, build e deploy (tabela abaixo) |
 
 | Workflow | Papel |
 |---|---|
-| `app-ci.yml` | Lint, tipos e testes do `app/` em PR e em push para `develop` e `main` |
-| `app-build.yml` | Gera o instalador: artefato no PR; rascunho de Release na tag `vX.Y.Z` |
-| `api-ci.yml` | Testes da API em PR e em push; também é o job de teste do deploy |
+| `app-ci.yml` | Lint, tipos e testes do `app/` em PR e em push para `develop` e `main`, só quando alteram `app/**` ou o próprio workflow |
+| `app-build.yml` | Gera o instalador: artefato no PR que altera `app/**`, `instalador/**` ou o próprio workflow; rascunho de Release na tag `vX.Y.Z` |
+| `api-ci.yml` | Testes da API em PR e em push, só quando alteram `api/**` ou o próprio workflow; também é o job de teste do deploy |
 | `api-deploy.yml` | Deploy da API no push para `main` que altera `api/**` |
 | `gitleaks.yml` | Procura segredos em todo PR e push para `develop` e `main` |
+
+Um PR só de documentação dispara apenas o gitleaks.
 
 A pasta `.conversa/` (troca de mensagens com o chat de planejamento) fica fora do git.
 
