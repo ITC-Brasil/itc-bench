@@ -404,3 +404,75 @@ def test_faixa_adiavel_e_obrigatoria(qtbot, chave):
     faixa.mostrar(oferta(chave, minima="99.0.0"))
     assert faixa.confirmada and not faixa.instalar.isEnabled() and faixa.adiar.isHidden()
     assert "<" not in faixa.texto.text() or faixa.texto.textFormat().name == "PlainText"
+
+
+# --- achados da revisão do PR #43 ----------------------------------------------------------
+
+
+@pytest.mark.parametrize("estado", ["alheio", "criado", "sem_admin"])
+def test_inicio_avisa_so_mutex_alheio(qtbot, estado):
+    from itc_bench.ui.inicio import PainelInicio
+
+    painel = PainelInicio(
+        True,
+        lambda: None,
+        lambda: "",
+        lambda: 0,
+        lambda: None,
+        lambda: None,  # type: ignore[arg-type,return-value]
+        mutex_alheio=estado == "alheio",  # mesma expressão do __main__
+    )
+    qtbot.addWidget(painel)
+    if estado == "alheio":
+        assert painel.aviso_mutex is not None
+        assert painel.aviso_mutex.textFormat().name == "PlainText"
+        assert "S-1-" not in painel.aviso_mutex.text()
+    else:
+        assert painel.aviso_mutex is None
+
+
+def test_marcador_de_teste_fora_do_pacote():
+    assert not at.copia_de_teste()
+
+
+@pytest.fixture
+def modo_teste(monkeypatch):
+    from itc_bench import __main__ as principal
+
+    chamadas: list[str] = []
+    monkeypatch.setattr(principal.api, "endereco", lambda _dev: "https://api.exemplo.invalid")
+    monkeypatch.setattr(principal.api, "validar", lambda base, _dev: base)
+    monkeypatch.setattr(at, "limpar", lambda manter=None: None)
+
+    def consultar(_base, sessao):
+        chamadas.append(sessao.revelar())
+
+    monkeypatch.setattr(at, "consultar", consultar)
+    return principal, chamadas
+
+
+def test_teste_atualizacao_sem_marcador_recusa(modo_teste, monkeypatch):
+    principal, chamadas = modo_teste
+    monkeypatch.setenv(at.VARIAVEL_TESTE, "itcts_job")
+    monkeypatch.setattr(at, "copia_de_teste", lambda: False)
+    assert principal._teste_atualizacao(True) == 5
+    assert chamadas == []
+
+
+def test_teste_atualizacao_sem_variavel_recusa(modo_teste, monkeypatch):
+    principal, chamadas = modo_teste
+    monkeypatch.delenv(at.VARIAVEL_TESTE, raising=False)
+    monkeypatch.setattr(at, "copia_de_teste", lambda: True)
+    assert principal._teste_atualizacao(True) == 5
+    assert chamadas == []
+
+
+def test_teste_atualizacao_com_os_dois_segue(modo_teste, monkeypatch):
+    import os
+
+    principal, chamadas = modo_teste
+    monkeypatch.setenv(at.VARIAVEL_TESTE, "itcts_job")
+    monkeypatch.setattr(at, "copia_de_teste", lambda: True)
+    principal._teste_atualizacao(True)  # sem versão anunciada (consultar falso) sai 5
+    assert chamadas == ["itcts_job"]
+    assert at.VARIAVEL_TESTE not in os.environ  # não passa adiante

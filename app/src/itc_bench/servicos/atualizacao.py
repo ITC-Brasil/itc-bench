@@ -40,9 +40,9 @@ BLOCO = 1024 * 1024
 TIMEOUT = 30
 TENTATIVAS = 3
 MANIFESTO, ASSINATURA, TENTADAS = "manifesto.json", "manifesto.sig", "tentativas.txt"
-# Sessão falsa do `--teste-atualizacao` (CI): a API real responde 401 a ela.
-# Montada em tempo de execução: constante dobrada pareceria um token na varredura do pacote.
-SESSAO_TESTE = "_".join(("itcbs", "t" * 43))
+# `--teste-atualizacao` (CI): sessão só no ambiente do job; marcador só na cópia de teste.
+VARIAVEL_TESTE = "ITC_BENCH_SESSAO_TESTE"
+MARCADOR_TESTE = "copia-de-teste-ci.txt"
 
 Progresso = Callable[[int, int], None]
 
@@ -81,6 +81,14 @@ def tupla(versao: str) -> tuple[int, int, int]:
         raise Recusada(f"Versão fora do formato X.Y.Z: {versao[:20]!r}.")
     a, b, c = (int(p) for p in achado.groups())
     return a, b, c
+
+
+def copia_de_teste() -> bool:
+    """Marcador gravado pelo CI só na cópia de teste (ao lado das chaves de teste); nunca no pacote.
+
+    A pasta do pacote já passou por `conferir_instalacao` (ADR-025) antes de chegar aqui.
+    """
+    return (resources.files("itc_bench.recursos") / "atualizacao" / MARCADOR_TESTE).is_file()
 
 
 def chaves() -> list[bytes]:

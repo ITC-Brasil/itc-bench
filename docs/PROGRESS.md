@@ -2,14 +2,16 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/chaves-atualizacao`, PR para `develop`. O Módulo 16 (PR #43) já está em `develop`.
+- **Branch:** `fix/modulo-16-achados`, PR #45 para `develop`: achados baixos 1 e 2 da revisão do
+  PR #43 (aviso de mutex de outro usuário no Início; `--teste-atualizacao` só na cópia de teste
+  do CI, com sessão do job). PRs #43 e #44 (chaves) já em `develop`.
 - **Chaves reais (2026-11-09):** `principal.pub` e `reserva.pub` comitadas (SHA-256 começando por
   `deb3807c3797` e `3835c1295c0e`); teste de ida e volta assinado pelo responsável conferido.
 - **Feito:** Módulo 16 (atualização automática; ADR-026, TA-ADR-033).
   - API: `bench_versoes` (migração 0007), CLI `app.bench_versao` e rotas `/v1/bench/versao` e
     `/versao/arquivo` com sessão, `Range` e limite por técnico.
   - App: manifesto assinado (ECDSA P-256 pela CNG, chaves principal e reserva no pacote),
-    download conferido em `protegidotualizacao`, faixa e instalação ao fechar por
+    download conferido em `protegido\atualizacao`, faixa e instalação ao fechar por
     `executor.disparar`; recusa versão menor ou igual, Preparação em andamento e retomada.
   - Instalador: sem `AppMutex` (usuário comum criava o nome); só mutex de Administradores conta;
     `/ESPERAPID`; recusa versão menor.

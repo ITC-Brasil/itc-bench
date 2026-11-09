@@ -145,7 +145,16 @@ def main() -> int:
     # Fila dos diagnósticos não enviados (ADR-015): mesma regra do cache.
     fila = Fila(caminhos.protegida() / NOME_FILA if protegida_ok else None)
     atualizar = protegida_ok and not dev and "--teste" not in argv
-    janela = Janela(tela, base, cofre, armazem=armazem, admin=admin, fila=fila, atualizar=atualizar)
+    janela = Janela(
+        tela,
+        base,
+        cofre,
+        armazem=armazem,
+        admin=admin,
+        fila=fila,
+        atualizar=atualizar,
+        mutex_alheio=estado_mutex == "alheio",
+    )
     janela.show()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")
@@ -156,23 +165,33 @@ def main() -> int:
 
 
 def _teste_atualizacao(protegida_ok: bool) -> int:
-    """CI (ADR-026): consulta, baixa e "fecha" sem janela, com a sessão falsa de teste.
+    """CI (ADR-026): consulta, baixa e "fecha" sem janela, com a sessão de teste do job.
 
-    A API real responde 401 a essa sessão, e nada roda sem manifesto assinado pelas chaves do
-    pacote. Sai 0 com o instalador disparado (ele espera este processo sair), 5 se recusou.
+    No pacote distribuível recusa sem consultar a API; nada roda sem manifesto assinado pelas
+    chaves do pacote. Sai 0 com o instalador disparado (ele espera este processo sair), 5 se
+    recusou.
     """
+    # Achado 2 da revisão: só na cópia de teste do CI (marcador gravado pelo job ao lado das
+    # chaves de teste, na pasta conferida pelo ADR-025) e com a sessão vinda do ambiente do job.
+    sessao = os.environ.pop(atualizacao.VARIAVEL_TESTE, "")
+    if not atualizacao.copia_de_teste():
+        log.error("Teste de atualização recusado: não é a cópia de teste do CI.")
+        return 5
+    if not sessao:
+        log.error("Teste de atualização recusado: sessão de teste ausente no ambiente.")
+        return 5
     base = api.endereco(False)
     if not protegida_ok or not base:
         log.error("Teste de atualização: sem administrador, pasta protegida ou endereço.")
         return 5
     try:
         base = api.validar(base, False)
-        oferta = atualizacao.consultar(base, Sensivel(atualizacao.SESSAO_TESTE))
+        oferta = atualizacao.consultar(base, Sensivel(sessao))
         atualizacao.limpar(manter=oferta)
         if oferta is None:
             log.error("Teste de atualização: nenhuma versão anunciada.")
             return 5
-        atualizacao.baixar(base, Sensivel(atualizacao.SESSAO_TESTE), oferta)
+        atualizacao.baixar(base, Sensivel(sessao), oferta)
         pid = atualizacao.instalar_ao_fechar(
             oferta, os.getpid(), False, soltar_mutex=instalacao.soltar_mutex
         )
