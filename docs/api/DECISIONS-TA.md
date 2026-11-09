@@ -1177,3 +1177,26 @@ instalador sem token nos notebooks, com o repositório privado.
 **Consequences**
 Deploy da API depois do merge (migração com backup, `docs/api/DEPLOY.md`). Publicar uma versão é
 passo do responsável (`docs/BUILD.md`).
+
+## TA-ADR-034 — SHA256 opcional no `papel` (emenda ao TA-ADR-030)
+
+**Status:** Accepted
+**Date:** 2026-11-09
+**Module:** Bench pós-16 (ADR-028)
+
+**Context**
+O TA-ADR-030 exige SHA256 válido em toda linha `Tipo = papel`. O ADR-028 do Bench tornou o
+SHA256 opcional em Instaladores.
+
+**Decision**
+- `papel` sem SHA256 é aceito; `Arquivo` (`.jpg`, `.jpeg`, `.png`) e `Link` `https://` continuam
+  obrigatórios.
+- `papel` com SHA256 preenchido e inválido continua descartado (`papel_invalido`), porque é erro
+  de digitação, não ausência.
+- Nas outras linhas, SHA256 inválido continua virando vazio com aviso no log (sem mudança).
+
+**Alternatives considered**
+- Manter o hash obrigatório só no `papel` — incoerente com o ADR-028.
+
+**Consequences**
+O Bench baixa o papel sem hash pelo mesmo fluxo do ADR-028. Os riscos aceitos estão no ADR-028.

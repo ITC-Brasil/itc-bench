@@ -158,7 +158,9 @@ def obter(
         arquivo.unlink(missing_ok=True)
         log.warning("Papel de parede: Id %s recusado (imagem inválida)", linha.id)
         raise ErroPapel(motivo)
-    log.info("Papel de parede: Id %s pronto (%s…)", linha.id, linha.sha256.strip()[:12].lower())
+    log.info(
+        "Papel de parede: Id %s pronto (%s…)", linha.id, instaladores.hash_do_nome(arquivo)[:12]
+    )
     return arquivo
 
 
@@ -269,7 +271,7 @@ def aplicar(
         if imagem is None:
             raise ErroPapel("A imagem ainda não foi baixada ou conferida.")
         log.info(
-            "Papel de parede: aplicar Id %s (%s…)", linha.id, linha.sha256.strip()[:12].lower()
+            "Papel de parede: aplicar Id %s (%s…)", linha.id, instaladores.hash_do_nome(imagem)[:12]
         )
     ops = operacoes(acao, imagem, estilo)
     return hive.aplicar(

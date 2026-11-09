@@ -535,7 +535,7 @@ def _instalador(
         arquivo = instaladores.copiar(linha, ext, origem, cancelar=cancelar)
     else:
         arquivo = instaladores.obter(linha, ext, cancelar=cancelar, progresso=progresso)
-    if not instaladores.conferir(arquivo, linha.sha256):
+    if not instaladores.conferir(arquivo):
         log.error("Programas: Id %s com SHA-256 diferente antes de executar", linha.id)
         raise ErroPrograma(f"O arquivo de “{linha.programa}” não confere com o cadastro.")
     if ext == ".msi":

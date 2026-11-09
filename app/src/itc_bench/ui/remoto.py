@@ -39,7 +39,8 @@ AJUDA = (
     "Bench não rebaixa; atualize o cadastro. Mais velha: Atualizar instala por cima.\n\n"
     "Sem internet\n"
     "Use Escolher arquivo… e aponte o instalador num pendrive. O Bench copia e confere o SHA-256 "
-    "do cadastro; arquivo diferente é recusado.\n\n"
+    "do cadastro; arquivo diferente é recusado. Linha sem SHA-256 no cadastro aceita o arquivo "
+    "escolhido (a confirmação mostra “SHA-256: não cadastrado”).\n\n"
     "Cancelar\n"
     "Vale entre passos, no download e nas esperas. O instalador do Windows não é interrompido no "
     "meio: o cancelamento acontece depois dele.\n\n"
@@ -244,7 +245,7 @@ class PainelRemoto(QWidget):
             linhas += [
                 f"Instalador: {inst.arquivo} (cadastro Id {inst.id})",
                 f"Origem: {origem.name if origem else 'download do cadastro'}",
-                f"SHA-256: {inst.sha256.lower()} ({sha})",
+                f"SHA-256: {instaladores.cadastrado(inst) or 'não cadastrado'} ({sha})",
                 "",
                 "Comando:",
                 remoto.comando(d, inst.arquivo),

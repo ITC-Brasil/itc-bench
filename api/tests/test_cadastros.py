@@ -421,7 +421,7 @@ def test_instaladores_por_tipo(settings, fake, caplog):
 
 
 def test_papel_de_parede(settings, fake, caplog):
-    """TA-ADR-030: papel needs .jpg/.jpeg/.png, SHA256 and an https Link; dropped by Id only."""
+    """TA-ADR-030/034: papel needs .jpg/.jpeg/.png and an https Link; SHA256 optional but valid."""
     sha = "a" * 64
     base = {"Programa": "Papel", "Tipo": "papel", "Ativo": True}
     link = "https://exemplo.invalid/papel.jpg"
@@ -432,11 +432,13 @@ def test_papel_de_parede(settings, fake, caplog):
         {**base, "Id": 5, "Arquivo": "papel.jpg", "SHA256": "", "Link": link},
         {**base, "Id": 6, "Arquivo": "papel.jpg", "SHA256": sha, "Link": "http://exemplo.invalid/p.jpg"},
         {**base, "Id": 7, "Arquivo": "pasta\\papel.jpg", "SHA256": sha, "Link": link},
+        {**base, "Id": 8, "Arquivo": "papel.jpg", "SHA256": "nao-hex", "Link": link},
     ]
     with caplog.at_level("WARNING", logger="tecnico.cadastros"):
         dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
     por_id = {i["id"]: i for i in dados["instaladores"]}
-    assert set(por_id) == {1, 2, 3}
+    assert set(por_id) == {1, 2, 3, 5}
     assert por_id[2]["tipo"] == "papel" and por_id[2]["sha256"] == sha
-    assert dados["descartados"]["instaladores"] == [4, 5, 6, 7]
+    assert por_id[5]["sha256"] == ""
+    assert dados["descartados"]["instaladores"] == [4, 6, 7, 8]
     assert "papel_invalido" in caplog.text and link not in caplog.text
