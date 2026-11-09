@@ -2,10 +2,11 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/sha256-opcional`, PR para `develop`: SHA256 opcional em Instaladores
-  (ADR-028, TA-ADR-034). Sem hash, cache `c<chave>.<sha calculado>.<ext>` (chave de Id, Link e
-  Versao); com hash, nada muda. Deploy da API depois do merge (validação do `papel`).
-  Separada: `fix/cadastros-diagnostico` (Categoria do WiFi, tabela no log da API).
+- **Branch:** `chore/versao-0.17.0`, PR para `develop`: versão 0.17.0 com o SHA256 opcional
+  (ADR-028, TA-ADR-034, PR #52) e o diagnóstico dos cadastros (PR #53), já na `main` pelo #54.
+  Depois do merge até a `main`: tag `v0.17.0`, publicar o rascunho, assinar e publicar a versão
+  na API (`docs/BUILD.md`). Deploy da API antes ou junto. Até os notebooks terem a 0.17.0,
+  manter o SHA256 preenchido no NocoDB (o Bench 0.16.0 ainda o exige).
 - ADR-027 (endereço embutido no instalador de release): responsável cria o environment
   `release` e o secret `BENCH_API_URL` antes da tag. Release do 16 no PR #46 (develop → main).
 - **Cloudflare Access (09/11/2026):** aplicação Self-hosted com caminho `v1/bench/` e política
