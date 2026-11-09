@@ -2,11 +2,11 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/versao-0.17.0`, PR para `develop`: versão 0.17.0 com o SHA256 opcional
-  (ADR-028, TA-ADR-034, PR #52) e o diagnóstico dos cadastros (PR #53), já na `main` pelo #54.
-  Depois do merge até a `main`: tag `v0.17.0`, publicar o rascunho, assinar e publicar a versão
-  na API (`docs/BUILD.md`). Deploy da API antes ou junto. Até os notebooks terem a 0.17.0,
-  manter o SHA256 preenchido no NocoDB (o Bench 0.16.0 ainda o exige).
+- **Branch:** `chore/versao-0.17.1`, PR para `develop`: versão 0.17.1 com a correção do papel
+  de parede sem SHA256 (`escrever.ps1`, PR #57). A 0.17.0 foi publicada na API (mínima 0.17.0,
+  obrigatória). Depois do merge até a `main` (PR #58): tag `v0.17.1`, publicar o rascunho,
+  assinar e publicar a versão na API (`docs/BUILD.md`). Até lá, papel de parede só com SHA256.
+  Pendente: roteiro 7.7 e 7.8 em máquina real.
 - ADR-027 (endereço embutido no instalador de release): responsável cria o environment
   `release` e o secret `BENCH_API_URL` antes da tag. Release do 16 no PR #46 (develop → main).
 - **Cloudflare Access (09/11/2026):** aplicação Self-hosted com caminho `v1/bench/` e política
