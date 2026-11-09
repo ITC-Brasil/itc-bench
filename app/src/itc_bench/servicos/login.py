@@ -16,7 +16,13 @@ MENSAGENS_OFFLINE = {
     "cofre_ilegivel": "Login offline indisponível nesta máquina. Detalhes no log.",
     "sem_pasta_protegida": "Sem conexão, e o login offline não funciona sem administrador.",
     "sem_endereco": "API não configurada, e este usuário não tem login offline.",
+    "glpi_indisponivel": (
+        "O servidor está no ar, mas não consegue validar o login no GLPI. Avise o responsável. "
+        "O login offline não está disponível para este usuário nesta máquina."
+    ),
 }
+# Recusas do offline que, com o GLPI fora, trocam de mensagem (a causa real é o servidor).
+SEM_OFFLINE = {"sem_login_recente", "expirado", "sem_pasta_protegida"}
 
 
 @dataclass(frozen=True)
@@ -41,12 +47,14 @@ def entrar(
     (401, 403, 429) e resposta estranha (`ErroApi`) nunca caem. 401/403 apagam o offline."""
     usuario = normalizar(usuario)
     motivo = "sem_endereco"
+    glpi_fora = False
     if base:
         try:
             sessao = api.entrar(base, usuario, senha, maquina)
         except api.SemConexao as erro:
             log.info("Login de %s sem servidor (%s); tentando offline.", usuario, erro)
             motivo = "sem_login_recente"
+            glpi_fora = isinstance(erro, api.GlpiIndisponivel)
         except api.Recusado as erro:
             if erro.status in (401, 403) and cofre is not None:
                 cofre.esquecer(usuario)
@@ -55,14 +63,21 @@ def entrar(
             if cofre is not None:
                 cofre.lembrar(sessao.login, sessao.nome, senha)
             return Entrada(sessao.login, sessao.nome, sessao)
-    if cofre is None:
-        raise OfflineRecusado("sem_pasta_protegida" if base else motivo)
     try:
-        nome = cofre.conferir(usuario, senha)
+        if cofre is None:
+            raise OfflineRecusado("sem_pasta_protegida" if base else motivo)
+        try:
+            nome = cofre.conferir(usuario, senha)
+        except OfflineRecusado as erro:
+            if erro.codigo == "sem_login_recente":
+                raise OfflineRecusado(motivo) from None
+            raise
     except OfflineRecusado as erro:
-        if erro.codigo == "sem_login_recente":
-            raise OfflineRecusado(motivo) from None
+        if glpi_fora and erro.codigo in SEM_OFFLINE:
+            raise OfflineRecusado("glpi_indisponivel") from None
         raise
+    if glpi_fora:
+        log.warning("Login offline de %s: a API não validou no GLPI (glpi_indisponivel).", usuario)
     return Entrada(usuario, nome, None)
 
 
