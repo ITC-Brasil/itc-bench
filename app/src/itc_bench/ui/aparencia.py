@@ -361,8 +361,9 @@ class PainelPapel(_PainelAlvos):
             self.detalhe.setText("Sem imagem no cadastro (Instaladores, tipo papel).")
             return
         guardada = self.admin and pp.caminho(linha) is not None
+        sha = linha.sha256.strip().lower()
         self.detalhe.setText(
-            f"SHA-256 {linha.sha256.strip()[:12].lower()}… — "
+            (f"SHA-256 {sha[:12]}… — " if sha else "SHA-256: não cadastrado — ")
             + ("conferida nesta máquina." if guardada else "será baixada ao aplicar.")
         )
 

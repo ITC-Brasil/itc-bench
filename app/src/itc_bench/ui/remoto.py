@@ -244,7 +244,7 @@ class PainelRemoto(QWidget):
             linhas += [
                 f"Instalador: {inst.arquivo} (cadastro Id {inst.id})",
                 f"Origem: {origem.name if origem else 'download do cadastro'}",
-                f"SHA-256: {inst.sha256.lower()} ({sha})",
+                f"SHA-256: {instaladores.cadastrado(inst) or 'não cadastrado'} ({sha})",
                 "",
                 "Comando:",
                 remoto.comando(d, inst.arquivo),
