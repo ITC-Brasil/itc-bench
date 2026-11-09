@@ -43,7 +43,7 @@ TABELAS = {
         ),
         "Programa",
     ),
-    "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "categoria", "Ativo", "AtualizadoEm"), "SSID"),
+    "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "Categoria", "Ativo", "AtualizadoEm"), "SSID"),
     "unidades": (
         "nocodb_tabela_unidades",
         ("Id", "Codigo", "Nome", "Cidade", "UF", "TagGLPI", "PerfilPadrao", "Ativo"),
@@ -83,7 +83,11 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
     with httpx.Client(timeout=settings.nocodb_cadastros_timeout_seconds, transport=transport) as client:
         for nome, (id_setting, campos, _) in TABELAS.items():
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
-            brutos[nome] = paginas(client, url, headers, campos, inicio)
+            try:
+                brutos[nome] = paginas(client, url, headers, campos, inicio)
+            except NocodbIndisponivel as erro:
+                # Table name only in the API log (e.g. instaladores:http_400), never to the Bench.
+                raise NocodbIndisponivel(f"{nome}:{erro.code}") from None
     return validar(brutos)
 
 
@@ -227,7 +231,7 @@ def rede(linha: dict) -> dict:
         "ssid": texto(linha.get("SSID")),
         "senha": SecretStr(texto(linha.get("Senha"))),
         "unidade": texto(linha.get("Unidade")),
-        "categoria": texto(linha.get("categoria")),
+        "categoria": texto(linha.get("Categoria")),
         "atualizado_em": texto(linha.get("AtualizadoEm")),
     }
 

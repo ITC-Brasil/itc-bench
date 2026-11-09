@@ -264,7 +264,8 @@ class Armazem:
 
 @dataclass(frozen=True)
 class Sincronizacao:
-    """estado: ok (baixou), igual (304), offline (sem servidor ou NocoDB fora; cache mantido),
+    """estado: ok (baixou), igual (304), offline (sem servidor; cache mantido), sem_central (API
+    no ar sem acesso ao NocoDB, 503 cadastros_indisponivel; cache mantido),
     sessao (401: login de novo), unidade_invalida, erro (resposta estranha; cache mantido)."""
 
     estado: str
@@ -282,7 +283,8 @@ def sincronizar(
         log.info("Cadastros sem sincronizar (%s); usando o cache.", erro)
         if unidade is not None and atual is not None and atual.unidade != unidade:
             atual = armazem.filtrar(unidade)  # unidade trocada sem rede: só o Wi-Fi dela fica
-        return Sincronizacao("offline", atual)
+        sem_central = isinstance(erro, api.CadastrosIndisponivel)
+        return Sincronizacao("sem_central" if sem_central else "offline", atual)
     except api.Recusado as erro:
         log.warning("Cadastros recusados pela API (%s).", erro.codigo)
         return Sincronizacao("sessao" if erro.status == 401 else erro.codigo, atual)
