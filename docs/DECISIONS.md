@@ -1924,8 +1924,9 @@ opcional: linha sem hash é válida e instala normalmente, sem pedir ação de n
    antes de executar. Divergiu, recusa. SHA256 preenchido e inválido continua recusado.
 3. **Conferência antes de executar** nos dois casos pelo hash do nome do arquivo
    (`instaladores.conferir`). Uma troca do arquivo no cache continua recusada.
-4. **Registro.** O `bench.log` registra a linha sem hash, o host do link (sem caminho nem query)
-   e o começo do hash calculado. Na tela, só "SHA-256: não cadastrado" no texto secundário, sem
+4. **Registro.** O `bench.log` registra a linha sem hash (`Id`) e o começo do hash calculado. O
+   link continua fora do log, host inclusive: o host pode ser servidor interno, e o teste ponta a
+   ponta já barra o host do download no log. Na tela, só "SHA-256: não cadastrado" no texto secundário, sem
    aviso nem pedido de ação.
 5. **API.** O `papel` deixa de exigir SHA256 (TA-ADR-034).
 6. A atualização do próprio Bench (manifesto ECDSA, ADR-026) continua obrigatória e não passa
