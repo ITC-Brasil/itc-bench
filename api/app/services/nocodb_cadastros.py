@@ -43,7 +43,7 @@ TABELAS = {
         ),
         "Programa",
     ),
-    "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "categoria", "Ativo", "AtualizadoEm"), "SSID"),
+    "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "Categoria", "Ativo", "AtualizadoEm"), "SSID"),
     "unidades": (
         "nocodb_tabela_unidades",
         ("Id", "Codigo", "Nome", "Cidade", "UF", "TagGLPI", "PerfilPadrao", "Ativo"),
@@ -225,7 +225,7 @@ def rede(linha: dict) -> dict:
         "ssid": texto(linha.get("SSID")),
         "senha": SecretStr(texto(linha.get("Senha"))),
         "unidade": texto(linha.get("Unidade")),
-        "categoria": texto(linha.get("categoria")),
+        "categoria": texto(linha.get("Categoria")),
         "atualizado_em": texto(linha.get("AtualizadoEm")),
     }
 

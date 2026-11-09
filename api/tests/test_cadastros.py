@@ -41,10 +41,10 @@ def linhas():
             {"Id": 1, "Programa": "Exemplo", "Versao": "1.0", "Arquivo": "exemplo.msi", "SHA256": "AB" * 32, "Link": "https://exemplo.invalid/a.msi", "Ativo": True},
         ],
         "mWif": [
-            {"Id": 10, "SSID": "Rede-Ficticia-A", "Senha": MARCADOR_WIFI, "Unidade": "UM-01", "categoria": "Carreta", "Ativo": True},
-            {"Id": 11, "SSID": "Rede-Ficticia-B", "Senha": MARCADOR_WIFI, "Unidade": "UM-02", "categoria": "Carreta", "Ativo": True},
-            {"Id": 12, "SSID": "Rede-Ficticia-C", "Senha": MARCADOR_WIFI, "Unidade": "UM-99", "categoria": "Carreta", "Ativo": True},
-            {"Id": 13, "SSID": "Rede-Ficticia-D", "Senha": MARCADOR_WIFI, "Unidade": "UM-03", "categoria": "Carreta", "Ativo": True},
+            {"Id": 10, "SSID": "Rede-Ficticia-A", "Senha": MARCADOR_WIFI, "Unidade": "UM-01", "Categoria": "Carreta", "Ativo": True},
+            {"Id": 11, "SSID": "Rede-Ficticia-B", "Senha": MARCADOR_WIFI, "Unidade": "UM-02", "Categoria": "Carreta", "Ativo": True},
+            {"Id": 12, "SSID": "Rede-Ficticia-C", "Senha": MARCADOR_WIFI, "Unidade": "UM-99", "Categoria": "Carreta", "Ativo": True},
+            {"Id": 13, "SSID": "Rede-Ficticia-D", "Senha": MARCADOR_WIFI, "Unidade": "UM-03", "Categoria": "Carreta", "Ativo": True},
         ],
         "mUni": [
             {"Id": 1, "Codigo": "UM-01", "Nome": "Unidade Um", "Ativo": True},
@@ -440,3 +440,9 @@ def test_papel_de_parede(settings, fake, caplog):
     assert por_id[2]["tipo"] == "papel" and por_id[2]["sha256"] == sha
     assert dados["descartados"]["instaladores"] == [4, 5, 6, 7]
     assert "papel_invalido" in caplog.text and link not in caplog.text
+
+
+def test_wifi_le_categoria_pelo_titulo(settings, fake):
+    """NocoDB `fields=` uses the column title (`Categoria`); `categoria` came back absent."""
+    dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert {rede["categoria"] for rede in dados["wifi"]} == {"Carreta"}
