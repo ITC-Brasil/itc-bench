@@ -1829,11 +1829,16 @@ Desenho aprovado em `.conversa/` em 08/11/2026, com dez ajustes.
    `Global\ITCBench` (e o local `ITCBench` na mesma sessão), o que travava o `AppMutex` do
    Módulo 15. O `AppMutex` sai. O Bench elevado cria só `Global\ITCBench` com DACL SY/BA; o
    instalador (`BenchAberto()`) e o app (`mutex_de_administrador()`) só contam mutex que abre com
-   `READ_CONTROL` e tem dono Administradores ou SYSTEM. Mutex de terceiro é ignorado com log. Na
+   `READ_CONTROL` e tem dono Administradores ou SYSTEM. Mutex de terceiro é ignorado com log e
+   com aviso no Início (texto puro, com "?", sem usuário nem SID: não rodar o instalador à mão com
+   o Bench aberto; pedir para encerrar a sessão desse usuário). Na
    atualização, `/ESPERAPID` é a garantia principal: espera o PID sair (60 s) só se ele ainda for
    o `ITC Bench.exe` da pasta fixa; o `PrepareToInstall` confere o mutex de novo antes de copiar.
-10. **`--teste-atualizacao` (CI):** consulta, baixa e "fecha" sem janela, com uma sessão falsa que
-    a API real recusa (401); nada roda sem manifesto assinado pelas chaves do pacote.
+10. **`--teste-atualizacao` (CI):** consulta, baixa e "fecha" sem janela. Só funciona na cópia
+    de teste do CI, com o marcador `recursos/atualizacao/copia-de-teste-ci.txt` gravado pelo job
+    ao lado das chaves de teste (pasta conferida pelo ADR-025), e com a sessão em
+    `ITC_BENCH_SESSAO_TESTE`, gerada no job; sem um dos dois sai 5 sem consultar a API. Nenhuma
+    sessão de teste no código (revisão do PR #43, achado 2).
 11. **Build de release** (tag) falha se as duas chaves públicas do pacote não forem as comitadas.
     O teste de atualização usa cópias do pacote com chaves de teste, que nunca são publicadas.
 
@@ -1850,5 +1855,7 @@ Desenho aprovado em `.conversa/` em 08/11/2026, com dez ajustes.
 Exige deploy da API (migração 0007) e as chaves públicas reais comitadas pelo responsável; sem
 elas o build de release falha. Falha no meio da cópia deixa o Bench sem `_internal` (o
 `[InstallDelete]` já rodou): reinstalação manual (`docs/BUILD.md`). O Inno extrai o motor em
-`%TEMP%` do técnico elevado, em pasta aleatória (risco aceito, Inno 6.7.4). Atualiza o ADR-025
+`%TEMP%` do técnico elevado, em pasta aleatória (risco aceito, Inno 6.7.4). Risco aceito (revisão do
+PR #43, achado 1): com `Global\ITCBench` ocupado por outro usuário, um instalador rodado à mão
+não percebe o Bench aberto; a atualização automática segue protegida pelo `/ESPERAPID`. Atualiza o ADR-025
 (item 2, mutex) e o ADR-011 (disparo fora do Job).
