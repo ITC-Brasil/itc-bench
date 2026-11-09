@@ -17,6 +17,8 @@ jobs:
     # Same image as app-ci. The hosted runner is a disposable admin machine: testar.ps1 installs,
     # uninstalls and deletes %ProgramData%\ITC\Bench\protegido.
     runs-on: windows-2025
+    # ADR-027: only tag builds use the `release` environment (secret BENCH_API_URL).
+    environment: ${{ github.ref_type == 'tag' && 'release' || '' }}
     env:
       QT_QPA_PLATFORM: offscreen
       INNO_VERSION: 6.7.4
@@ -121,6 +123,24 @@ jobs:
           ./instalador/testar-atualizacao.ps1 -SetupN "$t/itc-bench-$n-setup.exe" -SetupN1 "$t/itc-bench-$n1-setup.exe" `
             -VersaoN $n -VersaoN1 $n1 -Chaves "$t/chaves" -Senha $senha
 
+      # ADR-027: embedded default address, tested with fictitious .invalid addresses only.
+      - name: embedded address test (variants, never uploaded)
+        run: ./instalador/testar-endereco.ps1 -Iscc $env:ISCC -Versao ${{ steps.versao.outputs.valor }}
+
+      # ADR-027: only the tag build embeds the real address. Missing or invalid -> the build fails.
+      # The secret is masked by GitHub; nothing here prints it, its length or any part of it.
+      - name: release installer (embedded API address)
+        if: github.ref_type == 'tag'
+        env:
+          BENCH_API_URL: ${{ secrets.BENCH_API_URL }}
+        run: |
+          ./instalador/endereco-padrao.ps1
+          if ($LASTEXITCODE) { throw 'release without a valid BENCH_API_URL' }
+          $v = '${{ steps.versao.outputs.valor }}'
+          & $env:ISCC /Q "/DAppVersion=$v" "/DApiUrlPadrao=$env:BENCH_API_URL" instalador/itc-bench.iss
+          if ($LASTEXITCODE) { throw 'ISCC failed for the release installer' }
+          $hash = (Get-FileHash "app/dist/itc-bench-$v-setup.exe" -Algorithm SHA256).Hash.ToLower()
+          "$hash  itc-bench-$v-setup.exe" | Set-Content app/dist/SHA256SUMS -Encoding ascii
       - name: Inno logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
