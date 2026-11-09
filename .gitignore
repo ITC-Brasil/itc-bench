@@ -26,3 +26,7 @@ segredos*.json
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Chaves privadas da atualização (ADR-026): nunca no repositório
+*.key.pem
+*.pem
