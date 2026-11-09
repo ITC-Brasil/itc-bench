@@ -223,3 +223,10 @@ def test_unidade_no_rodape_so_se_estiver_no_cache(qtbot, monkeypatch, tmp_path):
     j.unidade = "UM-99"
     j._atualizar_rodape()
     assert "Unidade —" in j.rodape.text()
+
+
+def test_indicador_servidor_concorda_e_rodape_fala_da_api(qtbot, monkeypatch, tmp_path):
+    j = montar(qtbot, monkeypatch, tmp_path)
+    qtbot.waitUntil(lambda: "conectado" in j.entrar.estado.text())
+    assert j.entrar.estado.text() == "● Servidor conectado"
+    assert j.entrar.rodape.text().endswith("API: conectada")
