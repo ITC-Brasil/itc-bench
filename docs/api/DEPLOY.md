@@ -143,6 +143,29 @@ Ordem obrigatória. Entre o passo 1 e o 7, nenhum merge na `main` do tecnico-ass
    `api-deploy.yml` (feito em 2026-11-04); PR no TA trocando o README para apontar este
    repositório, depois da troca da pasta de deploy. Arquivamento do TA é do responsável.
 
+## Cloudflare Access: Bypass para o Bench (responsável, uma vez)
+
+O Bench nos notebooks não tem service token: as rotas `/v1/bench/` se autenticam pela sessão do
+técnico (`Authorization: Bearer`). Sem o Bypass, o Access responde 403 e o login falha em todos
+os notebooks.
+
+1. Zero Trust → Access → Applications → Add an application → **Self-hosted**.
+2. Domínio da API, caminho `v1/bench/`. Aplicação **separada** da aplicação do service token das
+   carretas, que continua cobrindo o resto do domínio.
+3. Política: ação **Bypass**, regra **Everyone**.
+
+Verificação, de qualquer máquina fora do servidor (no PowerShell 5.1, `curl` é apelido do
+`Invoke-WebRequest`; use `curl.exe`):
+
+```
+curl.exe -s -D - -o NUL https://<endereço da API>/v1/bench/sessao
+```
+
+| Resposta | Significado |
+|---|---|
+| `401` com `www-authenticate: Bearer`, sem cabeçalho `Cf-Access-*` | Bypass certo: a API respondeu |
+| `403` com `Cf-Access-*` | Bypass ausente ou caminho errado: o Access barrou |
+| `502` ou `530` | Túnel ou container fora |
 ## Verificação pós-deploy
 
 | Cenário | Como verificar | Esperado |
@@ -154,6 +177,7 @@ Ordem obrigatória. Entre o passo 1 e o 7, nenhum merge na `main` do tecnico-ass
 | Porta só em loopback | `docker port tecnico-api` | `<APP_PORT>/tcp -> 127.0.0.1:<APP_PORT>` |
 | Saúde local | `curl -s http://127.0.0.1:<APP_PORT>/v1/saude` | `{"status":"ok"}` |
 | Saúde pelo túnel, com service token | `curl -s -H "CF-Access-Client-Id: ..." -H "CF-Access-Client-Secret: ..." https://<domínio da API>/v1/saude` | `{"status":"ok"}` |
+| Bypass do Bench | `curl.exe -s -D - -o NUL https://<endereço da API>/v1/bench/sessao` | `401` com `www-authenticate: Bearer`, sem `Cf-Access-*` (seção acima) |
 | Borda sem service token | `curl -s -o /dev/null -w '%{http_code}' https://<domínio da API>/v1/saude` | `302` ou `403`, nunca `200` |
 | Migrações | `docker exec tecnico-api python -c "import sqlite3; print(sqlite3.connect('<banco>').execute('select version from schema_migrations').fetchall())"` | Iguais às de antes da troca |
 | Relatório de teste | Token de carreta de teste (`python -m app.tokens create --carreta TESTE-MONOREPO ...`), `POST /v1/relatorio` com uma sessão de fixture, depois `revoke` | `200` com laudo; linha no SQLite; espelho no NocoDB |

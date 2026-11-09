@@ -52,17 +52,27 @@ Conferir o hash antes:
 Get-FileHash .\itc-bench-X.Y.Z-setup.exe -Algorithm SHA256
 ```
 
-Assistente: abrir o instalador, aceitar o UAC e informar o endereço da API na página
-"Endereço da API".
+O instalador da Release (build de tag) já traz o endereço da API embutido (ADR-027). Instalação
+nova: duplo clique (o assistente vem preenchido) ou silenciosa sem `/APIURL`:
 
-Silenciosa (administrador):
+```
+itc-bench-X.Y.Z-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=C:\caminho\instalar.log
+```
+
+Precedência: `/APIURL=` → endereço já gravado na máquina → padrão embutido. O instalador do PR
+(artefato de teste) não tem padrão: no assistente informe o endereço; na silenciosa, `/APIURL`.
+
+**O `setup.exe` de release é interno.** O endereço fica no script compilado do Inno e quem tiver o
+arquivo consegue lê-lo. Não publique fora da equipe.
+
+Silenciosa com outro endereço (administrador):
 
 ```
 itc-bench-X.Y.Z-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /APIURL=https://<endereço da API> /LOG=C:\caminho\instalar.log
 ```
 
-- Instalação nova sem `/APIURL` falha (código ≠ 0). Atualização sem `/APIURL` mantém o endereço
-  gravado.
+- Instalação nova sem `/APIURL` usa o padrão embutido; sem padrão (instalador de PR) falha
+  (código ≠ 0). Atualização sem `/APIURL` mantém o endereço gravado.
 - O endereço precisa ser `https://` com o nome do servidor, sem usuário, senha, query ou
   fragmento. Fica em `HKLM\SOFTWARE\ITC\Bench\ApiUrl`.
 - O `/LOG` grava a linha de comando, com o endereço. Não é segredo, mas fica no log.
@@ -85,6 +95,10 @@ reg add HKLM\SOFTWARE\ITC\Bench /v ApiUrl /t REG_SZ /d https://<endereço novo> 
 ```
 
 O Bench lê o valor ao abrir.
+
+## Endereço embutido no release (uma vez)
+
+No GitHub: Settings → Environments → New environment `release` (com aprovação obrigatória, se). Nele, o secret `BENCH_API_URL` com o endereço `https://` da API. Só o build de tag usa environment; sem o secret, ou com endereço inválido, o build de tag falha. Nunca escreva o no repositório, no workflow ou em `.conversa/`.
 
 ## Desinstalar
 
