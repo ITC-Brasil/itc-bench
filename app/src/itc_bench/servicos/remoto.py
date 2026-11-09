@@ -602,7 +602,7 @@ def instalar(
     programa = d.programa
     try:
         _checar(cancelar)
-        if not instaladores.conferir(arquivo, d.instalador.sha256):
+        if not instaladores.conferir(arquivo):
             log.error(
                 "Acesso remoto: %s: SHA-256 diferente antes de executar (Id %s)",
                 programa,
