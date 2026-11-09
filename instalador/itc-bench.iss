@@ -1,12 +1,17 @@
-﻿; Instalador do ITC Bench (ADR-025). Inno Setup 6.7.4, compilado pelo instalador/build.ps1:
+; Instalador do ITC Bench (ADR-025). Inno Setup 6.7.4, compilado pelo instalador/build.ps1:
 ;   ISCC.exe /DAppVersion=X.Y.Z instalador\itc-bench.iss
-; Nenhum endereço de servidor aqui: o da API chega na instalação (/APIURL= ou página do assistente)
-; e vai para HKLM\SOFTWARE\ITC\Bench\ApiUrl. Nada é extraído nem executado de {tmp}.
+; Nenhum endereço de servidor aqui: o da API chega por /APIURL=, pelo valor já gravado ou pelo
+; padrão /DApiUrlPadrao= (só no build de tag, segredo do CI; ADR-027) e vai para
+; HKLM\SOFTWARE\ITC\Bench\ApiUrl. Nada é extraído nem executado de {tmp}.
 
 #ifndef AppVersion
   #error Passe /DAppVersion=X.Y.Z (versão de app/src/itc_bench/__init__.py)
 #endif
 ; Só o teste de atualização do CI troca a pasta (cópia com chaves de teste, nunca publicada).
+; ADR-027: padrão embutido só no instalador de release (validado no CI por endereco-padrao.ps1).
+#ifndef ApiUrlPadrao
+  #define ApiUrlPadrao ""
+#endif
 #ifndef DistDir
   #define DistDir "..\app\dist\ITC Bench"
 #endif
@@ -245,14 +250,17 @@ begin
   end;
   Endereco := Trim(ExpandConstant('{param:APIURL|}'));
   if Endereco = '' then Endereco := EnderecoAtual();
+  { ADR-027: /APIURL > valor gravado (upgrade mantém) > padrão embutido no release. }
+  if Endereco = '' then Endereco := '{#ApiUrlPadrao}';
   if not WizardSilent() then Exit;
-  { Silenciosa: instalação nova exige /APIURL; atualização mantém o valor gravado. O endereço
+  { Silenciosa: instalação nova exige /APIURL ou padrão embutido; atualização mantém o valor
+    gravado. O endereço
     entra no log do Inno pela linha de comando (não é segredo; ADR-025). }
   if Endereco = '' then begin
-    Log('Recusado: instalação silenciosa sem /APIURL e sem endereço gravado.');
+    Log('Recusado: instalação silenciosa sem /APIURL, sem endereço gravado e sem padrão.');
     Result := False;
   end else if not EnderecoValido(Endereco) then begin
-    Log('Recusado: /APIURL precisa ser https:// com host, sem usuário, senha, query ou fragmento.');
+    Log('Recusado: o endereço precisa ser https:// com host, sem usuário, senha, query ou fragmento.');
     Result := False;
   end;
 end;
