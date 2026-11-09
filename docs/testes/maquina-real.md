@@ -124,6 +124,8 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 7.4 | Mesma versão (Reconfigurar) e versão mais velha (Atualizar) | Não rebaixa | 09/V4 |
 | 7.5 | SHA-256 errado; sem rede com "Escolher arquivo…"; linha de Servidores vazia | Recusa antes de executar; mensagem do cadastro | 09/V5, 09/V6 |
 | 7.6 | Cancelar no download e no MSI | Arquivo parcial apagado; MSI não morto | 09/V7 |
+| 7.7 | RustDesk com `SHA256` vazio no cadastro; depois troque a `Versao` e sincronize | Instala; confirmação com "SHA-256: não cadastrado"; `bench.log` com "sem SHA-256 cadastrado" e o começo do hash; a versão nova baixa de novo e o arquivo antigo some de `protegido\instaladores` | ADR-028 |
+| 7.8 | `SHA256` preenchido com um hash que não é o do arquivo | Recusa antes de executar, como em 7.5 | ADR-028 |
 
 ### 8. Programas
 

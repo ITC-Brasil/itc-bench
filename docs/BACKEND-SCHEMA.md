@@ -29,7 +29,7 @@ marcada como obrigatória nem única: validação fica na API.
 | `Programa` | SingleLineText, display | |
 | `Versao` | SingleLineText | |
 | `Arquivo` | SingleLineText | Nome do arquivo baixado |
-| `SHA256` | SingleLineText | Conferido antes de executar |
+| `SHA256` | SingleLineText | Opcional (ADR-028). Preenchido: 64 hexadecimais, conferido antes de executar. Vazio: o Bench calcula o hash no download |
 | `Link` | URL | Origem do download |
 | `Ativo` | Checkbox | |
 | `Observacao` | LongText | |
@@ -41,16 +41,17 @@ marcada como obrigatória nem única: validação fica na API.
 | `Modo` | SingleSelect: `quiosque`, `app` | Só webapp; vazio = `quiosque` |
 
 Contrato de Programas (ADR-020, TA-ADR-029):
-- **instalador:** `Programa`, `Versao`, `Arquivo` `.msi`/`.exe`, `SHA256`, `Link` `https://`.
+- **instalador:** `Programa`, `Versao`, `Arquivo` `.msi`/`.exe`, `Link` `https://`; `SHA256`
+  opcional (ADR-028).
   Cadastre `Programa` com o nome que aparece em "Aplicativos instalados" do Windows (o Bench o
   usa como prefixo para dizer se está instalado; MSI é achado pelo `ProductCode` do arquivo).
 - **winget:** `Programa` e `Identificador` (ID exato do repositório `winget`). `Versao` é só
   referência. `Link`, `SHA256` e `Arquivo` vazios.
 - **papel** (ADR-022, TA-ADR-030): `Programa` (nome na tela), `Arquivo` `.jpg`/`.jpeg`/`.png`,
-  `SHA256` e `Link` `https://`. JPG ou PNG de até 20 MB, de 640x480 a 7680x4320. Guardado em
+  `Link` `https://` e `SHA256` opcional (TA-ADR-034). JPG ou PNG de até 20 MB, de 640x480 a 7680x4320. Guardado em
   `%ProgramData%\ITC\Bench\papel\` e aplicado pela tela Tela e papel de parede.
 - **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
-  opcional: `Link` `https://` do `.ico`, `SHA256` e `Arquivo` `.ico`.
+  opcional: `Link` `https://` do `.ico`, `Arquivo` `.ico` e `SHA256` opcional.
 - Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não
   aparecem em Programas. Duplicada (mesmo tipo e ID/URL, ou mesmo `Programa` entre
   instaladores): nenhuma das duas instala.
@@ -96,7 +97,8 @@ Contrato do acesso remoto (ADR-019), uma linha ativa por par: `GLPI Agent`/`serv
 `http(s)://`, público), `RustDesk`/`servidor` (host sem porta, público), `RustDesk`/`chave`,
 `RustDesk`/`senha` e `AnyDesk`/`senha` (não públicos). Ausente, vazia, duplicada ou com
 `Publico` trocado: o Bench recusa aquele programa e diz o par. Instaladores: `Programa` igual a
-`GLPI Agent`, `RustDesk` ou `AnyDesk`, `SHA256` de 64 hexadecimais, `Link` `https://` e
+`GLPI Agent`, `RustDesk` ou `AnyDesk`, `SHA256` vazio ou de 64 hexadecimais (ADR-028; preencher
+fixa o arquivo), `Link` `https://` e
 `Arquivo` com `.msi`, `.msi`, `.exe`. `Unidades.TagGLPI` é opcional (sem ela, o agente vai sem
 `TAG=`).
 
@@ -124,7 +126,7 @@ Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout
 | Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
 | Fila de diagnósticos não enviados (`formato`, `envio_id`, `criado_em`, `coletado_por`, hostname, corpo 1.3 já saneado); 10 itens, 14 dias | `%ProgramData%\ITC\Bench\protegido\fila-diagnostico.dpapi`; ilegível vira `fila-diagnostico.corrompida`; sem admin, só memória | DPAPI de máquina + ACL (ADR-015) | 06 |
 | Token da carreta (`itcta_`) | Não vai aos notebooks: o envio usa a sessão (ADR-016) | — | 06 |
-| Instaladores conferidos (nome = SHA-256 + extensão); apagados quando nenhuma linha ativa de Instaladores os usa | `%ProgramData%\ITC\Bench\protegido\instaladores\` | ACL só SYSTEM e `S-1-5-32-544` (ADR-019) | 09 |
+| Instaladores conferidos (nome = SHA-256 + extensão; sem SHA-256 no cadastro, `c<chave de Id, Link e Versao>.<SHA-256 calculado>.<ext>`, ADR-028); apagados quando nenhuma linha ativa de Instaladores os usa | `%ProgramData%\ITC\Bench\protegido\instaladores\` | ACL só SYSTEM e `S-1-5-32-544` (ADR-019) | 09 |
 | Ícones dos Web Apps (nome = SHA-256 + `.ico`); limpos com a mesma regra dos instaladores | `%ProgramData%\ITC\Bench\icones\` | ACL gravada pelo Bench: sem herança, SYSTEM e Administradores total, Usuários leitura (ADR-020) | 10 |
 | Atalhos dos Web Apps (descrição "ITC Bench") | Desktop Público | ACL padrão do Windows (gravação só admin) | 10 |
 | Configuração do RustDesk (servidor, chave; senha só cifrada pelo RustDesk) | `%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` | Pasta do perfil do serviço (SYSTEM, LocalService, Administradores) | 09 |
