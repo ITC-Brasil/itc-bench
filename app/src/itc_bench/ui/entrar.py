@@ -209,9 +209,10 @@ class TelaEntrar(QWidget):
         base = self.base
 
         def pronto(ok: object) -> None:
-            texto = "conectada" if ok else "sem conexão"
-            self._mostrar_estado(f"● Servidor {texto}", "ok" if ok else "aviso")
-            self._rodape(texto)
+            # Indicador concorda com "Servidor"; o rodapé com "API" ("API: conectada").
+            indicador = "● Servidor conectado" if ok else "● Servidor sem conexão"
+            self._mostrar_estado(indicador, "ok" if ok else "aviso")
+            self._rodape("conectada" if ok else "sem conexão")
 
         def falhou(_motivo: str) -> None:
             self._mostrar_estado("● Servidor sem conexão · login offline", "aviso")

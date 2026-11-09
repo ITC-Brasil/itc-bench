@@ -126,13 +126,14 @@ def test_429_com_e_sem_retry_after(base):
 @pytest.mark.parametrize("status", [502, 503, 504, 530])
 def test_borda_sem_origem_libera_offline(base, status):
     resposta(status, "<html>Bad gateway</html>", "text/html")
-    with pytest.raises(api.SemConexao):
+    with pytest.raises(api.SemConexao) as erro:
         entrar(base)
+    assert not isinstance(erro.value, api.GlpiIndisponivel)
 
 
 def test_glpi_indisponivel_libera_offline(base):
     resposta(503, {"erro": "glpi_indisponivel"})
-    with pytest.raises(api.SemConexao, match="glpi_indisponivel"):
+    with pytest.raises(api.GlpiIndisponivel, match="glpi_indisponivel"):
         entrar(base)
 
 

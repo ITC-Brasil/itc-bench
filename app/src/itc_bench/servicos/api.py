@@ -40,6 +40,13 @@ class SemConexao(Exception):
     """
 
 
+class GlpiIndisponivel(SemConexao):
+    """A API está no ar mas não valida o login no GLPI (503 `glpi_indisponivel`).
+
+    Continua liberando o offline (ADR-013); só muda a mensagem quando o offline também recusa.
+    """
+
+
 class Recusado(Exception):
     """A API respondeu e recusou: 401, 403 `fora_do_perfil` ou 429. Nunca libera o offline."""
 
@@ -193,6 +200,8 @@ def entrar(base: str, usuario: str, senha: Sensivel, maquina: str) -> SessaoApi:
         raise Recusado(403, erro)
     if status == 429:
         raise Recusado(429, "limite_excedido", _retry_after(headers))
+    if status == 503 and erro == "glpi_indisponivel":
+        raise GlpiIndisponivel(erro)
     if status in STATUS_SEM_SERVIDOR:
         raise SemConexao(erro or f"http_{status}")
     raise ErroApi(f"Resposta inesperada do servidor ({status}).")

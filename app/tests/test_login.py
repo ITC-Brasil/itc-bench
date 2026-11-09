@@ -41,6 +41,43 @@ def test_sem_servidor_cai_para_offline(monkeypatch, cofre, motivo):
     assert e.offline and e.rotulo_log == "ana.lima (offline)"
 
 
+def test_glpi_fora_sem_cache_mensagem_propria(monkeypatch, tmp_path):
+    api_que(monkeypatch, api.GlpiIndisponivel("glpi_indisponivel"))
+    vazio = Cofre(tmp_path / "logins.dpapi")
+    for c in (vazio, None):
+        with pytest.raises(OfflineRecusado) as erro:
+            login.entrar("ana.lima", Sensivel(SENHA), base=BASE, maquina="NB", cofre=c)
+        assert erro.value.codigo == "glpi_indisponivel"
+        assert "GLPI" in login.mensagem(erro.value)
+
+
+def test_glpi_fora_com_cache_entra_e_registra(monkeypatch, cofre, caplog):
+    api_que(monkeypatch, api.GlpiIndisponivel("glpi_indisponivel"))
+    e = login.entrar("ana.lima", Sensivel(SENHA), base=BASE, maquina="NB", cofre=cofre)
+    assert e.offline
+    assert "glpi_indisponivel" in caplog.text
+
+
+def test_glpi_fora_senha_errada_continua_senha_errada(monkeypatch, cofre):
+    api_que(monkeypatch, api.GlpiIndisponivel("glpi_indisponivel"))
+    with pytest.raises(OfflineRecusado, match="senha_errada"):
+        login.entrar("ana.lima", Sensivel("outra"), base=BASE, maquina="NB", cofre=cofre)
+
+
+@pytest.mark.parametrize("motivo", ["URLError", "http_503"])
+def test_sem_rede_mantem_mensagem_atual(monkeypatch, tmp_path, motivo):
+    api_que(monkeypatch, api.SemConexao(motivo))
+    with pytest.raises(OfflineRecusado) as erro:
+        login.entrar(
+            "ana.lima",
+            Sensivel(SENHA),
+            base=BASE,
+            maquina="NB",
+            cofre=Cofre(tmp_path / "logins.dpapi"),
+        )
+    assert login.mensagem(erro.value) == login.MENSAGENS_OFFLINE["sem_login_recente"]
+
+
 @pytest.mark.parametrize(
     "erro",
     [
