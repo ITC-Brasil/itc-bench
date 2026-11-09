@@ -218,6 +218,7 @@ class Janela(QMainWindow):
         self.armazem = armazem or Armazem(None)
         self.cadastros: Cadastros | None = self.armazem.carregar()
         self.cadastros_offline = False
+        self.sem_central = False  # última sincronização: API no ar, NocoDB fora (503)
         try:
             self.unidade = cadastros.unidade_da_maquina()
         except OSError as erro:
@@ -345,7 +346,12 @@ class Janela(QMainWindow):
             else:
                 avisos.append("Sem cadastros nesta máquina. Entre online para sincronizar.")
         else:
-            if self.cadastros.defasado:
+            if self.sem_central:
+                quando = self.cadastros.sincronizado_em.astimezone()
+                avisos.append(
+                    f"Servidor sem acesso aos cadastros; usando a cópia de {quando:%d/%m %H:%M}."
+                )
+            elif self.cadastros.defasado:
                 avisos.append("O cadastro central está fora do ar; a API mandou a última cópia.")
             descartados = sum(len(v) for v in self.cadastros.descartados.values())
             if descartados:
@@ -514,6 +520,7 @@ class Janela(QMainWindow):
             return
         self.cadastros = resultado.cadastros
         self.cadastros_offline = resultado.estado not in ("ok", "igual")
+        self.sem_central = resultado.estado == "sem_central"
         if self.armazem.aviso:
             log.info("Cache dos cadastros: %s.", self.armazem.aviso)
         self._atualizar_rodape()

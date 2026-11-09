@@ -120,3 +120,18 @@ def test_dica_do_sha256_nunca_e_rich_text(qtbot, monkeypatch, tmp_path):
     j.cadastros = armazem.carregar()
     j._atualizar_rodape()
     assert j.configuracoes.instaladores.item(0, 3).toolTip() == ""
+
+
+def test_servidor_sem_acesso_aos_cadastros_avisa(qtbot, monkeypatch, tmp_path):
+    """503 cadastros_indisponivel: a tela diz que a API está no ar sem o NocoDB, com a data."""
+    armazem = Armazem(tmp_path / "c.dpapi")
+    j = montar(qtbot, monkeypatch, armazem)
+
+    def fora(*_a):
+        raise api.CadastrosIndisponivel("cadastros_indisponivel")
+
+    monkeypatch.setattr(api, "cadastros", fora)
+    j._sincronizou(cadastros.sincronizar("b", Sensivel("t"), armazem, "ana", None))
+    assert "Servidor sem acesso aos cadastros; usando a cópia de " in textos_visiveis(j)
+    j._sincronizou(cadastros.Sincronizacao("igual", armazem.carregar()))
+    assert "Servidor sem acesso" not in textos_visiveis(j)
