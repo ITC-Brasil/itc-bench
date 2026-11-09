@@ -284,3 +284,67 @@ def test_trecho_aparencia_recusa_valor_e_caminho_fora() -> None:
         executor.powershell(
             f"[Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree('{raiz}', $false)"
         )
+
+
+# ---------------------------------------------------------------- nome no escrever.ps1 (ADR-028)
+
+
+def _padrao_wallpaper() -> str:
+    """O trecho do nome do arquivo na lista de permissões do `Wallpaper` em escrever.ps1."""
+    import re
+
+    script = hive.script("escrever")
+    achado = re.search(r"\[regex\]::Escape\(\$pasta\) \+ '([^']+)'", script)
+    assert achado, "regex do Wallpaper não encontrada no escrever.ps1"
+    return achado.group(1)
+
+
+def _nomes_do_cache(tmp_path: Path) -> list[str]:
+    """Os dois formatos que o Bench grava: com e sem SHA-256 no cadastro."""
+    import dataclasses
+
+    conteudo = png()
+    com = linha(conteudo)
+    sem = dataclasses.replace(com, sha256="")
+    return [
+        instaladores.destino(com, ".png", tmp_path).name,
+        instaladores.destino(sem, ".png", tmp_path, hashlib.sha256(conteudo).hexdigest()).name,
+    ]
+
+
+RECUSADOS = [
+    "papel.png",
+    "a" * 64 + ".gif",
+    "a" * 63 + ".png",
+    "c" + "a" * 64 + ".png",  # sem o hash calculado
+    "x" + "a" * 64 + "." + "b" * 64 + ".png",
+    "c" + "a" * 64 + "." + "b" * 64 + ".png.exe",
+    "..\\" + "a" * 64 + ".png",
+]
+
+
+def test_escrever_aceita_os_dois_nomes_do_cache(tmp_path: Path) -> None:
+    """Regressão da v0.17.0: papel sem SHA-256 caía em 'Falhou (valor)'."""
+    import re
+
+    padrao = re.compile("^" + _padrao_wallpaper(), re.IGNORECASE)  # -match ignora caixa
+    nomes = _nomes_do_cache(tmp_path)
+    assert nomes[1].startswith("c") and nomes[1].count(".") == 2
+    assert all(padrao.fullmatch(n) for n in nomes), nomes
+    assert not any(padrao.fullmatch(n) for n in RECUSADOS)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+def test_escrever_aceita_os_dois_nomes_no_powershell(tmp_path: Path) -> None:
+    """O mesmo trecho avaliado pelo `-match` do PowerShell, com a pasta real."""
+    nomes = _nomes_do_cache(tmp_path)
+    r = executor.powershell(
+        "$pasta = [Environment]::GetFolderPath('CommonApplicationData') + '\\ITC\\Bench\\papel\\'\n"
+        "$padrao = '^' + [regex]::Escape($pasta) + $env:ITC_PADRAO\n"
+        "foreach ($n in ($env:ITC_NOMES | ConvertFrom-Json)) "
+        "{ [string](($pasta + $n) -match $padrao) }",
+        padrao=_padrao_wallpaper(),
+        nomes=json.dumps(nomes + RECUSADOS),
+    )
+    assert r.ok, r.erros
+    assert r.saida.split() == ["True"] * len(nomes) + ["False"] * len(RECUSADOS)
