@@ -299,3 +299,39 @@ Sessão do técnico. Mesmo padrão de hostname e mesmos 20 itens de `GET /v1/his
 mais `bench_usuario`, `unidade`, e em `relatorio` também `relatorio_md` e `chamado_descricao`.
 Qualquer técnico com sessão lê qualquer hostname (risco aceito no ADR-016). `401` sem sessão;
 `422` para hostname fora do padrão.
+
+## Bench (atualização)
+
+Rotas da atualização automática (ADR-026, TA-ADR-033), sob o mesmo Bypass de `/v1/bench/`, com
+a sessão do técnico (`Authorization: Bearer itcbs_...`; sem ela, 401). Respostas com
+`Cache-Control: no-store`. Limite por técnico, janela fixa de uma hora: 30 consultas, 3
+downloads do início e 10 retomadas; acima, 429 `limite_excedido` com `Retry-After`.
+
+### `GET /v1/bench/versao`
+
+204 sem versão publicada. 200:
+
+```json
+{"versao": "0.16.0", "minima": "0.15.0", "sha256": "<64 hex>", "tamanho": 70000000,
+ "notas": "...", "manifesto": "<base64 do JSON assinado>", "assinatura": "<base64, 64 bytes>"}
+```
+
+O Bench só usa `manifesto` e `assinatura`: confere a assinatura com as chaves do pacote antes de
+ler o JSON. Os outros campos são de conveniência para quem inspeciona.
+
+### `GET /v1/bench/versao/arquivo?sha256=<64 hex>`
+
+O instalador da versão servida, `application/octet-stream`. `Range: bytes=N-` responde 206.
+Hash que não é o da versão servida (ou revogada): 404 `versao_indisponivel`; hash fora do
+formato: 422.
+
+### CLI `app.bench_versao`
+
+```
+docker exec -it tecnico-api python -m app.bench_versao publicar --arquivo <setup.exe> \
+  --manifesto <manifesto.json> --assinatura <manifesto.sig> --operador <nome>
+docker exec -it tecnico-api python -m app.bench_versao listar --operador <nome>
+docker exec -it tecnico-api python -m app.bench_versao revogar --versao X.Y.Z --operador <nome>
+```
+
+Saída 0 ok, 1 recusado (formato, hash, versão menor ou igual), 2 uso, 3 falha de banco ou disco.

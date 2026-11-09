@@ -2,23 +2,30 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `ci/modulo-15-instalador`, PR para `develop` (merge commit).
-- **Feito:** Módulo 15 (empacotamento, instalador e CI; ADR-025, TA-ADR-032).
-  - PyInstaller `onedir` (`app/empacotamento/`), ícone, versão 0.15.0 no EXE e no instalador.
-  - Inno Setup 6.7.4 (`instalador/`): endereço da API por `/APIURL=` ou página, em
-    `HKLM\SOFTWARE\ITC\Bench\ApiUrl`; `AppMutex`; desinstalação apaga `protegido\`.
-  - App empacotado: pasta fixa conferida, ambiente `QT_*`/`PYTHON*` ignorado, DLL sem `PATH`.
-  - `app-build.yml`: build, varredura do pacote e teste de instalação/desinstalação no runner;
-    Release em rascunho por tag `v*`.
-  - Lock da API com hash e `--require-hashes`.
-- **Pela metade:** nada no código. Execução do roteiro de máquina real (passo 0 novo).
-- **Próximo passo:** responsável: revisão e merge do PR; deploy da API (`--require-hashes` no
-  `Dockerfile`); roteiro de máquina real com o instalador do CI. Depois, Módulo 16 (atualização
-  automática).
+- **Branch:** `feat/instalador-endereco-embutido`, PR para `develop`: endereço da API embutido
+  no instalador de release (ADR-027, emenda ao ADR-025). Responsável: criar o environment
+  `release` e o secret `BENCH_API_URL` antes da tag. Release do 16 no PR #46 (develop → main).
+- **Cloudflare Access (09/11/2026):** aplicação Self-hosted com caminho `v1/bench/` e política
+  Bypass/Everyone criada e conferida pelo responsável (`401` da API, sem `Cf-Access-*`). O `403`
+  que existia antes impediria o login em todos os notebooks (`docs/api/DEPLOY.md`).
+- **Chaves reais (2026-11-09):** `principal.pub` e `reserva.pub` comitadas (SHA-256 começando por
+  `deb3807c3797` e `3835c1295c0e`); teste de ida e volta assinado pelo responsável conferido.
+- **Feito:** Módulo 16 (atualização automática; ADR-026, TA-ADR-033).
+  - API: `bench_versoes` (migração 0007), CLI `app.bench_versao` e rotas `/v1/bench/versao` e
+    `/versao/arquivo` com sessão, `Range` e limite por técnico.
+  - App: manifesto assinado (ECDSA P-256 pela CNG, chaves principal e reserva no pacote),
+    download conferido em `protegido\atualizacao`, faixa e instalação ao fechar por
+    `executor.disparar`; recusa versão menor ou igual, Preparação em andamento e retomada.
+  - Instalador: sem `AppMutex` (usuário comum criava o nome); só mutex de Administradores conta;
+    `/ESPERAPID`; recusa versão menor.
+  - CI: atualização N → N+1 por API falsa local no runner, recusas e mutex de usuário comum;
+    build de tag exige as chaves públicas comitadas. Versão 0.16.0.
+- **Pela metade:** ok do chat de
+  planejamento para a defesa do mutex (implementada como proposta).
+- **Próximo passo:** responsável: revisar e fazer o merge do PR das chaves, tag `v0.16.0`, deploy da API (migração 0007), roteiro de máquina real (passos 0 a 13).
 - **Tarefas futuras:**
+  - obrigatória bloqueando as telas de ação (hoje só impede adiar);
   - assinatura de código (OV ou Trusted Signing) antes de distribuir em larga escala;
-  - no 16: avaliar `AppMutex` só com `Global\ITCBench` (usuário comum não cria), para o aluno
-    não travar a atualização automática com o mutex local;
   - senha por máquina para a Suporte (LAPS), no lugar da senha única;
   - exigir `https` no GLPI quando ele tiver certificado (TA-ADR-031);
   - contas por turno (opção B do ADR-023), se a carreta pedir;
@@ -30,13 +37,14 @@
   - cadeado por edição no catálogo de políticas, depois do teste em Home/Pro;
   - estado do BitLocker no Diagnóstico (recomendação do ADR-022);
   - tampa e botão de energia (`SUB_BUTTONS`), se a carreta pedir.
-- **Pendências externas:** UAC real do 01 e bancada de 04–15 pelo roteiro de máquina real;
-  release #24.
+- **Pendências externas:** UAC real do 01 e bancada de 04–16 pelo roteiro de máquina real;
+  deploy da API do 15 e do 16; release #24.
 
 ## Registro
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-08 | 16 — Atualização automática | API serve a versão (`bench_versoes`, CLI com operador, migração 0007) e o instalador (sessão, `Range` 206, `no-store`, downloads e retomadas contados em separado). Manifesto assinado ECDSA P-256 conferido pela CNG antes de ler o JSON, chaves principal e reserva no pacote, privadas só com o responsável. Download em `protegido\atualizacao` com teto e hash; faixa no alto e instalação ao fechar por `executor.disparar` (fora do Job, hash pelo handle); recusa versão menor ou igual, Preparação em andamento e retomada. Prova no runner: usuário comum cria `Global\ITCBench`; o `AppMutex` saiu e só mutex de Administradores conta; `/ESPERAPID` confere o executável; instalador recusa versão menor. CI: N → N+1 pela API falsa com cinco recusas e mutex alheio. App 47 testes novos, API 268. ADR-026, TA-ADR-033. Auditoria: 1 alto corrigido, 1 baixo e 4 informativos aceitos. UAC, SmartScreen e túnel pendentes (máquina real). |
 | 2026-11-08 | 15 — Empacotamento, instalador e CI | PyInstaller `onedir` com `VERSIONINFO`, ícone de 8 tamanhos e OpenSSL fixado no do Python (o `PATH` da máquina de build trazia outro `libcrypto`). Inno Setup 6.7.4 com SHA-256 conferido: pasta fixa `Program Files\ITC\Bench`, endereço da API por `/APIURL=` ou página (`https://`, sem credencial, query ou fragmento, no instalador e no app), `AppMutex` sem matar o Bench, upgrade mantém `protegido\` e `ApiUrl`, desinstalação apaga `protegido\` e a chave HKLM com aviso de que a preparação fica. App empacotado confere pasta, pai e árvore (reparse, dono, ACL), ignora `QT_*`/`QML*`/`PYTHON*`, tira o `PATH` da busca de DLL; `--teste` só leitura e lendo os recursos. `app-build`: varredura do pacote (com o `PYZ`) e da árvore instalada, gitleaks, 37 conferências de instalação/desinstalação no runner, Release em rascunho por tag. Lock da API com hash. App 740 testes, API 246. ADR-025, TA-ADR-032. Auditoria: 1 médio corrigido, 5 informativos. Cenários com GUI, UAC e SmartScreen em máquina real pendentes. |
 | 2026-11-07 | 14 — Revisão de segurança e ponta a ponta | Auditoria transversal de app e API com inventário dos 56 itens abertos de 00 a 13 (origem e destino). Corrigidos: `%ProgramData%` e perfis pelo HKLM sem o ambiente do usuário (médio), limite de login conferido e reservado na mesma transação, propriedades MSI que carregam arquivo, dicas e caixas do Qt em texto puro (`ui/texto.py`), `--dev` só leitura também elevado, `certifi`. Testes de invariantes (trechos PS, `ITC_*`, script nunca montado, `winreg`/`ctypes` em lista fechada, SID de Administradores, rich text, rotas da API) e ponta a ponta simulado dos três perfis sem vazar marcador. Roteiro único de máquina real. `pip-audit` no CI. Histórico: conta de dev num doc, mascarada. App 708 testes, API 246. ADR-024, TA-ADR-031. Auditoria: 1 médio e 5 baixos corrigidos, 2 informativos. Roteiro de máquina real pendente (depois do 15). |
 | 2026-11-06 | 13 — Preparação completa, Início e Limpeza | Perfis fechados no código (`Unidades.PerfilPadrao` escolhe), motor sem Qt (etapa lida do Windows antes de aplicar, feita pulada, dependência Contas → Políticas/USB/papel/mouse, falha parcial, pausa depois da etapa), 14 etapas sobre os serviços de 07 a 12. Appx da Microsoft por lista fechada (todas as contas e provisionado; recusa sistema, `NonRemovable`, framework). Retomada assistida: `protegido\preparacao.json` com ACL conferida, ids validados, 24 h, 2 reinícios, sem Run/RunOnce. Limpeza de manutenção (temporários por SID, lixeira, WU com serviços devolvidos, WER) com prévia e sem seguir reparse (teste com junction real). Início por CIM sem texto localizado, alertas com atalho e selos. Registro com exportação mascarada. Ajuda consolidada com busca. Contas por turno fora. App 691 testes. ADR-023. Auditoria: 1 médio corrigido (corrida na cadeia do Temp), 5 informativos. Cenários em máquina real pendentes. |

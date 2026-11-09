@@ -1700,7 +1700,9 @@ O Módulo 16 precisa de versão gravada e caminho fixo. Desenho aprovado em `.co
    o motor do Inno usa uma pasta temporária com nome aleatório (CSPRNG) e liga o
    `RedirectionGuard` (sem seguir junction criada por não administrador).
    - **Bench aberto:** `AppMutex=ITCBench,Global\ITCBench`, criado pelo app
-     (`nucleo/instalacao.py`); `CloseApplications=no`. A instalação silenciosa recusa e o
+     (`nucleo/instalacao.py`); `CloseApplications=no`. **Substituído pelo ADR-026 (item 9):**
+     um usuário comum cria os dois nomes; o instalador passou a contar só mutex de
+     Administradores. A instalação silenciosa recusa e o
      assistente pede para fechar: nunca mata uma preparação no meio (Módulo 16).
    - **Upgrade por cima** não roda o desinstalador: mantém `protegido\` e `ApiUrl`. Apaga
      `{app}\_internal` antes de copiar, para não sobrar arquivo da versão anterior.
@@ -1714,6 +1716,7 @@ O Módulo 16 precisa de versão gravada e caminho fixo. Desenho aprovado em `.co
    - **Limite aceito:** o log do Inno (`/LOG`) grava a linha de comando, com o endereço. Não é
      segredo (ADR-008: só ele vai no instalador), mas fica no log da máquina.
    - O endereço nunca entra no `.iss`, no CI nem no EXE; o CI usa `https://api.exemplo.invalid`.
+     **Emendado pelo ADR-027:** o instalador de release (build de tag) leva o endereço embutido.
 4. **Pasta de instalação conferida pelo app** (`nucleo/instalacao.py`, só empacotado), antes de
    qualquer ação: o EXE tem que estar na pasta fixa (`ProgramFilesDir` do HKLM, sem o ambiente
    do usuário); a pasta, o pai (`Program Files\ITC`) e tudo dentro sem ponto de reparse; dono
@@ -1768,5 +1771,133 @@ O Módulo 16 precisa de versão gravada e caminho fixo. Desenho aprovado em `.co
 **Consequences**
 O instalador do CI é o que vai para o roteiro de máquina real (`docs/testes/maquina-real.md`).
 Quem já tem `ApiUrl` gravado à mão não precisa passar `/APIURL` numa atualização. Um usuário
-comum consegue criar o mutex `ITCBench` local e travar a atualização silenciosa (só negação de
-serviço; o técnico fecha a sessão dele). Build local serve para teste, não para distribuir.
+comum conseguia criar o mutex e travar a instalação silenciosa (corrigido no ADR-026). Build local serve para teste, não para distribuir.
+
+## ADR-026 — Atualização automática: manifesto assinado, instalador servido pela API, disparo ao fechar e mutex de Administradores
+
+**Status:** Accepted
+**Date:** 2026-11-08
+**Module:** 16
+
+**Context**
+O Bench roda elevado e, ao atualizar, executa o instalador elevado em todos os notebooks: quem
+escolhe o arquivo e o hash ganha administrador na frota. O repositório é privado (a Release do
+GitHub não baixa sem token, e token nos notebooks está fora de cogitação) e não há assinatura de
+código (ADR-025). O Módulo 15 deixou o `AppMutex` e a versão gravada (`DisplayVersion`).
+Desenho aprovado em `.conversa/` em 08/11/2026, com dez ajustes.
+
+**Decision**
+1. **Fonte da versão:** tabela `bench_versoes` no SQLite da API, gravada só pela CLI
+   `app.bench_versao` no servidor, com operador (TA-ADR-033). Rota `GET /v1/bench/versao` com a
+   sessão do técnico. Sem link no dado.
+2. **Hospedagem:** a API serve o instalador em `GET /v1/bench/versao/arquivo?sha256=`, mesmo
+   `ApiUrl`, sob o Bypass de `/v1/bench/`, sem extensão e com `Cache-Control: no-store`. O
+   cliente usa o abridor da API, que não segue redirecionamento.
+3. **Manifesto assinado:** `{produto, app_id, versao, minima, sha256, tamanho, notas,
+   publicado_em}` em JSON UTF-8, assinado nos bytes exatos com ECDSA P-256/SHA-256, formato
+   IEEE P1363 (64 bytes). O Bench confere pela CNG (`BCryptVerifySignature`,
+   `nucleo/assinatura.py`) e só lê o JSON depois. **Duas chaves públicas no pacote**
+   (`recursos/atualizacao/principal.pub` e `reserva.pub`, SPKI em base64): perda ou vazamento da
+   principal se resolve com versão nova assinada pela reserva. Chaves privadas só com o
+   responsável (PKCS#8 cifrado, `instalador/gerar-chaves-versao.ps1`), fora do repositório, do
+   servidor e do CI; a reserva fica guardada fora de linha. A tela mostra só as notas assinadas.
+   Servidor comprometido só consegue negar a atualização ou reservir um manifesto antigo
+   (barrado pelo item 6).
+4. **Download** para `%ProgramData%\ITC\Bench\protegido\atualizacao\setup-<sha256>.exe` (SY/BA
+   por herança da protegida, sem reparse point), via `.parcial`, com retomada por `Range` e teto
+   no tamanho assinado; manifesto e assinatura guardados ao lado (valem offline). Nunca `%TEMP%`.
+   Limpeza do que não é da versão anunciada; logs do Inno ficam.
+5. **Ao fechar**, com o técnico tendo confirmado na faixa (ou sempre, se obrigatória): recusa com
+   Preparação em andamento ou retomada pendente (ADR-023); solta o mutex e chama
+   `executor.disparar()` com `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=<protegido>
+   /ESPERAPID=<pid>`, sem `/APIURL`. Até 3 tentativas por versão; depois só manual.
+   - **Emenda ao ADR-011 (`executor.disparar`):** único processo que segue depois do Bench, então
+     fora do Job Object, sem pipe e sem espera. Continua valendo: lista de argumentos, caminho
+     absoluto, sem shell, ambiente limpo. Só aceita `protegido\atualizacao\setup-<sha256>.exe`;
+     abre o arquivo sem compartilhar escrita nem remoção (sem seguir reparse point), recalcula o
+     hash pelo handle e cria o processo com ele aberto.
+6. **Downgrade:** o app aceita só versão maior que a em execução e que a `DisplayVersion` do
+   HKLM (vale o maior se divergirem). O instalador recusa só versão **menor** que a instalada
+   (igual fica para reparo manual).
+7. **Obrigatória x adiável:** adiável; obrigatória quando `minima` > versão em execução: a faixa
+   não deixa adiar e oferece "Fechar e atualizar agora", e o fechamento atualiza sem perguntar.
+   Desvio do desenho: as telas de ação não ficam bloqueadas (os painéis recebem o modo
+   administrador na criação; bloquear exigiria refazê-los).
+8. **Consulta e download ao abrir**, depois do login online e só elevado; `--dev` e `--teste`
+   nunca consultam nem limpam (não alteram a máquina). Offline ou sem sessão, a versão já baixada
+   e conferida pode ser instalada.
+9. **Mutex de Administradores (ajuste 1):** prova no runner mostrou que um usuário comum cria
+   `Global\ITCBench` (e o local `ITCBench` na mesma sessão), o que travava o `AppMutex` do
+   Módulo 15. O `AppMutex` sai. O Bench elevado cria só `Global\ITCBench` com DACL SY/BA; o
+   instalador (`BenchAberto()`) e o app (`mutex_de_administrador()`) só contam mutex que abre com
+   `READ_CONTROL` e tem dono Administradores ou SYSTEM. Mutex de terceiro é ignorado com log e
+   com aviso no Início (texto puro, com "?", sem usuário nem SID: não rodar o instalador à mão com
+   o Bench aberto; pedir para encerrar a sessão desse usuário). Na
+   atualização, `/ESPERAPID` é a garantia principal: espera o PID sair (60 s) só se ele ainda for
+   o `ITC Bench.exe` da pasta fixa; o `PrepareToInstall` confere o mutex de novo antes de copiar.
+10. **`--teste-atualizacao` (CI):** consulta, baixa e "fecha" sem janela. Só funciona na cópia
+    de teste do CI, com o marcador `recursos/atualizacao/copia-de-teste-ci.txt` gravado pelo job
+    ao lado das chaves de teste (pasta conferida pelo ADR-025), e com a sessão em
+    `ITC_BENCH_SESSAO_TESTE`, gerada no job; sem um dos dois sai 5 sem consultar a API. Nenhuma
+    sessão de teste no código (revisão do PR #43, achado 2).
+11. **Build de release** (tag) falha se as duas chaves públicas do pacote não forem as comitadas.
+    O teste de atualização usa cópias do pacote com chaves de teste, que nunca são publicadas.
+
+**Alternatives considered**
+- Linha em `Instaladores` (`Tipo = bench`) — quem edita o NocoDB ganharia administrador na frota.
+- Só SHA-256 vindo da API — servidor comprometido roda código em todos os notebooks.
+- Ed25519 com `cryptography` — DLL nativa nova no processo elevado; em Python puro, cripto à mão.
+- Chave privada em secret do GitHub — a conta GitHub vira ponto único.
+- Namespace privado (`CreatePrivateNamespace`) contra o squatting do mutex — o Inno não o usa e o
+  Pascal Script teria de montar o boundary descriptor por ponteiro.
+- Disparar pelo `executar` — o Job Object mataria o instalador quando o Bench sai.
+
+**Consequences**
+Exige deploy da API (migração 0007) e as chaves públicas reais comitadas pelo responsável; sem
+elas o build de release falha. Falha no meio da cópia deixa o Bench sem `_internal` (o
+`[InstallDelete]` já rodou): reinstalação manual (`docs/BUILD.md`). O Inno extrai o motor em
+`%TEMP%` do técnico elevado, em pasta aleatória (risco aceito, Inno 6.7.4). Risco aceito (revisão do
+PR #43, achado 1): com `Global\ITCBench` ocupado por outro usuário, um instalador rodado à mão
+não percebe o Bench aberto; a atualização automática segue protegida pelo `/ESPERAPID`. Atualiza o ADR-025
+(item 2, mutex) e o ADR-011 (disparo fora do Job).
+
+## ADR-027 — Endereço da API embutido no instalador de release
+
+**Status:** Accepted
+**Date:** 2026-11-09
+**Module:** pós-16 (emenda ao ADR-025, item 3)
+
+**Context**
+São cerca de 600 notebooks. Pelo ADR-025, a instalação nova pede o endereço da API (página do
+assistente ou `/APIURL=`), e nenhum endereço entra no instalador. Para a frota, isso obriga a
+digitar ou distribuir o endereço junto com o instalador em cada máquina. O responsável escolheu
+(opção C, por simplicidade) que o instalador de release já saia do CI com o endereço.
+
+**Decision**
+1. **Origem:** segredo `BENCH_API_URL` no environment `release` do GitHub, usado só no build de
+   tag `vX.Y.Z`. PR e push continuam sem endereço; o pacote (`dist`) nunca o recebe.
+2. **Validação antes do ISCC** (`instalador/endereco-padrao.ps1`): a mesma regra do
+   `EnderecoValido()` e do `validar()`, mais a recusa de aspas. Ausente ou inválido, o build de
+   tag falha: nunca sai instalador de release sem endereço. O valor vai ao ISCC por
+   `/DApiUrlPadrao=`; o GitHub mascara o segredo e nenhum passo imprime o valor, o tamanho ou
+   parte dele.
+3. **Precedência no `.iss`:** `/APIURL=` → valor já gravado no HKLM (upgrade mantém) → padrão
+   embutido. Instalação nova silenciosa sem `/APIURL` funciona quando há padrão; sem padrão
+   (build de PR) recusa como antes. O assistente vem preenchido com o padrão, e a validação do
+   `.iss` vale também para ele. `/APIURL=` continua servindo para trocar o endereço.
+4. O endereço fica no script compilado do Inno, dentro do `setup.exe` de release, e **é legível**
+   por quem tiver o arquivo. O instalador de release é interno: não sai da equipe.
+
+**Alternatives considered**
+- Script `.cmd` ao lado do instalador com o `/APIURL` — dois arquivos para manter juntos, e o
+  endereço fica igualmente legível.
+- `itc-bench.ini` lido pelo instalador — mais um arquivo a distribuir e conferir; o mesmo
+  endereço em texto.
+- Manter o ADR-025 — digitar ou passar o endereço em 600 máquinas.
+
+**Consequences**
+O endereço deixa de ser segredo de quem tem o instalador de release (nunca foi segredo forte:
+ADR-008). Um instalador adulterado continua coberto pelo `SHA256SUMS` da Release. O login do
+técnico vai para o endereço embutido; trocar o servidor exige `/APIURL=` ou release nova. O
+responsável cria o environment `release` e o segredo `BENCH_API_URL` (`docs/BUILD.md`). O CI
+testa com endereços `.invalid` (`instalador/testar-endereco.ps1`).

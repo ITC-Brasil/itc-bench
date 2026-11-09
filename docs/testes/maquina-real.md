@@ -1,6 +1,6 @@
 # Roteiro de máquina real — ITC Bench
 
-Roteiro único dos cenários que alteram a máquina (Módulos 01 e 04 a 15). Executado **depois do
+Roteiro único dos cenários que alteram a máquina (Módulos 01 e 04 a 16). Executado **depois do
 Módulo 15** (instalador) e **antes da primeira release com instalador** (decisão do responsável no
 Módulo 14). Situação de todos os passos: **Pendente (máquina real, com o instalador)**.
 
@@ -18,6 +18,10 @@ resultado de cada passo volta para a tabela de verificação do doc de origem e 
   App, um papel de parede) e Wi-Fi (SSID de um roteador de teste, um com acento). Nada de
   instalador ou rede real de carreta.
 - **API:** deploy de `develop` feito (`docs/api/DEPLOY.md`), borda conferida.
+- **Bypass do Bench (antes do passo 0):** `curl.exe -s -D - -o NUL https://<endereço da API>/v1/bench/sessao`
+  responde `401` com `www-authenticate: Bearer` e sem `Cf-Access-*`. `403` com `Cf-Access-*` = Bypass ausente
+  (o login falha); `502`/`530` = túnel ou container fora (`docs/api/DEPLOY.md`). No PowerShell 5.1,
+  `curl` é apelido do `Invoke-WebRequest`: use `curl.exe`.
 - **Instalador** do Módulo 15, baixado do artefato do `app-build` ou da Release (nunca de build
   local, `docs/BUILD.md`), com o SHA-256 conferido contra o `SHA256SUMS`.
 - **Marcadores:** antes de começar, anote fora do repositório as senhas de teste usadas
@@ -38,6 +42,7 @@ placeholders (`<computador>`, `<conta-1>`, `S-1-5-21-…-1002`, `<ssid>`, `*.exe
 | # | Ação | Esperado | Origem |
 |---|---|---|---|
 | 0.1 | Baixar o instalador pelo navegador e abrir | SmartScreen avisa (sem assinatura, ADR-025); "Mais informações" → "Executar assim mesmo". UAC com "Editor desconhecido". Registrar o texto das duas telas | 15 |
+| 0.1a | Numa máquina sem o Bench, rodar o instalador da Release sem parâmetro (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`, administrador) | Instala; `reg query HKLM\SOFTWARE\ITC\Bench /v ApiUrl` mostra o endereço embutido; login online funciona (ADR-027). Desinstalar antes do 0.2 | 27 |
 | 0.2 | No assistente, informar `http://...`, depois `https://u:s@...` | Mensagem de endereço inválido; não avança | 15 |
 | 0.3 | Informar o endereço real `https://` e concluir | Instala em `C:\Program Files\ITC\Bench`; atalho só no Menu Iniciar; `reg query HKLM\SOFTWARE\ITC\Bench /v ApiUrl` mostra o endereço | 15 |
 | 0.4 | `icacls "C:\Program Files\ITC\Bench"` e `...\ITC` | Escrita só para SYSTEM, Administradores, TrustedInstaller e CREATOR OWNER (herdado); Usuários só leitura e execução | 15 |
@@ -167,6 +172,22 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 11.2 | Registro e Exportar | Arquivo sem nome de máquina, contas nem caminho de perfil | 13/V8 |
 | 11.3 | Ajuda com busca em todas as telas | Resultados e "?" em toda tela | 13/V9 |
 | 11.4 | `findstr /s /i` pelos marcadores no `bench.log` (todos os rotacionados), em `%TEMP%`, `protegido\` e na pasta do serviço do RustDesk | Nenhuma senha; sem SSID, host, SID, nome de conta ou caminho de perfil no log | 07/V8, 08/V8, 09/V10, 10/V10, 11/V12, 12/V11 |
+
+### 13. Atualização automática (Módulo 16)
+
+Com a API publicando uma versão de teste maior que a instalada (`docs/BUILD.md`, "Publicar uma
+versão"), assinada com a chave principal real, e o notebook já preparado nos passos anteriores.
+
+| # | Passo | Esperado | Origem |
+|---|---|---|---|
+| 13.1 | Entrar online pelo túnel | Faixa com a versão e as notas; `protegido\atualizacao\setup-<hash>.exe` | 16/V9 |
+| 13.2 | "Instalar ao fechar" e fechar | UAC não aparece de novo; o instalador espera o Bench sair; ao abrir, versão nova no rodapé e em Aplicativos | 16/V9 |
+| 13.3 | Conferir `ApiUrl`, login offline e `protegido\` | Mantidos | 16/V9 |
+| 13.4 | Com retomada pendente (passo 3), confirmar e fechar | Aviso; nada instalado | 16/V10 |
+| 13.5 | Usuário comum logado em outra sessão, com o Bench do técnico fechado | Atualização não trava | 16/V11 |
+| 13.6 | `minima` acima da instalada | Faixa obrigatória, sem "Agora não" | 16/V12 |
+| 13.7 | SmartScreen e UAC no instalador baixado | "Editor desconhecido" (ADR-025) | 15 |
+| 13.8 | `findstr /s /i` pelo endereço da API e pelo token no `bench.log` | Nenhum token; endereço só no log do Inno | 16/V13 |
 
 ### 12. Rodada em Windows Home e em inglês (se houver máquina)
 

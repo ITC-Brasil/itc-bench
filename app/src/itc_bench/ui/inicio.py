@@ -19,6 +19,7 @@ from itc_bench.servicos import inicio, limpeza, perfis, remoto
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.preparacao import Andamento
 from itc_bench.ui import tarefa
+from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo
 
 AJUDA = (
@@ -37,6 +38,18 @@ AJUDA = (
     "temporários abre a Limpeza com a prévia; nada é apagado sem confirmação.\n\n"
     "A leitura roda ao abrir e vale por 1 minuto; Atualizar lê de novo. Sem administrador, "
     "proteção, políticas e contas não são lidas."
+)
+
+
+MUTEX_ALHEIO = (
+    "Outro usuário deste computador ocupa o identificador do ITC Bench. A atualização "
+    "automática continua protegida, mas não rode o instalador manualmente com o Bench aberto."
+)
+AJUDA_MUTEX = (
+    "O ITC Bench marca que está aberto com um identificador do Windows. Outra sessão, de um "
+    "usuário sem administrador, criou esse identificador antes. Peça para encerrar a sessão "
+    "desse usuário (Gerenciador de Tarefas, aba Usuários, ou sair da conta) e abra o Bench de "
+    "novo. Até lá, instale versões novas só com o Bench fechado."
 )
 
 
@@ -66,6 +79,7 @@ class PainelInicio(QWidget):
         fila: Callable[[], int],
         obter_perfil: Callable[[], perfis.Perfil],
         obter_andamento: Callable[[], Andamento | None],
+        mutex_alheio: bool = False,
     ) -> None:
         super().__init__()
         self.admin = admin
@@ -85,6 +99,16 @@ class PainelInicio(QWidget):
         topo.addWidget(self.estado, 1)
         topo.addWidget(self.atualizar)
         v.addLayout(topo)
+        # ADR-026: Global\ITCBench de outro usuário; o instalador manual não vê o Bench aberto.
+        self.aviso_mutex: QLabel | None = None
+        if mutex_alheio:
+            linha = QHBoxLayout()
+            self.aviso_mutex = _rotulo("⚠ " + MUTEX_ALHEIO)
+            ajuda = QPushButton("?")
+            ajuda.setToolTip(txt.dica(AJUDA_MUTEX))
+            linha.addWidget(self.aviso_mutex, 1)
+            linha.addWidget(ajuda)
+            v.addLayout(linha)
 
         grade = QGridLayout()
         c_maq, self.v_maq = _cartao("Máquina")

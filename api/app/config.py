@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     bench_cadastros_etag_key: SecretStr = SecretStr("")
     # TA-ADR-028: Bench reports per technician per UTC hour.
     bench_relatorio_limite_hora: int = Field(30, ge=1)
+    # Bench update (ADR-026, TA-ADR-033): files written by app.bench_versao, inside the volume.
+    bench_versoes_dir: str = "/data/bench"
+    bench_versao_consultas_hora: int = Field(30, ge=1)
+    bench_versao_downloads_hora: int = Field(3, ge=1)
+    bench_versao_retomadas_hora: int = Field(10, ge=1)
 
     @field_validator("opencode_go_model")
     @classmethod

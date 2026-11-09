@@ -1,0 +1,3 @@
+Chaves públicas da atualização automática (ADR-026): principal.pub e reserva.pub, SubjectPublicKeyInfo
+P-256 em base64, geradas pelo responsável com instalador/gerar-chaves-versao.ps1 e comitadas por ele.
+Sem elas o Bench não instala atualização e o build de release (tag v*) falha.

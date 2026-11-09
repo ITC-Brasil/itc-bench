@@ -52,17 +52,27 @@ Conferir o hash antes:
 Get-FileHash .\itc-bench-X.Y.Z-setup.exe -Algorithm SHA256
 ```
 
-Assistente: abrir o instalador, aceitar o UAC e informar o endereço da API na página
-"Endereço da API".
+O instalador da Release (build de tag) já traz o endereço da API embutido (ADR-027). Instalação
+nova: duplo clique (o assistente vem preenchido) ou silenciosa sem `/APIURL`:
 
-Silenciosa (administrador):
+```
+itc-bench-X.Y.Z-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=C:\caminho\instalar.log
+```
+
+Precedência: `/APIURL=` → endereço já gravado na máquina → padrão embutido. O instalador do PR
+(artefato de teste) não tem padrão: no assistente informe o endereço; na silenciosa, `/APIURL`.
+
+**O `setup.exe` de release é interno.** O endereço fica no script compilado do Inno e quem tiver o
+arquivo consegue lê-lo. Não publique fora da equipe.
+
+Silenciosa com outro endereço (administrador):
 
 ```
 itc-bench-X.Y.Z-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /APIURL=https://<endereço da API> /LOG=C:\caminho\instalar.log
 ```
 
-- Instalação nova sem `/APIURL` falha (código ≠ 0). Atualização sem `/APIURL` mantém o endereço
-  gravado.
+- Instalação nova sem `/APIURL` usa o padrão embutido; sem padrão (instalador de PR) falha
+  (código ≠ 0). Atualização sem `/APIURL` mantém o endereço gravado.
 - O endereço precisa ser `https://` com o nome do servidor, sem usuário, senha, query ou
   fragmento. Fica em `HKLM\SOFTWARE\ITC\Bench\ApiUrl`.
 - O `/LOG` grava a linha de comando, com o endereço. Não é segredo, mas fica no log.
@@ -85,6 +95,10 @@ reg add HKLM\SOFTWARE\ITC\Bench /v ApiUrl /t REG_SZ /d https://<endereço novo> 
 ```
 
 O Bench lê o valor ao abrir.
+
+## Endereço embutido no release (uma vez)
+
+No GitHub: Settings → Environments → New environment `release` (com aprovação obrigatória, se). Nele, o secret `BENCH_API_URL` com o endereço `https://` da API. Só o build de tag usa environment; sem o secret, ou com endereço inválido, o build de tag falha. Nunca escreva o no repositório, no workflow ou em `.conversa/`.
 
 ## Desinstalar
 
@@ -118,3 +132,57 @@ ponto de reparse, e só SYSTEM, Administradores e TrustedInstaller podem gravar 
 e em tudo dentro. Se falhar: mensagem "A pasta de instalação foi alterada. Reinstale o ITC Bench.",
 log e código 3. Variáveis `QT_*`, `QML*` e `PYTHON*` do usuário são ignoradas (aparecem no log
 pelo nome).
+
+## Atualização automática (ADR-026)
+
+### Chaves (uma vez)
+
+Duas chaves ECDSA P-256: **principal** (assina as versões) e **reserva** (só se a principal for
+perdida ou vazar). Precisa do PowerShell 7.4 ou mais novo (`pwsh`).
+
+```
+pwsh -File instalador/gerar-chaves-versao.ps1 -Saida <pasta fora do repositório>
+```
+
+- O script pede uma senha por chave (16 caracteres ou mais) e grava `principal.key.pem` e
+  `reserva.key.pem` (PKCS#8 cifrado) em `-Saida`. Recusa pasta dentro do repositório.
+- As públicas vão para `app/src/itc_bench/recursos/atualizacao/principal.pub` e `reserva.pub`.
+  **Quem comita é o responsável**, na branch. Sem as duas comitadas, o build de tag falha.
+- Custódia: a principal e a senha dela ficam no cofre de senhas do responsável; a reserva, com a
+  senha separada, em mídia cifrada fora de linha. Nenhuma das duas vai para servidor, CI,
+  `.conversa/` ou repositório.
+- Principal perdida ou vazada: assine a próxima versão com a reserva, gere um par novo, troque a
+  `principal.pub` nessa versão e revogue no servidor o que tiver sido assinado indevidamente.
+
+### Publicar uma versão
+
+1. Suba `__version__`, faça a tag `vX.Y.Z` e publique a Release em rascunho do `app-build`.
+2. Baixe da Release o `itc-bench-X.Y.Z-setup.exe` e o `SHA256SUMS`.
+3. Assine na sua máquina:
+   ```
+   pwsh -File instalador/assinar-versao.ps1 -Instalador itc-bench-X.Y.Z-setup.exe -Sha256Sums SHA256SUMS -Minima X.Y.Z -Notas "texto curto" -Chave <pasta>\principal.key.pem -Saida <pasta>
+   ```
+   `-Minima` acima da versão instalada torna a atualização obrigatória. Saem `manifesto.json` e
+   `manifesto.sig`.
+4. Copie os três arquivos para o servidor e publique (`docs/api/API.md`):
+   ```
+   docker exec -it tecnico-api python -m app.bench_versao publicar --arquivo <setup.exe> --manifesto <manifesto.json> --assinatura <manifesto.sig> --operador <nome>
+   ```
+5. Revogar: `python -m app.bench_versao revogar --versao X.Y.Z --operador <nome>`. A rota volta a
+   servir a anterior não revogada; quem já instalou a revogada não volta (o Bench não rebaixa).
+
+### O que o técnico vê
+
+Depois do login online o Bench consulta, baixa e confere em segundo plano. A faixa no alto mostra
+a versão e as notas: "Instalar ao fechar" ou "Agora não" (obrigatória: só "Fechar e atualizar
+agora"). Com Preparação em andamento ou retomada pendente, o Bench fecha sem atualizar. O
+instalador espera o Bench sair e roda silencioso, mantendo o endereço e `protegido\`.
+
+### Atualização falhou
+
+- Log do Inno: `%ProgramData%\ITC\Bench\protegido\atualizacao\inno-X.Y.Z.log` (só
+  administrador lê). O Bench avisa ao abrir e tenta nos próximos fechamentos, até 3 vezes.
+- Se a falha foi no meio da cópia, a pasta interna da versão anterior já foi apagada e o Bench
+  não abre: rode o instalador do CI por um administrador (upgrade por cima mantém `ApiUrl` e
+  `protegido\`). O instalador recusa versão menor que a instalada; a mesma versão é aceita
+  (reparo).
