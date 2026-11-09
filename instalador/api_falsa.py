@@ -2,8 +2,8 @@
 
     python -I api_falsa.py --porta 8443 --cert c.pem --chave k.pem --pasta <dir> --modo ok
 
-<dir> tem manifesto.json, manifesto.sig e o instalador (setup.exe). Aceita qualquer sessão
-(a do `--teste-atualizacao`). Modos de recusa: `hash` (serve bytes trocados), `redireciona`
+<dir> tem manifesto.json, manifesto.sig e o instalador (setup.exe). Só aceita a sessão de
+`ITC_BENCH_SESSAO_TESTE` (gerada no job, a mesma que o `--teste-atualizacao` recebe); 401 nas outras. Modos de recusa: `hash` (serve bytes trocados), `redireciona`
 (302 no arquivo para outro host). O modo é relido de <dir>/modo.txt a cada requisição, para o
 teste trocar sem reiniciar o servidor.
 """
@@ -11,7 +11,9 @@ teste trocar sem reiniciar o servidor.
 import argparse
 import base64
 import hashlib
+import hmac
 import json
+import os
 import re
 import ssl
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -22,7 +24,9 @@ ARGS = argparse.Namespace()
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _enviar(self, status: int, corpo: bytes, tipo: str, extra: dict[str, str] | None = None) -> None:
+    def _enviar(
+        self, status: int, corpo: bytes, tipo: str, extra: dict[str, str] | None = None
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", tipo)
         self.send_header("Content-Length", str(len(corpo)))
@@ -33,7 +37,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 — nome do http.server
         pasta = Path(ARGS.pasta)
-        modo = (pasta / "modo.txt").read_text("ascii").strip() if (pasta / "modo.txt").exists() else "ok"
+        modo = (
+            (pasta / "modo.txt").read_text("ascii").strip()
+            if (pasta / "modo.txt").exists()
+            else "ok"
+        )
+        esperado = "Bearer " + os.environ["ITC_BENCH_SESSAO_TESTE"]
+        if not hmac.compare_digest(self.headers.get("Authorization", ""), esperado):
+            self._enviar(401, b'{"erro":"sessao_invalida"}', "application/json")
+            return
         partes = urlsplit(self.path)
         cru = (pasta / "manifesto.json").read_bytes()
         if partes.path == "/v1/bench/versao":
@@ -46,7 +58,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if partes.path == "/v1/bench/versao/arquivo":
             if modo == "redireciona":
-                self._enviar(302, b"", "text/plain", {"Location": "https://outro.exemplo.invalid/setup.exe"})
+                self._enviar(
+                    302, b"", "text/plain", {"Location": "https://outro.exemplo.invalid/setup.exe"}
+                )
                 return
             dados = (pasta / "setup.exe").read_bytes()
             sha = parse_qs(partes.query).get("sha256", [""])[0]

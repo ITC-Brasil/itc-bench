@@ -25,6 +25,10 @@ $logs = Join-Path ${env:RUNNER_TEMP} 'inno-logs'
 $trabalho = Join-Path ${env:RUNNER_TEMP} 'atualizacao'
 $servido = Join-Path $trabalho 'servido'
 New-Item -ItemType Directory -Force $logs, $servido | Out-Null
+# Sessão de teste gerada neste job (nunca no código do Bench): a API falsa só aceita ela, e o
+# Bench e a API falsa herdam do ambiente. O Bench a apaga do próprio ambiente ao ler.
+$b = [byte[]]::new(32); [Security.Cryptography.RandomNumberGenerator]::Fill($b)
+$env:ITC_BENCH_SESSAO_TESTE = 'itcts_' + [Convert]::ToHexString($b).ToLower()
 $falhas = [System.Collections.Generic.List[string]]::new()
 $appDir = Join-Path $PSScriptRoot '..\app'
 
@@ -80,6 +84,10 @@ $api = Start-Process uv -ArgumentList @('--directory', $appDir, 'run', '--frozen
 try {
     # 1. Instala N com o endereço da API falsa.
     Conferir "instala N ($VersaoN)" ((Instalar $SetupN 'n' @("/APIURL=$URL")) -eq 0)
+    # Achado 2: sem a sessão no ambiente o modo recusa (marcador presente nesta cópia de teste).
+    $guardada = $env:ITC_BENCH_SESSAO_TESTE; Remove-Item Env:ITC_BENCH_SESSAO_TESTE
+    Conferir 'recusa sem sessão de teste no ambiente' ((Atualizar) -eq 5)
+    $env:ITC_BENCH_SESSAO_TESTE = $guardada
     New-Item -ItemType Directory -Force (Join-Path $dados 'protegido') | Out-Null
     Set-Content (Join-Path $dados 'protegido\marca.txt') 'teste'
     Start-Sleep -Seconds 3

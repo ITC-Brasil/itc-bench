@@ -112,6 +112,8 @@ jobs:
             New-Item -ItemType Directory -Force (Split-Path $dist) | Out-Null
             Copy-Item 'app/dist/ITC Bench' (Split-Path $dist) -Recurse
             Copy-Item "$t/pub/*.pub" "$dist/_internal/itc_bench/recursos/atualizacao/" -Force
+            # Marker that unlocks --teste-atualizacao; only in these never-uploaded test copies.
+            Set-Content "$dist/_internal/itc_bench/recursos/atualizacao/copia-de-teste-ci.txt" 'ci'
             if ($v -eq $n1) { Set-Content "$dist/_internal/itc_bench/recursos/atualizacao/marca-n1.txt" 'n1' }
             & $env:ISCC /Q "/DAppVersion=$v" "/DDistDir=$((Resolve-Path $dist).Path)" "/O$t" instalador/itc-bench.iss
             if ($LASTEXITCODE) { throw "ISCC failed for $v" }

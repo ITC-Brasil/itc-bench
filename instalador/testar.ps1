@@ -72,6 +72,12 @@ Conferir 'log com a versão' ([bool]($log -match "ITC Bench $([regex]::Escape($V
 Conferir 'log: recursos lidos' ([bool]($log -match 'Recursos: \d+ arquivos lidos'))
 Conferir 'log: ambiente do usuário ignorado' ([bool]($log -match 'ignoradas: .*PYTHONPATH'))
 Conferir '--teste não aplicou ACL (só leitura)' ([bool]($log -match 'admin=False'))
+# Pacote distribuível: --teste-atualizacao recusa (sem marcador da cópia de teste) mesmo com sessão.
+$env:ITC_BENCH_SESSAO_TESTE = 'itcts_' + [guid]::NewGuid().ToString('N')
+$codigo = Bench @('--teste-atualizacao')
+Remove-Item Env:ITC_BENCH_SESSAO_TESTE
+$log = Get-Content (Join-Path $dados 'logs\bench.log') -Encoding UTF8 -Tail 5
+Conferir 'pacote: --teste-atualizacao recusa (5)' ($codigo -eq 5 -and [bool]($log -match 'não é a cópia de teste'))
 
 # 6. Com o Bench (elevado) aberto, a atualização silenciosa recusa pelo mutex de Administradores
 #    (ADR-026), sem matar o processo. O runner já é administrador: abre sem UAC.
