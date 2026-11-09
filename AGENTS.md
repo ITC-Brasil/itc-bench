@@ -122,13 +122,13 @@ uv --directory app run pytest
 API, da raiz do repositório, no PowerShell (o pytest roda no container, que é o comando oficial):
 
 ```
-docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "${PWD}pi:/app" -w /app python:3.12.14-slim-trixie sh -c "pip install -q --root-user-action=ignore --require-hashes -r requirements-dev.txt && pytest -q"
+docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "${PWD}\api:/app" -w /app python:3.12.14-slim-trixie sh -c "pip install -q --root-user-action=ignore --require-hashes -r requirements-dev.txt && pytest -q"
 ```
 
 Lock da API (TA-ADR-025): editar só `api/requirements.in`/`requirements-dev.in` e regenerar:
 
 ```
-docker run --rm -v "${PWD}pi:/app" -w /app python:3.12.14-slim-trixie sh -c "pip install -q --root-user-action=ignore pip-tools==7.5.3 click==8.1.8 && pip-compile --quiet --strip-extras --generate-hashes --output-file=requirements.txt requirements.in && pip-compile --quiet --strip-extras --generate-hashes --output-file=requirements-dev.txt requirements-dev.in"
+docker run --rm -v "${PWD}\api:/app" -w /app python:3.12.14-slim-trixie sh -c "pip install -q --root-user-action=ignore pip-tools==7.5.3 click==8.1.8 && pip-compile --quiet --strip-extras --generate-hashes --output-file=requirements.txt requirements.in && pip-compile --quiet --strip-extras --generate-hashes --output-file=requirements-dev.txt requirements-dev.in"
 ```
 
 CLI de tokens (runbook em `docs/api/TOKENS.md`): `docker exec -it tecnico-api python -m app.tokens
