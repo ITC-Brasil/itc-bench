@@ -2,8 +2,9 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/modulo-16-atualizacao`, PR para `develop` (merge commit),
-  https://github.com/ITC-Brasil/itc-bench/pull/43.
+- **Branch:** `chore/chaves-atualizacao`, PR para `develop`. O Módulo 16 (PR #43) já está em `develop`.
+- **Chaves reais (2026-11-09):** `principal.pub` e `reserva.pub` comitadas (SHA-256 começando por
+  `deb3807c3797` e `3835c1295c0e`); teste de ida e volta assinado pelo responsável conferido.
 - **Feito:** Módulo 16 (atualização automática; ADR-026, TA-ADR-033).
   - API: `bench_versoes` (migração 0007), CLI `app.bench_versao` e rotas `/v1/bench/versao` e
     `/versao/arquivo` com sessão, `Range` e limite por técnico.
@@ -14,10 +15,9 @@
     `/ESPERAPID`; recusa versão menor.
   - CI: atualização N → N+1 por API falsa local no runner, recusas e mutex de usuário comum;
     build de tag exige as chaves públicas comitadas. Versão 0.16.0.
-- **Pela metade:** chaves públicas reais (o responsável gera e comita); ok do chat de
+- **Pela metade:** ok do chat de
   planejamento para a defesa do mutex (implementada como proposta).
-- **Próximo passo:** responsável: comitar `principal.pub` e `reserva.pub`, revisar e fazer o
-  merge do PR, deploy da API (migração 0007), roteiro de máquina real (passos 0 a 13).
+- **Próximo passo:** responsável: revisar e fazer o merge do PR das chaves, tag `v0.16.0`, deploy da API (migração 0007), roteiro de máquina real (passos 0 a 13).
 - **Tarefas futuras:**
   - obrigatória bloqueando as telas de ação (hoje só impede adiar);
   - assinatura de código (OV ou Trusted Signing) antes de distribuir em larga escala;
