@@ -18,6 +18,10 @@ resultado de cada passo volta para a tabela de verificação do doc de origem e 
   App, um papel de parede) e Wi-Fi (SSID de um roteador de teste, um com acento). Nada de
   instalador ou rede real de carreta.
 - **API:** deploy de `develop` feito (`docs/api/DEPLOY.md`), borda conferida.
+- **Bypass do Bench (antes do passo 0):** `curl.exe -s -D - -o NUL https://<endereço da API>/v1/bench/sessao`
+  responde `401` com `www-authenticate: Bearer` e sem `Cf-Access-*`. `403` com `Cf-Access-*` = Bypass ausente
+  (o login falha); `502`/`530` = túnel ou container fora (`docs/api/DEPLOY.md`). No PowerShell 5.1,
+  `curl` é apelido do `Invoke-WebRequest`: use `curl.exe`.
 - **Instalador** do Módulo 15, baixado do artefato do `app-build` ou da Release (nunca de build
   local, `docs/BUILD.md`), com o SHA-256 conferido contra o `SHA256SUMS`.
 - **Marcadores:** antes de começar, anote fora do repositório as senhas de teste usadas
