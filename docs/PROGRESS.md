@@ -2,9 +2,9 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `fix/modulo-16-achados`, PR #45 para `develop`: achados baixos 1 e 2 da revisão do
-  PR #43 (aviso de mutex de outro usuário no Início; `--teste-atualizacao` só na cópia de teste
-  do CI, com sessão do job). PRs #43 e #44 (chaves) já em `develop`.
+- **Branch:** `feat/instalador-endereco-embutido`, PR para `develop`: endereço da API embutido
+  no instalador de release (ADR-027, emenda ao ADR-025). Responsável: criar o environment
+  `release` e o secret `BENCH_API_URL` antes da tag. Release do 16 no PR #46 (develop → main).
 - **Chaves reais (2026-11-09):** `principal.pub` e `reserva.pub` comitadas (SHA-256 começando por
   `deb3807c3797` e `3835c1295c0e`); teste de ida e volta assinado pelo responsável conferido.
 - **Feito:** Módulo 16 (atualização automática; ADR-026, TA-ADR-033).

@@ -38,6 +38,7 @@ placeholders (`<computador>`, `<conta-1>`, `S-1-5-21-…-1002`, `<ssid>`, `*.exe
 | # | Ação | Esperado | Origem |
 |---|---|---|---|
 | 0.1 | Baixar o instalador pelo navegador e abrir | SmartScreen avisa (sem assinatura, ADR-025); "Mais informações" → "Executar assim mesmo". UAC com "Editor desconhecido". Registrar o texto das duas telas | 15 |
+| 0.1a | Numa máquina sem o Bench, rodar o instalador da Release sem parâmetro (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`, administrador) | Instala; `reg query HKLM\SOFTWARE\ITC\Bench /v ApiUrl` mostra o endereço embutido; login online funciona (ADR-027). Desinstalar antes do 0.2 | 27 |
 | 0.2 | No assistente, informar `http://...`, depois `https://u:s@...` | Mensagem de endereço inválido; não avança | 15 |
 | 0.3 | Informar o endereço real `https://` e concluir | Instala em `C:\Program Files\ITC\Bench`; atalho só no Menu Iniciar; `reg query HKLM\SOFTWARE\ITC\Bench /v ApiUrl` mostra o endereço | 15 |
 | 0.4 | `icacls "C:\Program Files\ITC\Bench"` e `...\ITC` | Escrita só para SYSTEM, Administradores, TrustedInstaller e CREATOR OWNER (herdado); Usuários só leitura e execução | 15 |

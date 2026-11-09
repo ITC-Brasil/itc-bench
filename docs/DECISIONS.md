@@ -1716,6 +1716,7 @@ O Módulo 16 precisa de versão gravada e caminho fixo. Desenho aprovado em `.co
    - **Limite aceito:** o log do Inno (`/LOG`) grava a linha de comando, com o endereço. Não é
      segredo (ADR-008: só ele vai no instalador), mas fica no log da máquina.
    - O endereço nunca entra no `.iss`, no CI nem no EXE; o CI usa `https://api.exemplo.invalid`.
+     **Emendado pelo ADR-027:** o instalador de release (build de tag) leva o endereço embutido.
 4. **Pasta de instalação conferida pelo app** (`nucleo/instalacao.py`, só empacotado), antes de
    qualquer ação: o EXE tem que estar na pasta fixa (`ProgramFilesDir` do HKLM, sem o ambiente
    do usuário); a pasta, o pai (`Program Files\ITC`) e tudo dentro sem ponto de reparse; dono
@@ -1859,3 +1860,44 @@ elas o build de release falha. Falha no meio da cópia deixa o Bench sem `_inter
 PR #43, achado 1): com `Global\ITCBench` ocupado por outro usuário, um instalador rodado à mão
 não percebe o Bench aberto; a atualização automática segue protegida pelo `/ESPERAPID`. Atualiza o ADR-025
 (item 2, mutex) e o ADR-011 (disparo fora do Job).
+
+## ADR-027 — Endereço da API embutido no instalador de release
+
+**Status:** Accepted
+**Date:** 2026-11-09
+**Module:** pós-16 (emenda ao ADR-025, item 3)
+
+**Context**
+São cerca de 600 notebooks. Pelo ADR-025, a instalação nova pede o endereço da API (página do
+assistente ou `/APIURL=`), e nenhum endereço entra no instalador. Para a frota, isso obriga a
+digitar ou distribuir o endereço junto com o instalador em cada máquina. O responsável escolheu
+(opção C, por simplicidade) que o instalador de release já saia do CI com o endereço.
+
+**Decision**
+1. **Origem:** segredo `BENCH_API_URL` no environment `release` do GitHub, usado só no build de
+   tag `vX.Y.Z`. PR e push continuam sem endereço; o pacote (`dist`) nunca o recebe.
+2. **Validação antes do ISCC** (`instalador/endereco-padrao.ps1`): a mesma regra do
+   `EnderecoValido()` e do `validar()`, mais a recusa de aspas. Ausente ou inválido, o build de
+   tag falha: nunca sai instalador de release sem endereço. O valor vai ao ISCC por
+   `/DApiUrlPadrao=`; o GitHub mascara o segredo e nenhum passo imprime o valor, o tamanho ou
+   parte dele.
+3. **Precedência no `.iss`:** `/APIURL=` → valor já gravado no HKLM (upgrade mantém) → padrão
+   embutido. Instalação nova silenciosa sem `/APIURL` funciona quando há padrão; sem padrão
+   (build de PR) recusa como antes. O assistente vem preenchido com o padrão, e a validação do
+   `.iss` vale também para ele. `/APIURL=` continua servindo para trocar o endereço.
+4. O endereço fica no script compilado do Inno, dentro do `setup.exe` de release, e **é legível**
+   por quem tiver o arquivo. O instalador de release é interno: não sai da equipe.
+
+**Alternatives considered**
+- Script `.cmd` ao lado do instalador com o `/APIURL` — dois arquivos para manter juntos, e o
+  endereço fica igualmente legível.
+- `itc-bench.ini` lido pelo instalador — mais um arquivo a distribuir e conferir; o mesmo
+  endereço em texto.
+- Manter o ADR-025 — digitar ou passar o endereço em 600 máquinas.
+
+**Consequences**
+O endereço deixa de ser segredo de quem tem o instalador de release (nunca foi segredo forte:
+ADR-008). Um instalador adulterado continua coberto pelo `SHA256SUMS` da Release. O login do
+técnico vai para o endereço embutido; trocar o servidor exige `/APIURL=` ou release nova. O
+responsável cria o environment `release` e o segredo `BENCH_API_URL` (`docs/BUILD.md`). O CI
+testa com endereços `.invalid` (`instalador/testar-endereco.ps1`).
