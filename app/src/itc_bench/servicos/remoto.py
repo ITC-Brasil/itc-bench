@@ -797,29 +797,42 @@ def _configurar_rustdesk(
     config2, config = pasta / "RustDesk2.toml", pasta / "RustDesk.toml"
     existente2 = config2.read_text("utf-8") if config2.is_file() else None
     gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar(), d.api))
-    existente = config.read_text("utf-8") if config.is_file() else ""
-    gravar_atomico(config, com_senha(existente, d.senha.revelar()))
-    # Daqui até a senha aparecer cifrada, qualquer saída (falha, cancelamento, exceção) tira a
-    # linha do arquivo: a senha em texto puro não pode ficar no disco (ADR-019).
-    cifrou = False
-    try:
-        avisar("Iniciando o RustDesk…")
-        _servico("RustDesk", "iniciar", rodar=rodar, cancelar=cancelar)
-        avisar("Conferindo se o RustDesk cifrou a senha…")
-        for _ in range(ESPERA_CIFRAR):
-            _checar(cancelar)
-            texto = config.read_text("utf-8") if config.is_file() else ""
-            if senha_cifrada(texto) and d.senha.revelar() not in texto:
-                cifrou = True
-                break
-            (esperar or time.sleep)(1)
-    finally:
-        if not cifrou:
-            _retirar_senha(config, d.senha, rodar=rodar, pasta=instalado.parent)
-    if not cifrou:
+    avisar("Iniciando o RustDesk…")
+    _servico("RustDesk", "iniciar", rodar=rodar, cancelar=cancelar)
+    _checar(cancelar)
+    # ADR-031: o RustDesk 1.5.1 não aceita mais a senha posta no arquivo. A senha vai por
+    # `rustdesk.exe --password`, chamado por um trecho fixo com a senha em ITC_SENHA: ela só
+    # aparece na linha de comando do rustdesk.exe durante a chamada; nunca no disco nem no log.
+    avisar("Definindo a senha permanente do RustDesk…")
+    r = rodar(script("senha"), timeout=TIMEOUT_LEITURA, exe=str(instalado), senha=d.senha)
+    if not r.ok or "OK" not in r.saida.split():
+        log.error("Acesso remoto: RustDesk: --password falhou: %s", _codigo_senha(r))
         raise ErroRemoto(
-            "O RustDesk não aceitou a senha permanente pelo arquivo de configuração. "
-            "A senha foi retirada do arquivo; avise o responsável (ADR-019)."
+            f"O RustDesk não aceitou a senha permanente ({_codigo_senha(r)}). "
+            "Confira se o serviço do RustDesk está rodando e tente Reconfigurar de novo."
+        )
+    avisar("Conferindo se o RustDesk guardou a senha cifrada…")
+    cifrou = False
+    for _ in range(ESPERA_CIFRAR):
+        _checar(cancelar)
+        texto = config.read_text("utf-8") if config.is_file() else ""
+        if d.senha.revelar() in texto:
+            # Não deve acontecer com o --password; se acontecer, o texto puro sai do disco.
+            _retirar_senha(config, d.senha, rodar=rodar, pasta=instalado.parent)
+            raise ErroRemoto(
+                "O RustDesk gravou a senha sem cifrar. A senha foi retirada do arquivo; avise o "
+                "responsável (ADR-031)."
+            )
+        if senha_cifrada(texto):
+            cifrou = True
+            break
+        (esperar or time.sleep)(1)
+    if not cifrou:
+        log.error("Acesso remoto: RustDesk: senha não encontrada cifrada depois do --password")
+        raise ErroRemoto(
+            "O RustDesk respondeu ao --password, mas a senha cifrada não apareceu na "
+            "configuração. Confira a conexão com a senha do cadastro e avise o responsável "
+            "(ADR-031)."
         )
     for opcao in ("stop-service-hide-tray", "hide-icon"):
         r = executar(
@@ -829,6 +842,16 @@ def _configurar_rustdesk(
         )
         if not r.ok:
             log.warning("Acesso remoto: RustDesk: --option %s código %s", opcao, r.codigo)
+
+
+def _codigo_senha(r: executor.Resultado) -> str:
+    """Só o código, para o log e a tela: a saída do rustdesk.exe não é mostrada."""
+    if r.esgotado:
+        return "tempo esgotado"
+    for linha in r.saida.splitlines():
+        if linha.startswith("ERRO|"):
+            return linha.strip().replace("|", " ", 2)
+    return f"código {r.codigo}"
 
 
 def _retirar_senha(config: Path, senha: Sensivel, *, rodar: Rodar, pasta: Path) -> None:

@@ -304,7 +304,9 @@ def test_anydesk_senha_pela_entrada_nunca_em_argumento(
     assert SENHA_AD not in caplog.text
 
 
-def rustdesk_falso(tmp_path, monkeypatch, cifra: bool, prefixo: str = "00"):
+def rustdesk_falso(tmp_path, monkeypatch, cifra: bool, prefixo: str = "00", puro: bool = False):
+    """RustDesk falso: o `--password` (trecho `senha.ps1`) grava a senha cifrada no arquivo, como
+    o 1.5.1 faz; `puro=True` simula um RustDesk que gravasse o texto puro."""
     pasta = tmp_path / "config"
     monkeypatch.setattr(remoto, "windows", lambda: tmp_path)
     monkeypatch.setattr(remoto, "program_files", lambda: tmp_path / "pf")
@@ -313,12 +315,15 @@ def rustdesk_falso(tmp_path, monkeypatch, cifra: bool, prefixo: str = "00"):
         if kw.get("acao") == "esperar":
             pasta.mkdir(parents=True, exist_ok=True)
             (pasta / "RustDesk.toml").write_text("id = '987654321'\nsalt = 'abc'\n", "utf-8")
-        if kw.get("acao") == "iniciar" and cifra:
+        if isinstance(kw.get("senha"), Sensivel):  # o trecho do --password
             texto = (pasta / "RustDesk.toml").read_text("utf-8")
-            if SENHA_RD in texto:  # o RustDesk regrava cifrada
-                (pasta / "RustDesk.toml").write_text(
-                    remoto.com_senha(texto, f"{prefixo}cifradaTeste"), "utf-8"
-                )
+            if puro:
+                novo = kw["senha"].revelar()
+            elif cifra:
+                novo = f"{prefixo}cifradaTeste"
+            else:
+                return
+            (pasta / "RustDesk.toml").write_text(remoto.com_senha(texto, novo), "utf-8")
 
     return pasta, Gravador(efeito=efeito)
 
@@ -345,21 +350,55 @@ def test_rustdesk_instala_configura_e_senha_some(arquivo, tmp_path, monkeypatch,
     ]
 
 
-def test_rustdesk_151_cifra_com_01_e_a_senha_fica(arquivo, tmp_path, monkeypatch) -> None:
-    """RustDesk 1.5.1 regrava com `01`: antes o Bench via falha e retirava a senha já cifrada."""
+def test_rustdesk_senha_pelo_password_e_nunca_no_disco(arquivo, tmp_path, monkeypatch) -> None:
+    """ADR-031: a senha vai ao trecho por ITC_SENHA (Sensivel), com o serviço já rodando, e o
+    Bench nunca grava a senha no RustDesk.toml."""
     pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True, prefixo="01")
+    gravacoes: list[str] = []
+    original = remoto.gravar_atomico
+    monkeypatch.setattr(
+        remoto, "gravar_atomico", lambda c, t: (gravacoes.append(t), original(c, t))[1]
+    )
     d = remoto.dados(cad(), "RustDesk")
     feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
     assert feito.ok, feito.mensagem
+    assert all(SENHA_RD not in t for t in gravacoes)
+    senha = [c for c in g.chamadas if isinstance(c.get("senha"), Sensivel)]
+    assert len(senha) == 1 and senha[0]["senha"].revelar() == SENHA_RD
+    assert senha[0]["exe"].lower().endswith("rustdesk.exe")
+    ordem = [c.get("acao") or ("senha" if c in senha else None) for c in g.chamadas]
+    assert ordem.index("iniciar") < ordem.index("senha")  # serviço rodando antes do --password
     lido = tomllib.loads((pasta / "RustDesk.toml").read_text("utf-8"))
     assert lido["password"] == "01cifradaTeste"  # noqa: S105 — fictício
-    assert SENHA_RD not in str(lido)
 
 
-def test_rustdesk_senha_nao_cifrada_e_retirada(arquivo, tmp_path, monkeypatch) -> None:
+def test_rustdesk_password_recusado(arquivo, tmp_path, monkeypatch, caplog) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True)
+    rodar = g.rodar
+
+    def falha(script, **kw):
+        r = rodar(script, **kw)
+        return res(3, "ERRO|codigo|1") if isinstance(kw.get("senha"), Sensivel) else r
+
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=falha, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert not feito.ok and "ERRO codigo 1" in feito.mensagem
+    assert SENHA_RD not in caplog.text
+
+
+def test_rustdesk_sem_senha_cifrada_depois_do_password(arquivo, tmp_path, monkeypatch) -> None:
     pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False)
     monkeypatch.setattr(remoto, "ESPERA_CIFRAR", 2)
     monkeypatch.setattr(remoto.time, "sleep", lambda _s: None)
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert not feito.ok and "ADR-031" in feito.mensagem
+    for item in pasta.iterdir():
+        assert SENHA_RD not in item.read_text("utf-8"), item.name
+
+
+def test_rustdesk_que_grava_texto_puro_tem_a_senha_retirada(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False, puro=True)
     d = remoto.dados(cad(), "RustDesk")
     feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
     assert not feito.ok and "retirada" in feito.mensagem
@@ -367,7 +406,7 @@ def test_rustdesk_senha_nao_cifrada_e_retirada(arquivo, tmp_path, monkeypatch) -
         assert SENHA_RD not in item.read_text("utf-8"), item.name
 
 
-def test_rustdesk_cancelado_na_espera_tira_a_senha(arquivo, tmp_path, monkeypatch) -> None:
+def test_rustdesk_cancelado_na_espera(arquivo, tmp_path, monkeypatch) -> None:
     pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False)
     cancelar = threading.Event()
     monkeypatch.setattr(remoto.time, "sleep", lambda _s: cancelar.set())
