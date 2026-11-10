@@ -2005,3 +2005,38 @@ decidir o reinício, sem digitação repetida. Decisões tomadas com o responsá
 **Consequences**
 Os cenários de escrita (criar de verdade, reiniciar) ficam para a máquina real com o instalador.
 A Preparação completa não muda.
+
+---
+
+## ADR-030 — "Servidor da API" do RustDesk, opcional, vindo de Servidores
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-019, itens 2 e 9)
+
+**Context**
+O ADR-019 grava no `RustDesk2.toml` só o servidor de ID/Relay e a chave. O campo "Servidor da
+API" do RustDesk ficava vazio, e o cliente avisa que o servidor personalizado usa HTTP por
+padrão. O responsável pediu que o Bench preencha esse campo com o servidor da API do RustDesk
+da empresa, que é outro endereço, em `https://`.
+
+**Decision**
+1. **Linha nova e opcional** em Servidores: `RustDesk`/`api`, **pública**, com a URL. O endereço
+   não entra no código nem no repositório (ADR-008).
+2. **Validação:** só `https://` com host; sem usuário e senha, query (`?`), fragmento (`#`),
+   espaço ou aspas (`remoto.validar_url_api_rustdesk`). Duplicada, com `Publico` trocado, vazia
+   ou inválida recusa o RustDesk com o motivo, como as outras linhas do ADR-019.
+3. **Gravação:** com a linha, `rustdesk2()` grava `[options] api-server`; sem ela, não mexe na
+   chave (fica o que já estava, inclusive um valor posto à mão).
+4. **Situação:** com a linha, "Configuração: conferida" exige também `api-server` igual ao
+   cadastro. A confirmação de Instalar/Reconfigurar mostra "Servidor da API: <URL>".
+5. **Log:** como o resto do ADR-019, sem URL nem host.
+
+**Alternatives considered**
+- Linha obrigatória — quebraria a instalação de quem usa o servidor gratuito, que não tem API.
+- Derivar a URL do servidor de ID (`https://<host>`) — o servidor da API é outro endereço.
+- Aceitar `http://` — o próprio RustDesk avisa contra; a URL fornecida é `https://`.
+
+**Consequences**
+O responsável cadastra `RustDesk`/`api` no NocoDB e sincroniza; depois, Reconfigurar o RustDesk
+nas máquinas já instaladas. Cenário 7.2a do roteiro de máquina real.

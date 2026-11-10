@@ -120,6 +120,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 |---|---|---|---|
 | 7.1 | GLPI Agent do zero; "Forçar inventário" | Servidor e tag no registro; inventário no GLPI | 09/V1 |
 | 7.2 | RustDesk do zero (máquina lenta se houver) | ID na tela; conexão com a senha do cadastro; `RustDesk.toml` sem `.tmp` | 09/V2, 09/V8 |
+| 7.2a | Com `RustDesk`/`api` no cadastro: Instalar ou Reconfigurar o RustDesk e abrir Configurações › Rede › Servidor ID/Relay | "Servidor da API" preenchido com a URL do cadastro; cartão "Configuração: conferida"; sem a linha, o campo fica como estava | ADR-030 |
 | 7.3 | AnyDesk do zero | ID na tela; acesso sem supervisão | 09/V3 |
 | 7.4 | Mesma versão (Reconfigurar) e versão mais velha (Atualizar) | Não rebaixa | 09/V4 |
 | 7.5 | SHA-256 errado; sem rede com "Escolher arquivo…"; linha de Servidores vazia | Recusa antes de executar; mensagem do cadastro | 09/V5, 09/V6 |

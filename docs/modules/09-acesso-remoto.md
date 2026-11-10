@@ -116,6 +116,7 @@ Nada foi instalado nem reconfigurado nela.
    - `RustDesk`/`servidor` (público, só o host);
    - `RustDesk`/`chave` (não público);
    - `RustDesk`/`senha` (não público);
+   - `RustDesk`/`api` (público, opcional, URL `https://` do "Servidor da API"; ADR-030);
    - `AnyDesk`/`senha` (não público).
 2. Cadastrar em Instaladores três linhas, `GLPI Agent`, `RustDesk` e `AnyDesk`, com `Versao`,
    `Arquivo` (`.msi`, `.msi`, `.exe`), `SHA256` do arquivo oficial e `Link` `https://`.
