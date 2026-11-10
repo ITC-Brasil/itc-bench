@@ -2,8 +2,11 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/rustdesk-servidor-api`, PR para `develop`. Acesso remoto acertado na máquina
-  real com o RustDesk 1.5.1:
+- **Branch:** `chore/versao-0.18.0`, PR para `develop`: versão **0.18.0** com as contas por turno
+  (ADR-029, #61/#62) e o acesso remoto do RustDesk 1.5.1 (#63/#64), já na `main`. Depois do
+  merge até a `main`: tag `v0.18.0`, publicar o rascunho, assinar e publicar a versão na API
+  (`docs/BUILD.md`). Antes de publicar, acertar o cadastro do NocoDB (abaixo).
+- **Na 0.18.0 (PR #63):** acesso remoto acertado na máquina real com o RustDesk 1.5.1:
   - "Servidor da API" pela linha opcional `RustDesk`/`api` (ADR-030);
   - senha por `rustdesk.exe --password`, sem senha no disco (ADR-031; risco aceito) e
     reconhecimento do prefixo `01` (emenda ao ADR-019);
@@ -18,10 +21,9 @@
 - **Cadastro no NocoDB (Servidores):** os papéis do RustDesk precisam ser os do contrato
   (`servidor`, `chave`, `senha`, `api`); o GLPI continua `GLPI Agent`/`servidor`
   (`docs/BACKEND-SCHEMA.md`).
-- **Release:** PR #62 (`develop` → `main`) mesclado em 10/11/2026, com as contas por turno
-  (ADR-029, PR #61) e o pydantic 2.14.3 (PR #60). Versão ainda 0.17.1: para os notebooks,
-  falta subir a versão, tag, assinar e publicar (`docs/BUILD.md`). Pendente: criar as contas e
-  reiniciar em máquina real (`docs/modules/contas-por-turno.md`).
+- **Releases de 10/11/2026:** #62 (contas por turno, ADR-029, e pydantic 2.14.3) e #64 (acesso
+  remoto), mesclados na `main`. Pendente: criar as contas e reiniciar em máquina real
+  (`docs/modules/contas-por-turno.md`).
 - **Antes (0.17.1):** `chore/versao-0.17.1`, PR para `develop`: versão 0.17.1 com a correção do papel
   de parede sem SHA256 (`escrever.ps1`, PR #57). A 0.17.0 foi publicada na API (mínima 0.17.0,
   obrigatória). Depois do merge até a `main` (PR #58): tag `v0.17.1`, publicar o rascunho,
@@ -67,6 +69,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-10 | Versão 0.18.0 | `__version__` 0.18.0 (README corrigido, ainda dizia 0.16.0). Entram as contas por turno na Identificação (ADR-029) e o acesso remoto do RustDesk 1.5.1 e os downloads (ADR-030 a 032). |
 | 2026-11-10 | pós-16 — Código HTTP no download | Download recusado pelo servidor (`HTTPError`) deixa de aparecer como "Sem rede": a tela diz "recusou o pedido (HTTP N)" e manda conferir o Link; o log tem só o Id e o código, sem link nem host. Ajuda da tela Acesso remoto atualizada (serviço do RustDesk, `--password`, download recusado). Auditorias: `2026-11-10-rustdesk-servico.md` e `2026-11-10-download-user-agent.md` (informativos). |
 | 2026-11-10 | pós-16 — Download com User-Agent próprio | Máquina real: o download do AnyDesk respondia 403 ao User-Agent padrão do urllib (`Python-urllib/3.x`); com um nome próprio, 200. `instaladores._abrir` passa a mandar `ITC-Bench/<versão>`, mantido no redirecionamento (só https). Vale para todos os downloads de Instaladores. |
 | 2026-11-10 | pós-16 — Serviço do RustDesk 1.5.1 | Máquina real: o MSI 1.5.1 não cria o serviço e o primeiro início estoura o tempo do Windows. `_subir_rustdesk`: `--install-service` se o serviço faltar e, se não subir, parar e iniciar uma vez; `Start-Service` com erro vira aviso no `servico.ps1`. ADR-032; roteiro 7.2c. |
