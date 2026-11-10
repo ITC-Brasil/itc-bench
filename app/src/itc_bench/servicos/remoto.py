@@ -893,8 +893,8 @@ def comando(d: Dados, arquivo: str = "<instalador>") -> str:
         return (
             f"msiexec /i {arquivo} /qn /norestart CREATESTARTMENUSHORTCUTS=N "
             "CREATEDESKTOPSHORTCUTS=N INSTALLPRINTER=N\n"
-            "Servidor e chave: RustDesk2.toml do serviço.\n"
-            "Senha permanente: RustDesk.toml do serviço (nunca na tela)."
+            "Servidor, chave e servidor da API: RustDesk2.toml do serviço.\n"
+            "Senha permanente: rustdesk.exe --password, com o serviço rodando (nunca na tela)."
         )
     return (
         f"{arquivo} --install <Program Files (x86)>\\AnyDesk --start-with-win --silent\n"
