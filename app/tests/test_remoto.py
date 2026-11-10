@@ -312,7 +312,7 @@ def rustdesk_falso(tmp_path, monkeypatch, cifra: bool, prefixo: str = "00", puro
     monkeypatch.setattr(remoto, "program_files", lambda: tmp_path / "pf")
 
     def efeito(kw) -> None:
-        if kw.get("acao") == "esperar":
+        if kw.get("acao") in ("esperar", "reiniciar") and not (pasta / "RustDesk.toml").exists():
             pasta.mkdir(parents=True, exist_ok=True)
             (pasta / "RustDesk.toml").write_text("id = '987654321'\nsalt = 'abc'\n", "utf-8")
         if isinstance(kw.get("senha"), Sensivel):  # o trecho do --password
@@ -551,3 +551,68 @@ def test_conferir_rustdesk_compara_a_api(tmp_path) -> None:
     assert remoto._conferir_rustdesk(d, tmp_path) == "conferida"
     (tmp_path / "RustDesk2.toml").write_text(remoto.rustdesk2(None, HOST, CHAVE), "utf-8")
     assert remoto._conferir_rustdesk(d, tmp_path) == "diferente"
+
+
+# ---------------------------------------------------- serviço do RustDesk 1.5.1 (ADR-032)
+
+
+def _rodar_151(g, *, ausente: bool, falhas_esperar: int):
+    """Envolve o Gravador: estado do serviço (ausente ou não) e N esperas que falham antes."""
+    restantes = {"n": falhas_esperar}
+
+    def rodar(script: str, **kw):
+        if script.startswith("# Situação dos serviços"):
+            g.chamadas.append({"script": "estado"})
+            estado = None if ausente else "Running"
+            return res(
+                saida=f'{{"glpi-agent":null,"RustDesk":{json_valor(estado)},"AnyDesk":null}}'
+            )
+        if kw.get("acao") == "esperar" and restantes["n"] > 0:
+            restantes["n"] -= 1
+            g.chamadas.append({"script": script[:40], **kw})
+            return res(3, "ERRO|tempo|Running")
+        return g.rodar(script, **kw)
+
+    return rodar
+
+
+def json_valor(v):
+    return "null" if v is None else f'"{v}"'
+
+
+def test_rustdesk_sem_servico_depois_do_msi_cria_e_reinicia(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True, prefixo="01")
+    rodar = _rodar_151(g, ausente=True, falhas_esperar=1)
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert feito.ok, feito.mensagem
+    cria = [c for c in g.chamadas if c.get("args", [""])[-1:] == ["--install-service"]]
+    assert len(cria) >= 1 and cria[0]["args"][0].lower().endswith("rustdesk.exe")
+    acoes = [c.get("acao") for c in g.chamadas if c.get("acao")]
+    assert "reiniciar" in acoes  # a primeira espera falhou: parou e iniciou de novo
+
+
+def test_rustdesk_servico_existente_nao_recria(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True)
+    rodar = _rodar_151(g, ausente=False, falhas_esperar=0)
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert feito.ok, feito.mensagem
+    assert not [c for c in g.chamadas if "--install-service" in c.get("args", [])]
+    assert "reiniciar" not in [c.get("acao") for c in g.chamadas]
+
+
+def test_rustdesk_servico_que_nunca_sobe_falha_com_mensagem(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True)
+    rodar_base = _rodar_151(g, ausente=False, falhas_esperar=0)
+
+    def rodar(script: str, **kw):
+        if kw.get("acao") in ("esperar", "reiniciar"):
+            g.chamadas.append({"script": script[:40], **kw})
+            return res(3, "ERRO|tempo|Running")
+        return rodar_base(script, **kw)
+
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert not feito.ok and "não respondeu a tempo" in feito.mensagem
+    assert [c.get("acao") for c in g.chamadas if c.get("acao")].count("reiniciar") == 1

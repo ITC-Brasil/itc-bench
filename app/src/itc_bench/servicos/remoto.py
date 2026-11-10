@@ -611,6 +611,36 @@ def _servico(
         raise ErroRemoto(f"O serviço de {programa} não respondeu a tempo ({acao}).")
 
 
+def _subir_rustdesk(
+    acao: str,
+    *,
+    avisar: Avisar,
+    rodar: Rodar,
+    executar: Rodar,
+    cancelar: threading.Event | None,
+    arquivo: Path | None = None,
+) -> None:
+    """Serviço do RustDesk rodando (ADR-032). No 1.5.1 o MSI não cria o serviço e o primeiro
+    início estoura o tempo do Windows: cria com `--install-service` se faltar e, se não subir,
+    para e inicia uma vez (o que o técnico fazia pela tela do RustDesk)."""
+    estados = servicos(rodar=rodar)
+    if estados and estados.get(SERVICO["RustDesk"]) is None:
+        avisar("Criando o serviço do RustDesk…")
+        r = executar(
+            [str(exe("RustDesk")), "--install-service"],
+            timeout=ESPERA_SERVICO,
+            descricao="rustdesk --install-service",
+        )
+        if not r.ok:  # segue: a espera abaixo diz se o serviço existe e subiu
+            log.warning("Acesso remoto: RustDesk: --install-service código %s", r.codigo)
+    try:
+        _servico("RustDesk", acao, rodar=rodar, cancelar=cancelar, arquivo=arquivo)
+    except ErroRemoto:
+        log.warning("Acesso remoto: RustDesk: serviço não subiu (%s); parando e iniciando", acao)
+        avisar("O serviço do RustDesk não subiu; parando e iniciando de novo…")
+        _servico("RustDesk", "reiniciar", rodar=rodar, cancelar=cancelar, arquivo=arquivo)
+
+
 def preparar_arquivo(
     d: Dados,
     *,
@@ -677,8 +707,13 @@ def instalar(
             )
             pasta = pasta_rustdesk or pasta_config_rustdesk()
             avisar("Esperando o serviço do RustDesk gerar o ID…")
-            _servico(
-                programa, "esperar", rodar=rodar, cancelar=cancelar, arquivo=pasta / "RustDesk.toml"
+            _subir_rustdesk(
+                "esperar",
+                avisar=avisar,
+                rodar=rodar,
+                executar=executar,
+                cancelar=cancelar,
+                arquivo=pasta / "RustDesk.toml",
             )
             _configurar_rustdesk(
                 d, avisar=avisar, cancelar=cancelar, rodar=rodar, executar=executar, pasta=pasta
@@ -798,7 +833,7 @@ def _configurar_rustdesk(
     existente2 = config2.read_text("utf-8") if config2.is_file() else None
     gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar(), d.api))
     avisar("Iniciando o RustDesk…")
-    _servico("RustDesk", "iniciar", rodar=rodar, cancelar=cancelar)
+    _subir_rustdesk("iniciar", avisar=avisar, rodar=rodar, executar=executar, cancelar=cancelar)
     _checar(cancelar)
     # ADR-031: o RustDesk 1.5.1 não aceita mais a senha posta no arquivo. A senha vai por
     # `rustdesk.exe --password`, chamado por um trecho fixo com a senha em ITC_SENHA: ela só
