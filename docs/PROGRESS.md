@@ -2,14 +2,26 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/rustdesk-servidor-api`, PR para `develop`: "Servidor da API" do RustDesk
-  pela linha opcional `RustDesk`/`api` de Servidores (ADR-030). Pendente: cadastrar a linha no
-  NocoDB, Reconfigurar o RustDesk e conferir em máquina real (roteiro 7.2a). Na mesma branch:
-  senha do RustDesk por `--password` (ADR-031), pendente o roteiro 7.2b.
-- **Release:** PR #62 (`develop` → `main`) com as contas por turno (ADR-029, PR #61) e o
-  pydantic 2.14.3 (PR #60). Versão ainda 0.17.1: para os notebooks, falta subir a versão e
-  publicar (`docs/BUILD.md`). Pendente: criar as contas e reiniciar em máquina real
-  (`docs/modules/contas-por-turno.md`).
+- **Branch:** `feat/rustdesk-servidor-api`, PR para `develop`. Acesso remoto acertado na máquina
+  real com o RustDesk 1.5.1:
+  - "Servidor da API" pela linha opcional `RustDesk`/`api` (ADR-030);
+  - senha por `rustdesk.exe --password`, sem senha no disco (ADR-031; risco aceito) e
+    reconhecimento do prefixo `01` (emenda ao ADR-019);
+  - serviço criado com `--install-service` se faltar e segundo início se não subir (ADR-032);
+  - downloads com User-Agent `ITC-Bench/<versão>` (o AnyDesk dava 403) e código HTTP na tela
+    e no log.
+- **Visto na máquina real (10/11/2026):** Reconfigurar com `--password` deu certo (13:26);
+  Servidor da API gravado. **Pendente:** roteiro 7.2a, 7.2b (conexão com a senha do cadastro)
+  e 7.2c (Instalar com o RustDesk desinstalado); AnyDesk: o download do Link cadastrado
+  continua recusado mesmo com o User-Agent novo; conferir o Link (o oficial
+  `download.anydesk.com/AnyDesk.exe` respondeu 200) e ver o código HTTP que a tela mostra.
+- **Cadastro no NocoDB (Servidores):** os papéis do RustDesk precisam ser os do contrato
+  (`servidor`, `chave`, `senha`, `api`); o GLPI continua `GLPI Agent`/`servidor`
+  (`docs/BACKEND-SCHEMA.md`).
+- **Release:** PR #62 (`develop` → `main`) mesclado em 10/11/2026, com as contas por turno
+  (ADR-029, PR #61) e o pydantic 2.14.3 (PR #60). Versão ainda 0.17.1: para os notebooks,
+  falta subir a versão, tag, assinar e publicar (`docs/BUILD.md`). Pendente: criar as contas e
+  reiniciar em máquina real (`docs/modules/contas-por-turno.md`).
 - **Antes (0.17.1):** `chore/versao-0.17.1`, PR para `develop`: versão 0.17.1 com a correção do papel
   de parede sem SHA256 (`escrever.ps1`, PR #57). A 0.17.0 foi publicada na API (mínima 0.17.0,
   obrigatória). Depois do merge até a `main` (PR #58): tag `v0.17.1`, publicar o rascunho,
@@ -55,6 +67,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-10 | pós-16 — Código HTTP no download | Download recusado pelo servidor (`HTTPError`) deixa de aparecer como "Sem rede": a tela diz "recusou o pedido (HTTP N)" e manda conferir o Link; o log tem só o Id e o código, sem link nem host. Ajuda da tela Acesso remoto atualizada (serviço do RustDesk, `--password`, download recusado). Auditorias: `2026-11-10-rustdesk-servico.md` e `2026-11-10-download-user-agent.md` (informativos). |
 | 2026-11-10 | pós-16 — Download com User-Agent próprio | Máquina real: o download do AnyDesk respondia 403 ao User-Agent padrão do urllib (`Python-urllib/3.x`); com um nome próprio, 200. `instaladores._abrir` passa a mandar `ITC-Bench/<versão>`, mantido no redirecionamento (só https). Vale para todos os downloads de Instaladores. |
 | 2026-11-10 | pós-16 — Serviço do RustDesk 1.5.1 | Máquina real: o MSI 1.5.1 não cria o serviço e o primeiro início estoura o tempo do Windows. `_subir_rustdesk`: `--install-service` se o serviço faltar e, se não subir, parar e iniciar uma vez; `Start-Service` com erro vira aviso no `servico.ps1`. ADR-032; roteiro 7.2c. |
 | 2026-11-10 | pós-16 — Senha do RustDesk por `--password` | Máquina real: o RustDesk 1.5.1 não cifra a senha posta no `RustDesk.toml` (3 tentativas). Decisão do responsável: `rustdesk.exe --password` pelo trecho fixo `senha.ps1` (senha em `ITC_SENHA`), com o serviço rodando; o Bench não grava mais a senha no disco e confere a forma cifrada (`0` + dígito). Risco aceito: senha na linha de comando do `rustdesk.exe` durante a chamada. ADR-031. Auditoria: 1 baixo (aceito), 1 informativo. Roteiro 7.2b. |
