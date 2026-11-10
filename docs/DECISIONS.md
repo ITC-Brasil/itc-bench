@@ -2086,3 +2086,37 @@ reconhecer, mas o caminho pelo arquivo não funciona nessa versão.
 **Consequences**
 `docs/modules/09-acesso-remoto.md` (ordem do RustDesk) e o roteiro 7.2b mudam. O AnyDesk não
 muda (senha pela entrada padrão, ADR-019).
+
+---
+
+## ADR-032 — Serviço do RustDesk 1.5.1: criar se faltar e um segundo início
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (máquina real; emenda ao ADR-019, item 6)
+
+**Context**
+Na máquina real (10/11/2026), o MSI do RustDesk 1.5.1 com `/qn` instala os arquivos em 2 s
+("Installation completed successfully"), mas não cria o serviço: ele só aparece quando o
+`rustdesk.exe` roda. Criado, o primeiro início estoura o tempo do Windows (eventos 7009/7000,
+30 s) e o serviço só sobe num segundo início (o técnico parava e iniciava pela tela do
+RustDesk). O Bench esperava o serviço por 90 s e falhava com "não respondeu a tempo".
+
+**Decision**
+1. Antes de esperar ou iniciar o serviço do RustDesk (Instalar e Reconfigurar,
+   `remoto._subir_rustdesk`): se o serviço `RustDesk` não existir, rodar
+   `rustdesk.exe --install-service` pelo executor (argumentos fixos, sem dado, caminho da pasta
+   instalada).
+2. Se o serviço não ficar Running no tempo, parar e iniciar **uma vez** (ação `reiniciar` do
+   `servico.ps1`). Falhando de novo, a mensagem continua "não respondeu a tempo".
+3. `servico.ps1`: o erro do `Start-Service` vira `AVISO|iniciar`; quem decide é a espera pelo
+   estado Running. Vale para os três programas.
+
+**Alternatives considered**
+- Aumentar a espera — o serviço criado não sobe sozinho; esperar mais não resolve.
+- Criar o serviço com `sc.exe create` — repete o que o próprio RustDesk faz, com o risco de
+  errar o caminho ou os argumentos do serviço.
+
+**Consequences**
+Pior caso do Instalar do RustDesk: cerca de 3 min antes da mensagem de erro. Cenário 7.2c do
+roteiro de máquina real.

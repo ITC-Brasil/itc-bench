@@ -37,10 +37,11 @@ cópia do arquivo escolhido.
   `.parcial` em `protegido\` e o hash é calculado sobre essa cópia.
 - **Ordem do RustDesk.**
   1. MSI.
-  2. Espera do serviço e do `RustDesk.toml` (o ID já foi gerado).
+  2. Espera do serviço e do `RustDesk.toml` (o ID já foi gerado). **ADR-032:** se o serviço não
+     existir, `rustdesk.exe --install-service`; se não subir no tempo, parar e iniciar uma vez.
   3. Parar o serviço e encerrar só os `rustdesk.exe` da pasta instalada.
   4. Gravar o `RustDesk2.toml` (mesclado).
-  5. Iniciar o serviço.
+  5. Iniciar o serviço (mesma regra do passo 2).
   6. **Senha (ADR-031):** `recursos/remoto/senha.ps1` chama `rustdesk.exe --password` com a
      senha em `ITC_SENHA`. O Bench não grava mais a senha no `RustDesk.toml`.
   7. Esperar até 20 s que a senha apareça cifrada (`00…` nas versões antigas, `01…` no 1.5.1).
