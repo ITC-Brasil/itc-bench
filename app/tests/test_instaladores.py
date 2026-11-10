@@ -286,3 +286,18 @@ def test_download_com_user_agent_proprio(monkeypatch) -> None:
         inst._SoHttps().redirect_request(
             pedidos[0], None, 302, "Found", {}, "http://cdn.exemplo.invalid/a.exe"
         )
+
+
+def test_download_http_erro_mostra_o_codigo(tmp_path: Path, caplog) -> None:
+    import urllib.error
+
+    def abrir(url):
+        raise urllib.error.HTTPError(url, 404, "Not Found", None, None)  # type: ignore[arg-type]
+
+    linha = Instalador(
+        3, "AnyDesk", "9.8.3", "AnyDesk.exe", "", "https://dl.exemplo.invalid/a.exe", ""
+    )
+    with pytest.raises(inst.ErroInstalador) as erro:
+        inst.obter(linha, ".exe", base=tmp_path, abrir=abrir)
+    assert "HTTP 404" in str(erro.value) and "Link" in str(erro.value)
+    assert "HTTP 404" in caplog.text and "exemplo.invalid" not in caplog.text

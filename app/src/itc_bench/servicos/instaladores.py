@@ -10,6 +10,7 @@ antes de executar. O log nunca recebe o `Link`, nem o host.
 import hashlib
 import re
 import threading
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePath
@@ -246,7 +247,14 @@ def obter(
         resposta = abrir(instalador.link.strip())
     except ErroInstalador:
         raise
-    except OSError as erro:  # URLError, HTTPError, timeout
+    except urllib.error.HTTPError as erro:
+        # O servidor respondeu: não é falta de rede. Só o código vai ao log (sem link nem host).
+        log.warning("Instaladores: download do Id %s falhou (HTTP %s)", instalador.id, erro.code)
+        raise ErroInstalador(
+            f"O servidor do download de “{instalador.programa}” recusou o pedido (HTTP "
+            f"{erro.code}). Confira o Link do cadastro ou use “Escolher arquivo…”."
+        ) from erro
+    except OSError as erro:  # URLError, timeout
         log.warning(
             "Instaladores: download do Id %s falhou (%s)", instalador.id, type(erro).__name__
         )
