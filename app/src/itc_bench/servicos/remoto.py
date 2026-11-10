@@ -301,13 +301,18 @@ def com_senha(existente: str, senha: str | None) -> str:
     return "\n".join(topo + linhas[fim:]) + "\n"
 
 
+SENHA_CIFRADA = re.compile(r"^0[0-9].")  # versão do formato do RustDesk + texto cifrado
+
+
 def senha_cifrada(texto: str) -> bool:
-    """O RustDesk regrava a senha cifrada com prefixo `00`."""
+    """O RustDesk regrava a senha cifrada com a versão do formato na frente: `00` nas versões
+    antigas, `01` no 1.5.1 (máquina real, 10/11/2026). Quem chama confere também que a senha em
+    texto puro não está mais no arquivo."""
     try:
         valor = tomllib.loads(texto).get("password", "")
     except tomllib.TOMLDecodeError:
         return False
-    return isinstance(valor, str) and valor.startswith("00") and len(valor) > 2
+    return isinstance(valor, str) and bool(SENHA_CIFRADA.match(valor))
 
 
 # ---------------------------------------------------------------- máquina

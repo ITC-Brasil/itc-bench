@@ -218,7 +218,13 @@ def test_com_senha_troca_so_a_linha_e_preserva_id() -> None:
 
 def test_senha_cifrada() -> None:
     assert remoto.senha_cifrada("password = '00abcd'\n")
+    # RustDesk 1.5.1 (máquina real, 10/11/2026): prefixo `01`. Antes só `00` contava, e a senha
+    # já cifrada era retirada do arquivo como se tivesse falhado.
+    assert remoto.senha_cifrada("password = '01" + "x" * 116 + "'\n")
     assert not remoto.senha_cifrada(f"password = '{SENHA_RD}'\n")
+    assert not remoto.senha_cifrada("password = '00'\n")  # só a versão, sem texto cifrado
+    assert not remoto.senha_cifrada("password = '1abc'\n")
+    assert not remoto.senha_cifrada("password = ''\n")
     assert not remoto.senha_cifrada("")
 
 
@@ -298,7 +304,7 @@ def test_anydesk_senha_pela_entrada_nunca_em_argumento(
     assert SENHA_AD not in caplog.text
 
 
-def rustdesk_falso(tmp_path, monkeypatch, cifra: bool):
+def rustdesk_falso(tmp_path, monkeypatch, cifra: bool, prefixo: str = "00"):
     pasta = tmp_path / "config"
     monkeypatch.setattr(remoto, "windows", lambda: tmp_path)
     monkeypatch.setattr(remoto, "program_files", lambda: tmp_path / "pf")
@@ -311,7 +317,7 @@ def rustdesk_falso(tmp_path, monkeypatch, cifra: bool):
             texto = (pasta / "RustDesk.toml").read_text("utf-8")
             if SENHA_RD in texto:  # o RustDesk regrava cifrada
                 (pasta / "RustDesk.toml").write_text(
-                    remoto.com_senha(texto, "00cifradaTeste"), "utf-8"
+                    remoto.com_senha(texto, f"{prefixo}cifradaTeste"), "utf-8"
                 )
 
     return pasta, Gravador(efeito=efeito)
@@ -337,6 +343,17 @@ def test_rustdesk_instala_configura_e_senha_some(arquivo, tmp_path, monkeypatch,
         ["--option", "stop-service-hide-tray", "Y"],
         ["--option", "hide-icon", "Y"],
     ]
+
+
+def test_rustdesk_151_cifra_com_01_e_a_senha_fica(arquivo, tmp_path, monkeypatch) -> None:
+    """RustDesk 1.5.1 regrava com `01`: antes o Bench via falha e retirava a senha já cifrada."""
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True, prefixo="01")
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert feito.ok, feito.mensagem
+    lido = tomllib.loads((pasta / "RustDesk.toml").read_text("utf-8"))
+    assert lido["password"] == "01cifradaTeste"  # noqa: S105 — fictício
+    assert SENHA_RD not in str(lido)
 
 
 def test_rustdesk_senha_nao_cifrada_e_retirada(arquivo, tmp_path, monkeypatch) -> None:
