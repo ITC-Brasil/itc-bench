@@ -4,7 +4,8 @@
 
 - **Branch:** `feat/rustdesk-servidor-api`, PR para `develop`: "Servidor da API" do RustDesk
   pela linha opcional `RustDesk`/`api` de Servidores (ADR-030). Pendente: cadastrar a linha no
-  NocoDB, Reconfigurar o RustDesk e conferir em máquina real (roteiro 7.2a).
+  NocoDB, Reconfigurar o RustDesk e conferir em máquina real (roteiro 7.2a). Na mesma branch:
+  senha do RustDesk por `--password` (ADR-031), pendente o roteiro 7.2b.
 - **Release:** PR #62 (`develop` → `main`) com as contas por turno (ADR-029, PR #61) e o
   pydantic 2.14.3 (PR #60). Versão ainda 0.17.1: para os notebooks, falta subir a versão e
   publicar (`docs/BUILD.md`). Pendente: criar as contas e reiniciar em máquina real
@@ -54,6 +55,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-10 | pós-16 — Senha do RustDesk por `--password` | Máquina real: o RustDesk 1.5.1 não cifra a senha posta no `RustDesk.toml` (3 tentativas). Decisão do responsável: `rustdesk.exe --password` pelo trecho fixo `senha.ps1` (senha em `ITC_SENHA`), com o serviço rodando; o Bench não grava mais a senha no disco e confere a forma cifrada (`0` + dígito). Risco aceito: senha na linha de comando do `rustdesk.exe` durante a chamada. ADR-031. Auditoria: 1 baixo (aceito), 1 informativo. Roteiro 7.2b. |
 | 2026-11-10 | pós-16 — Senha do RustDesk 1.5.1 | Máquina real: o RustDesk 1.5.1 regrava a senha permanente com prefixo `01` (antes `00`). O Bench só aceitava `00`, dava "não aceitou a senha" e retirava a senha já cifrada. `senha_cifrada` passa a aceitar qualquer versão (`0` + dígito + texto), mantida a conferência de que o texto puro sumiu. Emenda ao ADR-019; roteiro 7.2b. |
 | 2026-11-10 | pós-16 — Servidor da API do RustDesk | Linha opcional `RustDesk`/`api` (pública, `https://` com host, sem credencial, query nem fragmento) gravada em `[options] api-server` do `RustDesk2.toml`; sem a linha, o campo fica como estava. Situação "conferida" compara também a API; confirmação mostra o endereço. Duplicada, não pública ou inválida recusa o RustDesk. 12 testes novos. ADR-030. Auditoria: 1 informativo. Máquina real pendente (7.2a). |
 | 2026-11-10 | pós-16 — Contas por turno | Seção "Criação de usuários" na Identificação (ADR-029): nome base lido do Windows (o que vale depois de reiniciar), turnos Manhã/Tarde/Noite (`BASE-Manha`...) ou, sem turno, sufixo opcional (`BASE-Sufixo`) ou só `BASE`; prévia automática com ✓/⚠/✕ (20 caracteres, sufixo sem acento nem espaço, já existe); contas Local padrão sem senha por `contas.criar`, uma falha não para as outras; resumo com criados, já existentes e erros; reinício só com duas confirmações. `permitir_nome_computador` só aqui (Python e `criar.ps1`). 34 testes novos, app 846. Auditoria: 3 informativos (riscos aceitos). Criação e reinício reais pendentes (máquina real). |

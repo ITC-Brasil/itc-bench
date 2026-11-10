@@ -2044,3 +2044,45 @@ da empresa, que é outro endereço, em `https://`.
 **Consequences**
 O responsável cadastra `RustDesk`/`api` no NocoDB e sincroniza; depois, Reconfigurar o RustDesk
 nas máquinas já instaladas. Cenário 7.2a do roteiro de máquina real.
+
+---
+
+## ADR-031 — Senha permanente do RustDesk por `rustdesk.exe --password`
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (decisão do responsável; substitui o ADR-019, item 8, para o RustDesk)
+
+**Context**
+O ADR-019 (item 8) evitava a senha na linha de comando: o Bench gravava `password` em texto puro
+no `RustDesk.toml` do serviço e esperava o RustDesk regravá-la cifrada. Ficou registrado que isso
+nunca tinha sido testado e que, se falhasse, a decisão voltava ao responsável. Na máquina real
+(10/11/2026, RustDesk 1.5.1) três tentativas falharam: o serviço iniciou e a senha nunca foi
+cifrada. A senha definida pela tela do RustDesk aparece com prefixo `01`, que o Bench passou a
+reconhecer, mas o caminho pelo arquivo não funciona nessa versão.
+
+**Decision**
+1. **Senha por `rustdesk.exe --password`,** o caminho oficial do RustDesk, com o serviço rodando
+   (depois de gravar o `RustDesk2.toml` e iniciar o serviço).
+2. **Executor sem exceção nova:** o trecho fixo `recursos/remoto/senha.ps1` recebe a senha em
+   `ITC_SENHA` (`Sensivel`) e o caminho do `rustdesk.exe` instalado em `ITC_EXE`, e chama
+   `& $exe --password $env:ITC_SENHA`. A saída do RustDesk não é devolvida (só `OK` ou
+   `ERRO|codigo`); o log tem só o código.
+3. **Nada de senha no disco:** o Bench deixa de gravar `password` no `RustDesk.toml`. Depois do
+   `--password`, confere em até 20 s que a senha aparece cifrada (`0` + dígito) e que o texto
+   puro não está no arquivo; se o texto puro aparecer, a linha sai antes de falhar.
+
+**Risco aceito (responsável, 10/11/2026)**
+- Durante a chamada (menos de um segundo), a senha fica na linha de comando do `rustdesk.exe`:
+  visível para administradores locais (`Win32_Process`) e em auditoria de processos (evento 4688
+  com linha de comando, se ligada). Aceito porque a senha já é igual em toda a frota e reversível
+  por administrador local (ADR-024), e quem vê o processo já é administrador.
+
+**Alternatives considered**
+- Manter a gravação pelo arquivo — não funciona no RustDesk 1.5.1 (máquina real).
+- Senha definida à mão em cada máquina — trabalho e erro de digitação em ~600 notebooks.
+- Política do servidor RustDesk para a senha — depende da edição do servidor; fica para depois.
+
+**Consequences**
+`docs/modules/09-acesso-remoto.md` (ordem do RustDesk) e o roteiro 7.2b mudam. O AnyDesk não
+muda (senha pela entrada padrão, ADR-019).

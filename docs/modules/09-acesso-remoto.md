@@ -39,14 +39,17 @@ cópia do arquivo escolhido.
   1. MSI.
   2. Espera do serviço e do `RustDesk.toml` (o ID já foi gerado).
   3. Parar o serviço e encerrar só os `rustdesk.exe` da pasta instalada.
-  4. Gravar o `RustDesk2.toml` (mesclado) e a linha `password` do `RustDesk.toml`.
+  4. Gravar o `RustDesk2.toml` (mesclado).
   5. Iniciar o serviço.
-  6. Esperar até 20 s que a senha fique cifrada (`00…` nas versões antigas, `01…` no 1.5.1) e
-     que o texto puro suma.
-  7. `--option stop-service-hide-tray Y` e `--option hide-icon Y`.
+  6. **Senha (ADR-031):** `recursos/remoto/senha.ps1` chama `rustdesk.exe --password` com a
+     senha em `ITC_SENHA`. O Bench não grava mais a senha no `RustDesk.toml`.
+  7. Esperar até 20 s que a senha apareça cifrada (`00…` nas versões antigas, `01…` no 1.5.1).
+  8. `--option stop-service-hide-tray Y` e `--option hide-icon Y`.
 
-  Se a senha não for cifrada, o Bench para o serviço, tira a linha, inicia o serviço de novo e
-  falha com mensagem.
+  Se o `--password` falhar ou a senha cifrada não aparecer, o Bench falha com mensagem. Se o
+  RustDesk gravasse o texto puro, o Bench tira a linha antes de falhar.
+  *Até 10/11/2026 (ADR-019, item 8) a senha ia em texto puro no `RustDesk.toml`; o RustDesk
+  1.5.1 deixou de aceitar e o caminho mudou pelo ADR-031.*
 - **Método de verificação do RustDesk.** O Configurador não gravava esse método; fica o padrão do
   RustDesk.
 - **Cancelar.** O botão vira "Cancelando depois deste passo…". O `msiexec` e o `--install` não
