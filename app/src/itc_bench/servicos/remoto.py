@@ -92,6 +92,7 @@ class Dados:
     chave: Sensivel | None = None  # RustDesk
     senha: Sensivel | None = None  # RustDesk e AnyDesk
     avisos: tuple[str, ...] = ()
+    api: str = ""  # RustDesk, opcional (ADR-030): URL https:// do "Servidor da API". Público.
 
 
 def _linha(cadastros: Cadastros, servico: str, papel: str, publico: bool) -> cad.Servidor | str:
@@ -120,6 +121,25 @@ def validar_url_glpi(url: str) -> str | None:
         return "A URL do “GLPI Agent” / servidor tem que começar com http:// ou https://."
     if not SEM_ESPACO_NEM_ASPAS.fullmatch(url):
         return "A URL do “GLPI Agent” / servidor não pode ter espaço nem aspas."
+    return None
+
+
+def validar_url_api_rustdesk(url: str) -> str | None:
+    """`RustDesk` / `api` (ADR-030): só `https://` com host, sem credencial, query nem fragmento."""
+    partes = urlsplit(url)
+    if (
+        partes.scheme != "https"
+        or not partes.hostname
+        or partes.username is not None
+        or partes.password is not None
+        or partes.query
+        or partes.fragment
+        or not SEM_ESPACO_NEM_ASPAS.fullmatch(url)
+    ):
+        return (
+            "A “RustDesk” / api tem que ser uma URL https:// com o nome do servidor, sem "
+            "usuário, senha, espaço, aspas, ? nem #."
+        )
     return None
 
 
@@ -172,8 +192,18 @@ def dados(
                     "A “RustDesk” / chave tem que ser a chave pública do servidor (44 caracteres)."
                 )
             senha = _texto(pegar("RustDesk", "senha", False))
+            api = ""
+            if any(s.servico == "RustDesk" and s.papel == "api" for s in cadastros.servidores):
+                api = _texto(pegar("RustDesk", "api", True))  # opcional: só se cadastrada
+                if erro := validar_url_api_rustdesk(api):
+                    return erro
             return Dados(
-                programa, inst, servidor=host, chave=Sensivel(chave), senha=Sensivel(senha)
+                programa,
+                inst,
+                servidor=host,
+                chave=Sensivel(chave),
+                senha=Sensivel(senha),
+                api=api,
             )
         senha = _texto(pegar("AnyDesk", "senha", False))
         return Dados(programa, inst, senha=Sensivel(senha))
@@ -222,8 +252,11 @@ def _toml(dados_: dict[str, Any]) -> str:
     return "\n".join(linhas) + "\n"
 
 
-def rustdesk2(existente: str | None, host: str, chave: str) -> str:
-    """`RustDesk2.toml` com o servidor do cadastro, preservando as outras chaves (ADR-019)."""
+def rustdesk2(existente: str | None, host: str, chave: str, api: str = "") -> str:
+    """`RustDesk2.toml` com o servidor do cadastro, preservando as outras chaves (ADR-019).
+
+    `api` vazia não mexe em `api-server` (fica o que já estava); preenchida, grava (ADR-030).
+    """
     try:
         atual = tomllib.loads(existente or "")
     except tomllib.TOMLDecodeError:
@@ -249,6 +282,8 @@ def rustdesk2(existente: str | None, host: str, chave: str) -> str:
             "direct-access-port": "21118",
         }
     )
+    if api:
+        opcoes["api-server"] = api
     atual["options"] = opcoes
     return _toml(atual)
 
@@ -508,6 +543,7 @@ def _conferir_rustdesk(
         opcoes.get("custom-rendezvous-server") == d.servidor
         and hmac.compare_digest(chave.encode(), d.chave.revelar().encode())
         and cifrada
+        and (not d.api or opcoes.get("api-server") == d.api)
     )
     return "conferida" if ok else "diferente"
 
@@ -755,7 +791,7 @@ def _configurar_rustdesk(
     sem_reparse(pasta, windows())
     config2, config = pasta / "RustDesk2.toml", pasta / "RustDesk.toml"
     existente2 = config2.read_text("utf-8") if config2.is_file() else None
-    gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar()))
+    gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar(), d.api))
     existente = config.read_text("utf-8") if config.is_file() else ""
     gravar_atomico(config, com_senha(existente, d.senha.revelar()))
     # Daqui até a senha aparecer cifrada, qualquer saída (falha, cancelamento, exceção) tira a

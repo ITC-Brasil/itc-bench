@@ -48,7 +48,8 @@ AJUDA = (
     "Pede ao GLPI Agent desta máquina que envie o inventário agora.\n\n"
     "Cadastro incompleto\n"
     "O cartão diz qual linha falta em Servidores ou Instaladores e a instalação não começa. A tag "
-    "do GLPI é opcional (Unidades › TagGLPI).\n\n"
+    "do GLPI é opcional (Unidades › TagGLPI). O Servidor da API do RustDesk também é opcional "
+    "(Servidores › RustDesk / api, https://): sem ele, o Bench não mexe nesse campo.\n\n"
     "Sem administrador (modo de teste), a tela só mostra a situação."
 )
 
@@ -239,6 +240,8 @@ class PainelRemoto(QWidget):
         linhas = [f"{acao} {d.programa} {inst.versao}?", ""]
         if d.servidor:
             linhas.append(f"Servidor: {d.servidor}")
+        if d.api:
+            linhas.append(f"Servidor da API: {d.api}")
         if d.programa == "GLPI Agent":
             linhas.append(f"Tag: {d.tag or 'sem tag'}")
         if acao != "Reconfigurar":

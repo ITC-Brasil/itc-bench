@@ -429,3 +429,69 @@ def test_leitura_real_dos_servicos() -> None:
         assert ver is None or isinstance(ver, str)
         assert local is None or not local.startswith('"')  # AnyDesk grava entre aspas
     assert executor.sistema32("msiexec.exe").lower().endswith("msiexec.exe")
+
+
+# ---------------------------------------------------- servidor da API do RustDesk (ADR-030)
+
+API = "https://rd-api.exemplo.invalid"
+
+
+def test_api_rustdesk_e_opcional() -> None:
+    d = remoto.dados(cad(), "RustDesk")
+    assert isinstance(d, remoto.Dados) and d.api == ""
+    assert "api-server" not in tomllib.loads(remoto.rustdesk2(None, HOST, CHAVE, d.api))["options"]
+
+
+def test_api_rustdesk_cadastrada_vai_para_o_toml() -> None:
+    s = [*servidores_ok(), srv(9, "RustDesk", "api", f"  {API}  ", True)]
+    d = remoto.dados(cad(servidores=s), "RustDesk")
+    assert isinstance(d, remoto.Dados) and d.api == API
+    lido = tomllib.loads(remoto.rustdesk2(None, HOST, CHAVE, d.api))
+    assert lido["options"]["api-server"] == API
+    assert lido["options"]["custom-rendezvous-server"] == HOST
+
+
+def test_api_vazia_preserva_a_que_ja_estava() -> None:
+    existente = f'[options]\napi-server = "{API}"\n'
+    lido = tomllib.loads(remoto.rustdesk2(existente, HOST, CHAVE))
+    assert lido["options"]["api-server"] == API
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "http://rd-api.exemplo.invalid",
+        "rd-api.exemplo.invalid",
+        "https://",
+        "https://u:p@rd-api.exemplo.invalid",
+        "https://rd-api.exemplo.invalid/?x=1",
+        "https://rd-api.exemplo.invalid/#a",
+        'https://rd-api.exemplo.invalid/"x',
+    ],
+)
+def test_api_rustdesk_invalida_recusa(valor) -> None:
+    s = [*servidores_ok(), srv(9, "RustDesk", "api", valor, True)]
+    motivo = remoto.dados(cad(servidores=s), "RustDesk")
+    assert isinstance(motivo, str) and "“RustDesk” / api" in motivo
+
+
+def test_api_rustdesk_duplicada_ou_nao_publica_recusa() -> None:
+    dupla = [
+        *servidores_ok(),
+        srv(9, "RustDesk", "api", API, True),
+        srv(10, "RustDesk", "api", API, True),
+    ]
+    assert "mais de uma linha" in str(remoto.dados(cad(servidores=dupla), "RustDesk"))
+    secreta = [*servidores_ok(), srv(9, "RustDesk", "api", API, False)]
+    assert "pública" in str(remoto.dados(cad(servidores=secreta), "RustDesk"))
+
+
+def test_conferir_rustdesk_compara_a_api(tmp_path) -> None:
+    (tmp_path / "RustDesk.toml").write_text("password = '00cifrada'\n", "utf-8")
+    d = remoto.Dados(
+        "RustDesk", instaladores_ok()[1], servidor=HOST, chave=Sensivel(CHAVE), api=API
+    )
+    (tmp_path / "RustDesk2.toml").write_text(remoto.rustdesk2(None, HOST, CHAVE, API), "utf-8")
+    assert remoto._conferir_rustdesk(d, tmp_path) == "conferida"
+    (tmp_path / "RustDesk2.toml").write_text(remoto.rustdesk2(None, HOST, CHAVE), "utf-8")
+    assert remoto._conferir_rustdesk(d, tmp_path) == "diferente"
