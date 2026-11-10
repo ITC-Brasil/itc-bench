@@ -33,7 +33,9 @@ if ($acao -eq 'parar' -or $acao -eq 'reiniciar') {
     }
 }
 if ($acao -eq 'iniciar' -or $acao -eq 'reiniciar') {
-    Start-Service -Name $nome
+    # O RustDesk 1.5.1 estoura o tempo do Windows (30 s) no primeiro início e sobe depois: o erro
+    # do Start-Service vira aviso, e quem decide é a espera pelo estado Running logo abaixo.
+    try { Start-Service -Name $nome } catch { Write-Output 'AVISO|iniciar' }
 }
 if ($acao -ne 'parar') {
     Esperar 'Running'

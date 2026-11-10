@@ -10,12 +10,14 @@ antes de executar. O log nunca recebe o `Link`, nem o host.
 import hashlib
 import re
 import threading
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path, PurePath
 from typing import IO, Any
 from urllib.parse import urlsplit
 
+from itc_bench import __version__
 from itc_bench.nucleo import caminhos
 from itc_bench.nucleo.log import log
 from itc_bench.servicos.cadastros import Cadastros, Instalador
@@ -150,10 +152,16 @@ class _SoHttps(urllib.request.HTTPRedirectHandler):
 _abridor = urllib.request.build_opener(_SoHttps)
 
 
+# O download do AnyDesk responde 403 ao User-Agent padrão do urllib (`Python-urllib/3.x`),
+# testado em 10/11/2026; com um nome próprio, 200. O redirecionamento leva o mesmo cabeçalho.
+AGENTE = f"ITC-Bench/{__version__}"
+
+
 def _abrir(url: str) -> IO[bytes]:
     if urlsplit(url).scheme != "https":  # conferido em validar(); aqui de novo
         raise ErroInstalador("O link tem que ser https://.")
-    resposta: IO[bytes] = _abridor.open(url, timeout=TIMEOUT)
+    pedido = urllib.request.Request(url, headers={"User-Agent": AGENTE})  # noqa: S310 — https acima
+    resposta: IO[bytes] = _abridor.open(pedido, timeout=TIMEOUT)
     return resposta
 
 
@@ -239,7 +247,14 @@ def obter(
         resposta = abrir(instalador.link.strip())
     except ErroInstalador:
         raise
-    except OSError as erro:  # URLError, HTTPError, timeout
+    except urllib.error.HTTPError as erro:
+        # O servidor respondeu: não é falta de rede. Só o código vai ao log (sem link nem host).
+        log.warning("Instaladores: download do Id %s falhou (HTTP %s)", instalador.id, erro.code)
+        raise ErroInstalador(
+            f"O servidor do download de “{instalador.programa}” recusou o pedido (HTTP "
+            f"{erro.code}). Confira o Link do cadastro ou use “Escolher arquivo…”."
+        ) from erro
+    except OSError as erro:  # URLError, timeout
         log.warning(
             "Instaladores: download do Id %s falhou (%s)", instalador.id, type(erro).__name__
         )

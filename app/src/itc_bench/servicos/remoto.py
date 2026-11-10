@@ -92,6 +92,7 @@ class Dados:
     chave: Sensivel | None = None  # RustDesk
     senha: Sensivel | None = None  # RustDesk e AnyDesk
     avisos: tuple[str, ...] = ()
+    api: str = ""  # RustDesk, opcional (ADR-030): URL https:// do "Servidor da API". Público.
 
 
 def _linha(cadastros: Cadastros, servico: str, papel: str, publico: bool) -> cad.Servidor | str:
@@ -120,6 +121,25 @@ def validar_url_glpi(url: str) -> str | None:
         return "A URL do “GLPI Agent” / servidor tem que começar com http:// ou https://."
     if not SEM_ESPACO_NEM_ASPAS.fullmatch(url):
         return "A URL do “GLPI Agent” / servidor não pode ter espaço nem aspas."
+    return None
+
+
+def validar_url_api_rustdesk(url: str) -> str | None:
+    """`RustDesk` / `api` (ADR-030): só `https://` com host, sem credencial, query nem fragmento."""
+    partes = urlsplit(url)
+    if (
+        partes.scheme != "https"
+        or not partes.hostname
+        or partes.username is not None
+        or partes.password is not None
+        or partes.query
+        or partes.fragment
+        or not SEM_ESPACO_NEM_ASPAS.fullmatch(url)
+    ):
+        return (
+            "A “RustDesk” / api tem que ser uma URL https:// com o nome do servidor, sem "
+            "usuário, senha, espaço, aspas, ? nem #."
+        )
     return None
 
 
@@ -172,8 +192,18 @@ def dados(
                     "A “RustDesk” / chave tem que ser a chave pública do servidor (44 caracteres)."
                 )
             senha = _texto(pegar("RustDesk", "senha", False))
+            api = ""
+            if any(s.servico == "RustDesk" and s.papel == "api" for s in cadastros.servidores):
+                api = _texto(pegar("RustDesk", "api", True))  # opcional: só se cadastrada
+                if erro := validar_url_api_rustdesk(api):
+                    return erro
             return Dados(
-                programa, inst, servidor=host, chave=Sensivel(chave), senha=Sensivel(senha)
+                programa,
+                inst,
+                servidor=host,
+                chave=Sensivel(chave),
+                senha=Sensivel(senha),
+                api=api,
             )
         senha = _texto(pegar("AnyDesk", "senha", False))
         return Dados(programa, inst, senha=Sensivel(senha))
@@ -222,8 +252,11 @@ def _toml(dados_: dict[str, Any]) -> str:
     return "\n".join(linhas) + "\n"
 
 
-def rustdesk2(existente: str | None, host: str, chave: str) -> str:
-    """`RustDesk2.toml` com o servidor do cadastro, preservando as outras chaves (ADR-019)."""
+def rustdesk2(existente: str | None, host: str, chave: str, api: str = "") -> str:
+    """`RustDesk2.toml` com o servidor do cadastro, preservando as outras chaves (ADR-019).
+
+    `api` vazia não mexe em `api-server` (fica o que já estava); preenchida, grava (ADR-030).
+    """
     try:
         atual = tomllib.loads(existente or "")
     except tomllib.TOMLDecodeError:
@@ -249,6 +282,8 @@ def rustdesk2(existente: str | None, host: str, chave: str) -> str:
             "direct-access-port": "21118",
         }
     )
+    if api:
+        opcoes["api-server"] = api
     atual["options"] = opcoes
     return _toml(atual)
 
@@ -266,13 +301,18 @@ def com_senha(existente: str, senha: str | None) -> str:
     return "\n".join(topo + linhas[fim:]) + "\n"
 
 
+SENHA_CIFRADA = re.compile(r"^0[0-9].")  # versão do formato do RustDesk + texto cifrado
+
+
 def senha_cifrada(texto: str) -> bool:
-    """O RustDesk regrava a senha cifrada com prefixo `00`."""
+    """O RustDesk regrava a senha cifrada com a versão do formato na frente: `00` nas versões
+    antigas, `01` no 1.5.1 (máquina real, 10/11/2026). Quem chama confere também que a senha em
+    texto puro não está mais no arquivo."""
     try:
         valor = tomllib.loads(texto).get("password", "")
     except tomllib.TOMLDecodeError:
         return False
-    return isinstance(valor, str) and valor.startswith("00") and len(valor) > 2
+    return isinstance(valor, str) and bool(SENHA_CIFRADA.match(valor))
 
 
 # ---------------------------------------------------------------- máquina
@@ -508,6 +548,7 @@ def _conferir_rustdesk(
         opcoes.get("custom-rendezvous-server") == d.servidor
         and hmac.compare_digest(chave.encode(), d.chave.revelar().encode())
         and cifrada
+        and (not d.api or opcoes.get("api-server") == d.api)
     )
     return "conferida" if ok else "diferente"
 
@@ -568,6 +609,36 @@ def _servico(
     if not (r.ok and "OK" in r.saida.split()):
         log.error("Acesso remoto: %s: serviço %s falhou (código %s)", programa, acao, r.codigo)
         raise ErroRemoto(f"O serviço de {programa} não respondeu a tempo ({acao}).")
+
+
+def _subir_rustdesk(
+    acao: str,
+    *,
+    avisar: Avisar,
+    rodar: Rodar,
+    executar: Rodar,
+    cancelar: threading.Event | None,
+    arquivo: Path | None = None,
+) -> None:
+    """Serviço do RustDesk rodando (ADR-032). No 1.5.1 o MSI não cria o serviço e o primeiro
+    início estoura o tempo do Windows: cria com `--install-service` se faltar e, se não subir,
+    para e inicia uma vez (o que o técnico fazia pela tela do RustDesk)."""
+    estados = servicos(rodar=rodar)
+    if estados and estados.get(SERVICO["RustDesk"]) is None:
+        avisar("Criando o serviço do RustDesk…")
+        r = executar(
+            [str(exe("RustDesk")), "--install-service"],
+            timeout=ESPERA_SERVICO,
+            descricao="rustdesk --install-service",
+        )
+        if not r.ok:  # segue: a espera abaixo diz se o serviço existe e subiu
+            log.warning("Acesso remoto: RustDesk: --install-service código %s", r.codigo)
+    try:
+        _servico("RustDesk", acao, rodar=rodar, cancelar=cancelar, arquivo=arquivo)
+    except ErroRemoto:
+        log.warning("Acesso remoto: RustDesk: serviço não subiu (%s); parando e iniciando", acao)
+        avisar("O serviço do RustDesk não subiu; parando e iniciando de novo…")
+        _servico("RustDesk", "reiniciar", rodar=rodar, cancelar=cancelar, arquivo=arquivo)
 
 
 def preparar_arquivo(
@@ -636,8 +707,13 @@ def instalar(
             )
             pasta = pasta_rustdesk or pasta_config_rustdesk()
             avisar("Esperando o serviço do RustDesk gerar o ID…")
-            _servico(
-                programa, "esperar", rodar=rodar, cancelar=cancelar, arquivo=pasta / "RustDesk.toml"
+            _subir_rustdesk(
+                "esperar",
+                avisar=avisar,
+                rodar=rodar,
+                executar=executar,
+                cancelar=cancelar,
+                arquivo=pasta / "RustDesk.toml",
             )
             _configurar_rustdesk(
                 d, avisar=avisar, cancelar=cancelar, rodar=rodar, executar=executar, pasta=pasta
@@ -755,30 +831,43 @@ def _configurar_rustdesk(
     sem_reparse(pasta, windows())
     config2, config = pasta / "RustDesk2.toml", pasta / "RustDesk.toml"
     existente2 = config2.read_text("utf-8") if config2.is_file() else None
-    gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar()))
-    existente = config.read_text("utf-8") if config.is_file() else ""
-    gravar_atomico(config, com_senha(existente, d.senha.revelar()))
-    # Daqui até a senha aparecer cifrada, qualquer saída (falha, cancelamento, exceção) tira a
-    # linha do arquivo: a senha em texto puro não pode ficar no disco (ADR-019).
-    cifrou = False
-    try:
-        avisar("Iniciando o RustDesk…")
-        _servico("RustDesk", "iniciar", rodar=rodar, cancelar=cancelar)
-        avisar("Conferindo se o RustDesk cifrou a senha…")
-        for _ in range(ESPERA_CIFRAR):
-            _checar(cancelar)
-            texto = config.read_text("utf-8") if config.is_file() else ""
-            if senha_cifrada(texto) and d.senha.revelar() not in texto:
-                cifrou = True
-                break
-            (esperar or time.sleep)(1)
-    finally:
-        if not cifrou:
-            _retirar_senha(config, d.senha, rodar=rodar, pasta=instalado.parent)
-    if not cifrou:
+    gravar_atomico(config2, rustdesk2(existente2, d.servidor, d.chave.revelar(), d.api))
+    avisar("Iniciando o RustDesk…")
+    _subir_rustdesk("iniciar", avisar=avisar, rodar=rodar, executar=executar, cancelar=cancelar)
+    _checar(cancelar)
+    # ADR-031: o RustDesk 1.5.1 não aceita mais a senha posta no arquivo. A senha vai por
+    # `rustdesk.exe --password`, chamado por um trecho fixo com a senha em ITC_SENHA: ela só
+    # aparece na linha de comando do rustdesk.exe durante a chamada; nunca no disco nem no log.
+    avisar("Definindo a senha permanente do RustDesk…")
+    r = rodar(script("senha"), timeout=TIMEOUT_LEITURA, exe=str(instalado), senha=d.senha)
+    if not r.ok or "OK" not in r.saida.split():
+        log.error("Acesso remoto: RustDesk: --password falhou: %s", _codigo_senha(r))
         raise ErroRemoto(
-            "O RustDesk não aceitou a senha permanente pelo arquivo de configuração. "
-            "A senha foi retirada do arquivo; avise o responsável (ADR-019)."
+            f"O RustDesk não aceitou a senha permanente ({_codigo_senha(r)}). "
+            "Confira se o serviço do RustDesk está rodando e tente Reconfigurar de novo."
+        )
+    avisar("Conferindo se o RustDesk guardou a senha cifrada…")
+    cifrou = False
+    for _ in range(ESPERA_CIFRAR):
+        _checar(cancelar)
+        texto = config.read_text("utf-8") if config.is_file() else ""
+        if d.senha.revelar() in texto:
+            # Não deve acontecer com o --password; se acontecer, o texto puro sai do disco.
+            _retirar_senha(config, d.senha, rodar=rodar, pasta=instalado.parent)
+            raise ErroRemoto(
+                "O RustDesk gravou a senha sem cifrar. A senha foi retirada do arquivo; avise o "
+                "responsável (ADR-031)."
+            )
+        if senha_cifrada(texto):
+            cifrou = True
+            break
+        (esperar or time.sleep)(1)
+    if not cifrou:
+        log.error("Acesso remoto: RustDesk: senha não encontrada cifrada depois do --password")
+        raise ErroRemoto(
+            "O RustDesk respondeu ao --password, mas a senha cifrada não apareceu na "
+            "configuração. Confira a conexão com a senha do cadastro e avise o responsável "
+            "(ADR-031)."
         )
     for opcao in ("stop-service-hide-tray", "hide-icon"):
         r = executar(
@@ -788,6 +877,16 @@ def _configurar_rustdesk(
         )
         if not r.ok:
             log.warning("Acesso remoto: RustDesk: --option %s código %s", opcao, r.codigo)
+
+
+def _codigo_senha(r: executor.Resultado) -> str:
+    """Só o código, para o log e a tela: a saída do rustdesk.exe não é mostrada."""
+    if r.esgotado:
+        return "tempo esgotado"
+    for linha in r.saida.splitlines():
+        if linha.startswith("ERRO|"):
+            return linha.strip().replace("|", " ", 2)
+    return f"código {r.codigo}"
 
 
 def _retirar_senha(config: Path, senha: Sensivel, *, rodar: Rodar, pasta: Path) -> None:
@@ -829,8 +928,8 @@ def comando(d: Dados, arquivo: str = "<instalador>") -> str:
         return (
             f"msiexec /i {arquivo} /qn /norestart CREATESTARTMENUSHORTCUTS=N "
             "CREATEDESKTOPSHORTCUTS=N INSTALLPRINTER=N\n"
-            "Servidor e chave: RustDesk2.toml do serviço.\n"
-            "Senha permanente: RustDesk.toml do serviço (nunca na tela)."
+            "Servidor, chave e servidor da API: RustDesk2.toml do serviço.\n"
+            "Senha permanente: rustdesk.exe --password, com o serviço rodando (nunca na tela)."
         )
     return (
         f"{arquivo} --install <Program Files (x86)>\\AnyDesk --start-with-win --silent\n"

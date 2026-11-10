@@ -120,6 +120,9 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 |---|---|---|---|
 | 7.1 | GLPI Agent do zero; "Forçar inventário" | Servidor e tag no registro; inventário no GLPI | 09/V1 |
 | 7.2 | RustDesk do zero (máquina lenta se houver) | ID na tela; conexão com a senha do cadastro; `RustDesk.toml` sem `.tmp` | 09/V2, 09/V8 |
+| 7.2b | RustDesk 1.5.1: Reconfigurar com o Bench elevado e conectar de outra máquina com a senha do cadastro | Sem aviso de senha; `RustDesk.toml` do serviço com `password` começando por `01`; conexão aceita; `bench.log` sem a senha | ADR-031 |
+| 7.2c | RustDesk 1.5.1 desinstalado: Instalar pelo Bench elevado | Sem "não respondeu a tempo"; `bench.log` com `--install-service` e, se preciso, "parando e iniciando"; serviço `RustDesk` Running e automático; Configuração conferida | ADR-032 |
+| 7.2a | Com `RustDesk`/`api` no cadastro: Instalar ou Reconfigurar o RustDesk e abrir Configurações › Rede › Servidor ID/Relay | "Servidor da API" preenchido com a URL do cadastro; cartão "Configuração: conferida"; sem a linha, o campo fica como estava | ADR-030 |
 | 7.3 | AnyDesk do zero | ID na tela; acesso sem supervisão | 09/V3 |
 | 7.4 | Mesma versão (Reconfigurar) e versão mais velha (Atualizar) | Não rebaixa | 09/V4 |
 | 7.5 | SHA-256 errado; sem rede com "Escolher arquivo…"; linha de Servidores vazia | Recusa antes de executar; mensagem do cadastro | 09/V5, 09/V6 |
@@ -199,3 +202,23 @@ Repetir 3.1, 5.1, 6.2, 9.1, 10.5 e 11.4.
 |---|---|---|
 | 12.1 | Home: políticas com aviso de edição; Store só no Pro | 11/V9, 12/V8, 13/V10 |
 | 12.2 | Inglês: grupos por SID, mesmas situações | 07/V6, 08/V7, 09/V9, 10/V8, 11/V10, 12/V9, 13/V10 |
+
+## Resultados registrados
+
+### 10/11/2026 — Acesso remoto (RustDesk 1.5.1 e AnyDesk), em desenvolvimento
+
+Condição: máquina de desenvolvimento do responsável, Windows 11 pt-BR, Bench **0.17.1** da branch
+`feat/rustdesk-servidor-api` rodado por `uv run` **elevado** (não o instalador do CI). Vale como
+prova das correções dos ADR-030 a 032; a rodada com o instalador continua pendente.
+
+| # | Resultado | Evidência |
+|---|---|---|
+| 7.2a | **Passou.** "Servidor da API" preenchido na tela do RustDesk (Rede › Servidor ID/Relay) | `RustDesk2.toml` do serviço com `api-server` de 26 caracteres, começando por `ht` |
+| 7.2b | **Passou.** Conexão de outro computador com a senha do cadastro | `bench.log`: "Senha permanente do RustDesk (ADR-031) … código 0" e "RustDesk: reconfigurado"; `RustDesk.toml` com `password` começando por `01` |
+| 7.2c | **Passou.** Instalar com o RustDesk desinstalado antes, sem "não respondeu a tempo" | Serviço `RustDesk` Running e automático depois do Instalar |
+| 09/V3 (download) | **Passou** depois de trocar o `Link` da linha AnyDesk em Instaladores | O Link anterior era recusado (HTTP), também com o User-Agent novo |
+
+Antes das correções, na mesma máquina: o arquivo não era aceito como meio da senha (3 tentativas,
+"a senha não foi cifrada; linha removida"); o MSI 1.5.1 instalava sem criar o serviço
+(eventos 7045, 7009 e 7000 do Service Control Manager); o download do AnyDesk dava 403 ao
+User-Agent padrão do urllib.

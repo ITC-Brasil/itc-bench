@@ -37,15 +37,20 @@ cópia do arquivo escolhido.
   `.parcial` em `protegido\` e o hash é calculado sobre essa cópia.
 - **Ordem do RustDesk.**
   1. MSI.
-  2. Espera do serviço e do `RustDesk.toml` (o ID já foi gerado).
+  2. Espera do serviço e do `RustDesk.toml` (o ID já foi gerado). **ADR-032:** se o serviço não
+     existir, `rustdesk.exe --install-service`; se não subir no tempo, parar e iniciar uma vez.
   3. Parar o serviço e encerrar só os `rustdesk.exe` da pasta instalada.
-  4. Gravar o `RustDesk2.toml` (mesclado) e a linha `password` do `RustDesk.toml`.
-  5. Iniciar o serviço.
-  6. Esperar até 20 s que a senha fique cifrada (`00…`) e que o texto puro suma.
-  7. `--option stop-service-hide-tray Y` e `--option hide-icon Y`.
+  4. Gravar o `RustDesk2.toml` (mesclado).
+  5. Iniciar o serviço (mesma regra do passo 2).
+  6. **Senha (ADR-031):** `recursos/remoto/senha.ps1` chama `rustdesk.exe --password` com a
+     senha em `ITC_SENHA`. O Bench não grava mais a senha no `RustDesk.toml`.
+  7. Esperar até 20 s que a senha apareça cifrada (`00…` nas versões antigas, `01…` no 1.5.1).
+  8. `--option stop-service-hide-tray Y` e `--option hide-icon Y`.
 
-  Se a senha não for cifrada, o Bench para o serviço, tira a linha, inicia o serviço de novo e
-  falha com mensagem.
+  Se o `--password` falhar ou a senha cifrada não aparecer, o Bench falha com mensagem. Se o
+  RustDesk gravasse o texto puro, o Bench tira a linha antes de falhar.
+  *Até 10/11/2026 (ADR-019, item 8) a senha ia em texto puro no `RustDesk.toml`; o RustDesk
+  1.5.1 deixou de aceitar e o caminho mudou pelo ADR-031.*
 - **Método de verificação do RustDesk.** O Configurador não gravava esse método; fica o padrão do
   RustDesk.
 - **Cancelar.** O botão vira "Cancelando depois deste passo…". O `msiexec` e o `--install` não
@@ -98,13 +103,13 @@ Nada foi instalado nem reconfigurado nela.
 | T3 | Confirmação com servidor, tag, SHA-256 e comando, sem segredo | `test_confirmacao_sem_segredo`, `test_comando_sem_segredo` | Passa |
 | M1 | Nenhum `shell=True`, `echo` com segredo ou `subprocess` fora do executor no `src/` | `test_sem_shell.py`, busca no `src/` | Passa |
 | V1 | GLPI Agent do zero; servidor e tag no registro; "Forçar inventário" chega ao GLPI | Roteiro, passo 2 | **Pendente (máquina real, com o instalador)** |
-| V2 | RustDesk do zero; ID na tela; conexão com a senha permanente do cadastro | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
+| V2 | RustDesk do zero; ID na tela; conexão com a senha permanente do cadastro | Roteiro, passo 3 | **Passou em desenvolvimento** (10/11/2026, RustDesk 1.5.1, `uv run` elevado; ADR-031/032). Pendente com o instalador |
 | V3 | AnyDesk do zero; ID na tela; acesso sem supervisão com a senha | Roteiro, passo 4 | **Pendente (máquina real, com o instalador)** |
 | V4 | Já instalado na mesma versão (Reconfigurar) e versão mais velha (Atualizar) | Roteiro, passo 5 | **Pendente (máquina real, com o instalador)** |
 | V5 | SHA-256 errado no cadastro; sem rede com "Escolher arquivo…" | Roteiro, passo 6 | **Pendente (máquina real, com o instalador)** |
 | V6 | Linha de Servidores ausente ou vazia | Roteiro, passo 6 | **Pendente (máquina real, com o instalador)** |
 | V7 | Cancelar no meio (durante o download e durante o MSI) | Roteiro, passo 7 | **Pendente (máquina real, com o instalador)** |
-| V8 | Serviço que demora a subir (máquina lenta, primeiro boot) | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
+| V8 | Serviço que demora a subir (máquina lenta, primeiro boot) | Roteiro, passo 3 | **Passou em desenvolvimento** (10/11/2026: serviço do 1.5.1 criado e no segundo início, ADR-032). Pendente com o instalador |
 | V9 | Windows em inglês | Máquina em inglês, se houver | **Pendente (máquina real, com o instalador)** |
 | V10 | Senhas fora do `bench.log`, de `Win32_Process`, de `%TEMP%`, de `protegido\` e da pasta do serviço do RustDesk (`RustDesk.toml` só com `00…`, sem `.tmp`) | Roteiro, passo 8 | **Pendente (máquina real, com o instalador)** |
 | V11 | `--dev` sem admin abre a tela só para leitura | Roteiro, passo 1 | **Pendente (máquina real, com o instalador)** |
@@ -116,6 +121,7 @@ Nada foi instalado nem reconfigurado nela.
    - `RustDesk`/`servidor` (público, só o host);
    - `RustDesk`/`chave` (não público);
    - `RustDesk`/`senha` (não público);
+   - `RustDesk`/`api` (público, opcional, URL `https://` do "Servidor da API"; ADR-030);
    - `AnyDesk`/`senha` (não público).
 2. Cadastrar em Instaladores três linhas, `GLPI Agent`, `RustDesk` e `AnyDesk`, com `Versao`,
    `Arquivo` (`.msi`, `.msi`, `.exe`), `SHA256` do arquivo oficial e `Link` `https://`.
@@ -157,7 +163,8 @@ Sem `.env`, deploy ou mudança na API.
    - em `%TEMP%`;
    - em `%ProgramData%\ITC\Bench\protegido\`;
    - em `%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\`, onde o
-     `RustDesk.toml` deve ter só `password = "00…"` e nenhum `.tmp`.
+     `RustDesk.toml` deve ter só `password = "00…"` (ou `"01…"` no RustDesk 1.5.1) e nenhum
+     `.tmp`.
 
    Em nenhum desses lugares a senha pode aparecer em texto (V10).
 9. Se houver máquina em inglês, repita 2 a 4 (V9).
