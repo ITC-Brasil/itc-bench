@@ -103,13 +103,13 @@ Nada foi instalado nem reconfigurado nela.
 | T3 | Confirmação com servidor, tag, SHA-256 e comando, sem segredo | `test_confirmacao_sem_segredo`, `test_comando_sem_segredo` | Passa |
 | M1 | Nenhum `shell=True`, `echo` com segredo ou `subprocess` fora do executor no `src/` | `test_sem_shell.py`, busca no `src/` | Passa |
 | V1 | GLPI Agent do zero; servidor e tag no registro; "Forçar inventário" chega ao GLPI | Roteiro, passo 2 | **Pendente (máquina real, com o instalador)** |
-| V2 | RustDesk do zero; ID na tela; conexão com a senha permanente do cadastro | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
+| V2 | RustDesk do zero; ID na tela; conexão com a senha permanente do cadastro | Roteiro, passo 3 | **Passou em desenvolvimento** (10/11/2026, RustDesk 1.5.1, `uv run` elevado; ADR-031/032). Pendente com o instalador |
 | V3 | AnyDesk do zero; ID na tela; acesso sem supervisão com a senha | Roteiro, passo 4 | **Pendente (máquina real, com o instalador)** |
 | V4 | Já instalado na mesma versão (Reconfigurar) e versão mais velha (Atualizar) | Roteiro, passo 5 | **Pendente (máquina real, com o instalador)** |
 | V5 | SHA-256 errado no cadastro; sem rede com "Escolher arquivo…" | Roteiro, passo 6 | **Pendente (máquina real, com o instalador)** |
 | V6 | Linha de Servidores ausente ou vazia | Roteiro, passo 6 | **Pendente (máquina real, com o instalador)** |
 | V7 | Cancelar no meio (durante o download e durante o MSI) | Roteiro, passo 7 | **Pendente (máquina real, com o instalador)** |
-| V8 | Serviço que demora a subir (máquina lenta, primeiro boot) | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
+| V8 | Serviço que demora a subir (máquina lenta, primeiro boot) | Roteiro, passo 3 | **Passou em desenvolvimento** (10/11/2026: serviço do 1.5.1 criado e no segundo início, ADR-032). Pendente com o instalador |
 | V9 | Windows em inglês | Máquina em inglês, se houver | **Pendente (máquina real, com o instalador)** |
 | V10 | Senhas fora do `bench.log`, de `Win32_Process`, de `%TEMP%`, de `protegido\` e da pasta do serviço do RustDesk (`RustDesk.toml` só com `00…`, sem `.tmp`) | Roteiro, passo 8 | **Pendente (máquina real, com o instalador)** |
 | V11 | `--dev` sem admin abre a tela só para leitura | Roteiro, passo 1 | **Pendente (máquina real, com o instalador)** |

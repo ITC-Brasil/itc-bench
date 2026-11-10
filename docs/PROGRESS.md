@@ -10,11 +10,11 @@
   - serviço criado com `--install-service` se faltar e segundo início se não subir (ADR-032);
   - downloads com User-Agent `ITC-Bench/<versão>` (o AnyDesk dava 403) e código HTTP na tela
     e no log.
-- **Visto na máquina real (10/11/2026):** Reconfigurar com `--password` deu certo (13:26);
-  Servidor da API gravado. **Pendente:** roteiro 7.2a, 7.2b (conexão com a senha do cadastro)
-  e 7.2c (Instalar com o RustDesk desinstalado); AnyDesk: o download do Link cadastrado
-  continua recusado mesmo com o User-Agent novo; conferir o Link (o oficial
-  `download.anydesk.com/AnyDesk.exe` respondeu 200) e ver o código HTTP que a tela mostra.
+- **Testado em desenvolvimento (10/11/2026, `uv run` elevado, RustDesk 1.5.1):** passaram o 7.2a
+  (Servidor da API), o 7.2b (conexão de outro computador com a senha do cadastro), o 7.2c
+  (Instalar com o RustDesk desinstalado) e o download do AnyDesk depois de trocar o Link no
+  cadastro (`docs/testes/maquina-real.md`, "Resultados registrados"). **Pendente:** a mesma
+  rodada com o instalador do CI, no roteiro completo antes da 1.0.
 - **Cadastro no NocoDB (Servidores):** os papéis do RustDesk precisam ser os do contrato
   (`servidor`, `chave`, `senha`, `api`); o GLPI continua `GLPI Agent`/`servidor`
   (`docs/BACKEND-SCHEMA.md`).
