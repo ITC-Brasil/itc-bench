@@ -6,10 +6,13 @@ Branch `feat/contas-por-turno`, saindo de `develop`. Pedido do responsável em 1
 
 - `app/src/itc_bench/servicos/contas_turno.py` (sem Qt): `nomes()`, `validar_sufixo()`, `previa()`
   e `criar()`, que gera o `Resumo` (criados, já existentes, erros).
-- `app/src/itc_bench/ui/identificacao.py`: seção "Criação de usuários" abaixo de "Novo nome do
-  computador". Nome base lido do Windows (`Estado.pendente`), turnos Manhã/Tarde/Noite, sufixo
-  opcional, prévia automática, botão "Criar usuários", resumo e reinício com duas confirmações.
-  O "Renomear" e o "Reiniciar agora" que já existiam não mudam.
+- `app/src/itc_bench/ui/identificacao.py`: um bloco só, "Configuração do computador": nome (já
+  preenchido com o que vale depois de reiniciar), turnos Manhã/Tarde/Noite, sufixo opcional,
+  prévia automática (com a linha "Renomear X → Y" quando o nome muda) e um botão, "Renomear e
+  criar usuários" ou "Criar usuários". O botão "Reiniciar agora" e a pergunta de reinício depois
+  do renomear saíram: o reinício só é oferecido depois da criação, com duas confirmações.
+- `contas_turno.configurar`: renomeia se o nome mudou e só então cria as contas; se o renomear
+  falhar, nenhuma conta é criada.
 - `servicos/contas.py` e `recursos/contas/criar.ps1`: `permitir_nome_computador` (padrão
   desligado), usado só pelas contas por turno.
 - `ui/janela.py`: a tela recebe os cadastros para proteger o nome da Suporte.
@@ -34,6 +37,11 @@ Branch `feat/contas-por-turno`, saindo de `develop`. Pedido do responsável em 1
 | Contas criadas | Local padrão, sem senha, `ITC_PERMITIR_NOME_PC=1` | ok (teste) |
 | Sem administrador | botão desativado, "Exige administrador." | ok (teste de tela) |
 | Resumo | computador, linhas por conta, totais | ok (teste de tela) |
+| Nome trocado no campo | prévia com "Renomear X → Y", botão "Renomear e criar usuários" | ok (teste de tela) |
+| Renomear e criar | `renomear` com o nome novo e contas com ele como base | ok (teste) |
+| Renomear falha | nenhuma conta criada, sem pergunta de reinício | ok (teste e teste de tela) |
+| Nome igual ao atual | não renomeia, só cria | ok (teste) |
+| Botão "Reiniciar agora" da tela | não existe mais | ok (teste de tela) |
 | "Deixar para depois" | não reinicia | ok (teste de tela) |
 | "Reiniciar agora" → "Cancelar" | não reinicia | ok (teste de tela) |
 | "Sim, reiniciar" | `shutdown /r /t 10` e o Bench fecha | pendente (máquina real) |

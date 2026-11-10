@@ -1,5 +1,8 @@
 """Contas por turno a partir do nome do computador (ADR-029), sem Qt: a tela Identificação usa.
 
+`configurar` junta o renomear (ADR-018) e a criação: renomeia se o nome digitado for outro e,
+só se der certo, cria as contas com esse nome como base.
+
 O nome base é sempre o nome do computador (o que vale depois de reiniciar, ADR-018). Regra:
 com turno marcado, uma conta `BASE-Turno` por turno (o sufixo é ignorado); sem turno e com
 sufixo, `BASE-Sufixo`; sem nenhum dos dois, só `BASE`. As contas são Local padrão, sem senha,
@@ -8,11 +11,11 @@ e são criadas por `contas.criar` (ADR-017), que confere tudo de novo, aqui e no
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from itc_bench.nucleo.log import log
-from itc_bench.servicos import contas
+from itc_bench.servicos import contas, identificacao
 from itc_bench.servicos.contas import Lista, Rodar
 from itc_bench.servicos.executor import powershell
 
@@ -42,6 +45,11 @@ class Item:
 class Resumo:
     computador: str
     itens: tuple[Item, ...]
+    renomeio: identificacao.Feito | None = None  # None = o nome já era esse
+
+    @property
+    def falhou_renomear(self) -> bool:
+        return self.renomeio is not None and not self.renomeio.ok
 
     def _contar(self, situacao: Situacao) -> int:
         return sum(1 for i in self.itens if i.situacao == situacao)
@@ -149,3 +157,24 @@ def criar(
         resumo.erros,
     )
     return resumo
+
+
+def configurar(
+    nome: str,
+    turnos: Iterable[str],
+    sufixo: str,
+    *,
+    renomear: bool,
+    protegidas_: frozenset[str] = frozenset({contas.SUPORTE_PADRAO.lower()}),
+    rodar: Rodar = powershell,
+) -> Resumo:
+    """Renomeia (se `renomear`) e cria as contas. Se o renomear falhar, nenhuma conta é criada:
+    elas levariam um nome que o computador não vai ter."""
+    nome = identificacao.normalizar(nome)
+    marcados = tuple(turnos)
+    renomeio = identificacao.renomear(nome, rodar=rodar) if renomear else None
+    if renomeio is not None and not renomeio.ok:
+        return Resumo(nome, (), renomeio)
+    return replace(
+        criar(nome, marcados, sufixo, protegidas_=protegidas_, rodar=rodar), renomeio=renomeio
+    )

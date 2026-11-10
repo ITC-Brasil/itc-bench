@@ -1968,8 +1968,8 @@ digitar o nome do computador uma vez, gerar as contas a partir dele, ver a prév
 decidir o reinício, sem digitação repetida. Decisões tomadas com o responsável em 10/11/2026.
 
 **Decision**
-1. **Nome base** = nome que vale depois de reiniciar (`Estado.pendente`, ADR-018): cobre a
-   máquina recém-renomeada e a já renomeada antes. Sem segundo campo de nome.
+1. **Nome base** = o nome digitado no campo do computador, que já vem preenchido com o que vale
+   depois de reiniciar (`Estado.pendente`, ADR-018). Sem segundo campo de nome.
 2. **Regra** (`servicos/contas_turno.py`, sem Qt): com turno marcado, `BASE-Manha`,
    `BASE-Tarde`, `BASE-Noite` (nessa ordem, sufixo ignorado); sem turno e com sufixo,
    `BASE-Sufixo`; sem nenhum dos dois, só `BASE`.
@@ -1985,9 +1985,14 @@ decidir o reinício, sem digitação repetida. Decisões tomadas com o responsá
 7. **Limite de 20 caracteres** do Windows: a prévia marca ✕ e explica; nada é abreviado.
 8. Conta que já existe não é recriada (⚠); erro numa conta não para as outras (✕ com o
    motivo). Resumo com criados, já existentes e erros.
-9. **Reinício** só com duas confirmações ("Reiniciar agora" → "Sim, reiniciar"), pelo
-   `identificacao.reiniciar` existente; depois o Bench fecha pela janela (encerramento normal).
-   "Deixar para depois" não reinicia. Mantém o item 5 do ADR-023.
+9. **Um bloco só, um botão** (revisão de 10/11/2026, pedido do responsável): o campo do nome já
+   vem com o nome que vale depois de reiniciar; o botão "Renomear e criar usuários" (ou "Criar
+   usuários", se o nome não mudou) renomeia e depois cria, com o nome digitado como base
+   (`contas_turno.configurar`). Se o renomear falhar, nenhuma conta é criada. Sai o botão
+   "Reiniciar agora" da tela e a pergunta de reinício depois do renomear: o reinício só é
+   oferecido depois da criação, com duas confirmações ("Reiniciar agora" → "Sim, reiniciar"),
+   pelo `identificacao.reiniciar` existente; depois o Bench fecha pela janela. "Deixar para
+   depois" não reinicia. Mantém o item 5 do ADR-023.
 10. Log: só as contagens; os nomes das contas criadas vão pelo log de `contas.criar` (ADR-017).
 
 **Alternatives considered**

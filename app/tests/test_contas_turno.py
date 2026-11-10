@@ -149,9 +149,52 @@ def painel(qtbot, monkeypatch, admin=True, lista_=None):
     return p
 
 
-def test_tela_usa_nome_pendente_e_atualiza_previa(qtbot, monkeypatch):
+# ---------------------------------------------------------------- renomear + criar (serviço)
+
+
+def test_configurar_renomeia_e_cria_com_o_nome_novo(monkeypatch):
+    chamadas: list[str] = []
+
+    def renomear(nome, **_):
+        chamadas.append(nome)
+        return identificacao.Feito(True, f"Nome trocado para {nome}.")
+
+    monkeypatch.setattr(identificacao, "renomear", renomear)
+    resumo = contas_turno.configurar(
+        " novo-pc01 ", ("Manha",), "", renomear=True, rodar=Falso(TECNICO)
+    )
+    assert chamadas == ["NOVO-PC01"]
+    assert [i.nome for i in resumo.itens] == ["NOVO-PC01-Manha"]
+    assert resumo.renomeio is not None and resumo.renomeio.ok
+
+
+def test_configurar_falha_no_renomear_nao_cria_contas(monkeypatch):
+    monkeypatch.setattr(
+        identificacao, "renomear", lambda *_a, **_k: identificacao.Feito(False, "Nome inválido.")
+    )
+    falso = Falso(TECNICO)
+    resumo = contas_turno.configurar(BASE, ("Manha",), "", renomear=True, rodar=falso)
+    assert resumo.itens == () and resumo.falhou_renomear and falso.chamadas == []
+
+
+def test_configurar_sem_renomear_nao_chama_rename(monkeypatch):
+    monkeypatch.setattr(identificacao, "renomear", lambda *_a, **_k: pytest.fail("renomeou"))
+    resumo = contas_turno.configurar(BASE, (), "Recepcao", renomear=False, rodar=Falso(TECNICO))
+    assert resumo.renomeio is None and [i.nome for i in resumo.itens] == [f"{BASE}-Recepcao"]
+
+
+# ---------------------------------------------------------------- tela
+
+
+def test_tela_um_bloco_sem_reiniciar_agora(qtbot, monkeypatch):
     p = painel(qtbot, monkeypatch)
-    assert p.base.text() == BASE
+    assert not hasattr(p, "b_reiniciar") and not hasattr(p, "b_renomear")
+    assert p.nome.text() == BASE  # já vem com o nome que vale depois de reiniciar
+    assert p.b_executar.text() == "Criar usuários"
+
+
+def test_tela_atualiza_previa(qtbot, monkeypatch):
+    p = painel(qtbot, monkeypatch)
     assert p.previa.text() == f"✓ {BASE}"
     p.sufixo.setText("Guiche")
     assert p.previa.text() == f"✓ {BASE}-Guiche"
@@ -159,47 +202,87 @@ def test_tela_usa_nome_pendente_e_atualiza_previa(qtbot, monkeypatch):
     p.turnos["Tarde"].setChecked(True)
     assert p.previa.text() == f"✓ {BASE}-Manha\n✓ {BASE}-Tarde"
     assert not p.sufixo.isEnabled() and "ignorado" in p.dica_sufixo.text()
-    assert p.b_criar.isEnabled()
+    assert p.b_executar.isEnabled()
     p.turnos["Manha"].setChecked(False)
     p.turnos["Tarde"].setChecked(False)
     assert p.sufixo.isEnabled() and p.previa.text() == f"✓ {BASE}-Guiche"
 
 
+def test_tela_nome_novo_entra_na_previa_e_no_botao(qtbot, monkeypatch):
+    p = painel(qtbot, monkeypatch)
+    p.nome.setText("novo-pc01")
+    p.turnos["Noite"].setChecked(True)
+    assert p.previa.text() == f"✓ Renomear {BASE} → NOVO-PC01\n✓ NOVO-PC01-Noite"
+    assert p.b_executar.text() == "Renomear e criar usuários" and p.b_executar.isEnabled()
+    p.nome.setText("-ruim")
+    assert not p.b_executar.isEnabled() and p.erro.text()
+
+
 def test_tela_bloqueia_sem_admin_e_com_erro(qtbot, monkeypatch):
     p = painel(qtbot, monkeypatch, admin=False)
-    assert not p.b_criar.isEnabled() and "administrador" in p.motivo_usuarios.text()
+    assert not p.b_executar.isEnabled() and "administrador" in p.motivo.text()
     p = painel(qtbot, monkeypatch)
     p.sufixo.setText("Administrativo")
-    assert not p.b_criar.isEnabled() and p.previa.text().startswith("✕")
+    assert not p.b_executar.isEnabled() and p.previa.text().startswith("✕")
 
 
 def test_tela_todas_existentes(qtbot, monkeypatch):
     p = painel(qtbot, monkeypatch, lista_=lista(TECNICO, conta(1010, BASE)))
-    assert "⚠" in p.previa.text() and not p.b_criar.isEnabled()
+    assert "⚠" in p.previa.text() and not p.b_executar.isEnabled()
 
 
-def test_tela_cria_mostra_resumo_e_nao_reinicia_sem_confirmar(qtbot, monkeypatch):
-    p = painel(qtbot, monkeypatch)
-    p.turnos["Noite"].setChecked(True)
-    respostas: list[str] = []
-    reinicios: list[bool] = []
+def falsos_de_tela(monkeypatch, respostas, reinicios):
     monkeypatch.setattr(tela, "confirmar", lambda *_: True)
     monkeypatch.setattr(tela, "escolher", lambda _p, titulo, *_: respostas.append(titulo) or False)
     monkeypatch.setattr(tela.QMessageBox, "exec", lambda _self: 0)
     monkeypatch.setattr(identificacao, "reiniciar", lambda **_: reinicios.append(True))
-    monkeypatch.setattr(
-        contas_turno,
-        "criar",
-        lambda base, turnos, sufixo, **_: contas_turno.Resumo(
-            base, (contas_turno.Item(f"{base}-Noite", "criado", "criado"),)
-        ),
-    )
-    p.b_criar.click()
+
+
+def test_tela_cria_mostra_resumo_e_so_entao_pergunta_reinicio(qtbot, monkeypatch):
+    p = painel(qtbot, monkeypatch)
+    p.nome.setText("NOVO-PC01")
+    p.turnos["Noite"].setChecked(True)
+    respostas: list[str] = []
+    reinicios: list[bool] = []
+    falsos_de_tela(monkeypatch, respostas, reinicios)
+    pedidos: list[tuple[str, bool]] = []
+
+    def configurar(nome, turnos, sufixo, *, renomear, **_):
+        pedidos.append((nome, renomear))
+        return contas_turno.Resumo(
+            nome,
+            (contas_turno.Item(f"{nome}-Noite", "criado", "criado"),),
+            identificacao.Feito(True, f"Nome trocado para {nome}. Vale depois de reiniciar."),
+        )
+
+    monkeypatch.setattr(contas_turno, "configurar", configurar)
+    p.b_executar.click()
     qtbot.waitUntil(lambda: "CONFIGURAÇÃO CONCLUÍDA" in p.resultado.text())
     texto = p.resultado.text()
-    assert f"Computador: {BASE}" in texto and f"✓ {BASE}-Noite — criado" in texto
+    assert pedidos == [("NOVO-PC01", True)]
+    assert "Computador: NOVO-PC01" in texto and "Nome: Nome trocado" in texto
+    assert "✓ NOVO-PC01-Noite — criado" in texto
     assert "Total criados: 1" in texto and "Erros: 0" in texto
     assert respostas == ["Configuração concluída"] and reinicios == []
+
+
+def test_tela_falha_no_renomear_nao_pergunta_reinicio(qtbot, monkeypatch):
+    p = painel(qtbot, monkeypatch)
+    p.nome.setText("NOVO-PC01")
+    respostas: list[str] = []
+    reinicios: list[bool] = []
+    falsos_de_tela(monkeypatch, respostas, reinicios)
+    monkeypatch.setattr(
+        contas_turno,
+        "configurar",
+        lambda nome, *_a, **_k: contas_turno.Resumo(
+            nome, (), identificacao.Feito(False, "O Windows recusou o nome")
+        ),
+    )
+    p.b_executar.click()
+    qtbot.waitUntil(lambda: "não foi renomeado" in p.resultado.text())
+    assert "Nenhuma conta foi criada" in p.resultado.text()
+    assert respostas == [] and reinicios == []
 
 
 def test_reiniciar_agora_pede_segunda_confirmacao(qtbot, monkeypatch):
