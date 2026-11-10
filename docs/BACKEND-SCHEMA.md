@@ -95,8 +95,10 @@ duplicada, o Bench recusa. Sem `usuario`, o nome é `Suporte`.
 
 Contrato do acesso remoto (ADR-019), uma linha ativa por par: `GLPI Agent`/`servidor` (URL
 `http(s)://`, público), `RustDesk`/`servidor` (host sem porta, público), `RustDesk`/`chave`,
-`RustDesk`/`senha` e `AnyDesk`/`senha` (não públicos). Ausente, vazia, duplicada ou com
-`Publico` trocado: o Bench recusa aquele programa e diz o par. Instaladores: `Programa` igual a
+`RustDesk`/`senha` e `AnyDesk`/`senha` (não públicos). Opcional (ADR-030): `RustDesk`/`api`
+(público), a URL `https://` do "Servidor da API" do RustDesk; sem a linha, o Bench não mexe no
+campo. Ausente (as obrigatórias), vazia, duplicada ou com `Publico` trocado: o Bench recusa
+aquele programa e diz o par. Instaladores: `Programa` igual a
 `GLPI Agent`, `RustDesk` ou `AnyDesk`, `SHA256` vazio ou de 64 hexadecimais (ADR-028; preencher
 fixa o arquivo), `Link` `https://` e
 `Arquivo` com `.msi`, `.msi`, `.exe`. `Unidades.TagGLPI` é opcional (sem ela, o agente vai sem

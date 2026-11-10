@@ -218,7 +218,13 @@ def test_com_senha_troca_so_a_linha_e_preserva_id() -> None:
 
 def test_senha_cifrada() -> None:
     assert remoto.senha_cifrada("password = '00abcd'\n")
+    # RustDesk 1.5.1 (máquina real, 10/11/2026): prefixo `01`. Antes só `00` contava, e a senha
+    # já cifrada era retirada do arquivo como se tivesse falhado.
+    assert remoto.senha_cifrada("password = '01" + "x" * 116 + "'\n")
     assert not remoto.senha_cifrada(f"password = '{SENHA_RD}'\n")
+    assert not remoto.senha_cifrada("password = '00'\n")  # só a versão, sem texto cifrado
+    assert not remoto.senha_cifrada("password = '1abc'\n")
+    assert not remoto.senha_cifrada("password = ''\n")
     assert not remoto.senha_cifrada("")
 
 
@@ -298,21 +304,26 @@ def test_anydesk_senha_pela_entrada_nunca_em_argumento(
     assert SENHA_AD not in caplog.text
 
 
-def rustdesk_falso(tmp_path, monkeypatch, cifra: bool):
+def rustdesk_falso(tmp_path, monkeypatch, cifra: bool, prefixo: str = "00", puro: bool = False):
+    """RustDesk falso: o `--password` (trecho `senha.ps1`) grava a senha cifrada no arquivo, como
+    o 1.5.1 faz; `puro=True` simula um RustDesk que gravasse o texto puro."""
     pasta = tmp_path / "config"
     monkeypatch.setattr(remoto, "windows", lambda: tmp_path)
     monkeypatch.setattr(remoto, "program_files", lambda: tmp_path / "pf")
 
     def efeito(kw) -> None:
-        if kw.get("acao") == "esperar":
+        if kw.get("acao") in ("esperar", "reiniciar") and not (pasta / "RustDesk.toml").exists():
             pasta.mkdir(parents=True, exist_ok=True)
             (pasta / "RustDesk.toml").write_text("id = '987654321'\nsalt = 'abc'\n", "utf-8")
-        if kw.get("acao") == "iniciar" and cifra:
+        if isinstance(kw.get("senha"), Sensivel):  # o trecho do --password
             texto = (pasta / "RustDesk.toml").read_text("utf-8")
-            if SENHA_RD in texto:  # o RustDesk regrava cifrada
-                (pasta / "RustDesk.toml").write_text(
-                    remoto.com_senha(texto, "00cifradaTeste"), "utf-8"
-                )
+            if puro:
+                novo = kw["senha"].revelar()
+            elif cifra:
+                novo = f"{prefixo}cifradaTeste"
+            else:
+                return
+            (pasta / "RustDesk.toml").write_text(remoto.com_senha(texto, novo), "utf-8")
 
     return pasta, Gravador(efeito=efeito)
 
@@ -339,10 +350,55 @@ def test_rustdesk_instala_configura_e_senha_some(arquivo, tmp_path, monkeypatch,
     ]
 
 
-def test_rustdesk_senha_nao_cifrada_e_retirada(arquivo, tmp_path, monkeypatch) -> None:
+def test_rustdesk_senha_pelo_password_e_nunca_no_disco(arquivo, tmp_path, monkeypatch) -> None:
+    """ADR-031: a senha vai ao trecho por ITC_SENHA (Sensivel), com o serviço já rodando, e o
+    Bench nunca grava a senha no RustDesk.toml."""
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True, prefixo="01")
+    gravacoes: list[str] = []
+    original = remoto.gravar_atomico
+    monkeypatch.setattr(
+        remoto, "gravar_atomico", lambda c, t: (gravacoes.append(t), original(c, t))[1]
+    )
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert feito.ok, feito.mensagem
+    assert all(SENHA_RD not in t for t in gravacoes)
+    senha = [c for c in g.chamadas if isinstance(c.get("senha"), Sensivel)]
+    assert len(senha) == 1 and senha[0]["senha"].revelar() == SENHA_RD
+    assert senha[0]["exe"].lower().endswith("rustdesk.exe")
+    ordem = [c.get("acao") or ("senha" if c in senha else None) for c in g.chamadas]
+    assert ordem.index("iniciar") < ordem.index("senha")  # serviço rodando antes do --password
+    lido = tomllib.loads((pasta / "RustDesk.toml").read_text("utf-8"))
+    assert lido["password"] == "01cifradaTeste"  # noqa: S105 — fictício
+
+
+def test_rustdesk_password_recusado(arquivo, tmp_path, monkeypatch, caplog) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True)
+    rodar = g.rodar
+
+    def falha(script, **kw):
+        r = rodar(script, **kw)
+        return res(3, "ERRO|codigo|1") if isinstance(kw.get("senha"), Sensivel) else r
+
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=falha, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert not feito.ok and "ERRO codigo 1" in feito.mensagem
+    assert SENHA_RD not in caplog.text
+
+
+def test_rustdesk_sem_senha_cifrada_depois_do_password(arquivo, tmp_path, monkeypatch) -> None:
     pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False)
     monkeypatch.setattr(remoto, "ESPERA_CIFRAR", 2)
     monkeypatch.setattr(remoto.time, "sleep", lambda _s: None)
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert not feito.ok and "ADR-031" in feito.mensagem
+    for item in pasta.iterdir():
+        assert SENHA_RD not in item.read_text("utf-8"), item.name
+
+
+def test_rustdesk_que_grava_texto_puro_tem_a_senha_retirada(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False, puro=True)
     d = remoto.dados(cad(), "RustDesk")
     feito = remoto.instalar(d, arquivo, rodar=g.rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
     assert not feito.ok and "retirada" in feito.mensagem
@@ -350,7 +406,7 @@ def test_rustdesk_senha_nao_cifrada_e_retirada(arquivo, tmp_path, monkeypatch) -
         assert SENHA_RD not in item.read_text("utf-8"), item.name
 
 
-def test_rustdesk_cancelado_na_espera_tira_a_senha(arquivo, tmp_path, monkeypatch) -> None:
+def test_rustdesk_cancelado_na_espera(arquivo, tmp_path, monkeypatch) -> None:
     pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=False)
     cancelar = threading.Event()
     monkeypatch.setattr(remoto.time, "sleep", lambda _s: cancelar.set())
@@ -429,3 +485,134 @@ def test_leitura_real_dos_servicos() -> None:
         assert ver is None or isinstance(ver, str)
         assert local is None or not local.startswith('"')  # AnyDesk grava entre aspas
     assert executor.sistema32("msiexec.exe").lower().endswith("msiexec.exe")
+
+
+# ---------------------------------------------------- servidor da API do RustDesk (ADR-030)
+
+API = "https://rd-api.exemplo.invalid"
+
+
+def test_api_rustdesk_e_opcional() -> None:
+    d = remoto.dados(cad(), "RustDesk")
+    assert isinstance(d, remoto.Dados) and d.api == ""
+    assert "api-server" not in tomllib.loads(remoto.rustdesk2(None, HOST, CHAVE, d.api))["options"]
+
+
+def test_api_rustdesk_cadastrada_vai_para_o_toml() -> None:
+    s = [*servidores_ok(), srv(9, "RustDesk", "api", f"  {API}  ", True)]
+    d = remoto.dados(cad(servidores=s), "RustDesk")
+    assert isinstance(d, remoto.Dados) and d.api == API
+    lido = tomllib.loads(remoto.rustdesk2(None, HOST, CHAVE, d.api))
+    assert lido["options"]["api-server"] == API
+    assert lido["options"]["custom-rendezvous-server"] == HOST
+
+
+def test_api_vazia_preserva_a_que_ja_estava() -> None:
+    existente = f'[options]\napi-server = "{API}"\n'
+    lido = tomllib.loads(remoto.rustdesk2(existente, HOST, CHAVE))
+    assert lido["options"]["api-server"] == API
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "http://rd-api.exemplo.invalid",
+        "rd-api.exemplo.invalid",
+        "https://",
+        "https://u:p@rd-api.exemplo.invalid",
+        "https://rd-api.exemplo.invalid/?x=1",
+        "https://rd-api.exemplo.invalid/#a",
+        'https://rd-api.exemplo.invalid/"x',
+    ],
+)
+def test_api_rustdesk_invalida_recusa(valor) -> None:
+    s = [*servidores_ok(), srv(9, "RustDesk", "api", valor, True)]
+    motivo = remoto.dados(cad(servidores=s), "RustDesk")
+    assert isinstance(motivo, str) and "“RustDesk” / api" in motivo
+
+
+def test_api_rustdesk_duplicada_ou_nao_publica_recusa() -> None:
+    dupla = [
+        *servidores_ok(),
+        srv(9, "RustDesk", "api", API, True),
+        srv(10, "RustDesk", "api", API, True),
+    ]
+    assert "mais de uma linha" in str(remoto.dados(cad(servidores=dupla), "RustDesk"))
+    secreta = [*servidores_ok(), srv(9, "RustDesk", "api", API, False)]
+    assert "pública" in str(remoto.dados(cad(servidores=secreta), "RustDesk"))
+
+
+def test_conferir_rustdesk_compara_a_api(tmp_path) -> None:
+    (tmp_path / "RustDesk.toml").write_text("password = '00cifrada'\n", "utf-8")
+    d = remoto.Dados(
+        "RustDesk", instaladores_ok()[1], servidor=HOST, chave=Sensivel(CHAVE), api=API
+    )
+    (tmp_path / "RustDesk2.toml").write_text(remoto.rustdesk2(None, HOST, CHAVE, API), "utf-8")
+    assert remoto._conferir_rustdesk(d, tmp_path) == "conferida"
+    (tmp_path / "RustDesk2.toml").write_text(remoto.rustdesk2(None, HOST, CHAVE), "utf-8")
+    assert remoto._conferir_rustdesk(d, tmp_path) == "diferente"
+
+
+# ---------------------------------------------------- serviço do RustDesk 1.5.1 (ADR-032)
+
+
+def _rodar_151(g, *, ausente: bool, falhas_esperar: int):
+    """Envolve o Gravador: estado do serviço (ausente ou não) e N esperas que falham antes."""
+    restantes = {"n": falhas_esperar}
+
+    def rodar(script: str, **kw):
+        if script.startswith("# Situação dos serviços"):
+            g.chamadas.append({"script": "estado"})
+            estado = None if ausente else "Running"
+            return res(
+                saida=f'{{"glpi-agent":null,"RustDesk":{json_valor(estado)},"AnyDesk":null}}'
+            )
+        if kw.get("acao") == "esperar" and restantes["n"] > 0:
+            restantes["n"] -= 1
+            g.chamadas.append({"script": script[:40], **kw})
+            return res(3, "ERRO|tempo|Running")
+        return g.rodar(script, **kw)
+
+    return rodar
+
+
+def json_valor(v):
+    return "null" if v is None else f'"{v}"'
+
+
+def test_rustdesk_sem_servico_depois_do_msi_cria_e_reinicia(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True, prefixo="01")
+    rodar = _rodar_151(g, ausente=True, falhas_esperar=1)
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert feito.ok, feito.mensagem
+    cria = [c for c in g.chamadas if c.get("args", [""])[-1:] == ["--install-service"]]
+    assert len(cria) >= 1 and cria[0]["args"][0].lower().endswith("rustdesk.exe")
+    acoes = [c.get("acao") for c in g.chamadas if c.get("acao")]
+    assert "reiniciar" in acoes  # a primeira espera falhou: parou e iniciou de novo
+
+
+def test_rustdesk_servico_existente_nao_recria(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True)
+    rodar = _rodar_151(g, ausente=False, falhas_esperar=0)
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert feito.ok, feito.mensagem
+    assert not [c for c in g.chamadas if "--install-service" in c.get("args", [])]
+    assert "reiniciar" not in [c.get("acao") for c in g.chamadas]
+
+
+def test_rustdesk_servico_que_nunca_sobe_falha_com_mensagem(arquivo, tmp_path, monkeypatch) -> None:
+    pasta, g = rustdesk_falso(tmp_path, monkeypatch, cifra=True)
+    rodar_base = _rodar_151(g, ausente=False, falhas_esperar=0)
+
+    def rodar(script: str, **kw):
+        if kw.get("acao") in ("esperar", "reiniciar"):
+            g.chamadas.append({"script": script[:40], **kw})
+            return res(3, "ERRO|tempo|Running")
+        return rodar_base(script, **kw)
+
+    d = remoto.dados(cad(), "RustDesk")
+    feito = remoto.instalar(d, arquivo, rodar=rodar, executar=g.executar, pasta_rustdesk=pasta)  # type: ignore[arg-type]
+    assert not feito.ok and "não respondeu a tempo" in feito.mensagem
+    assert [c.get("acao") for c in g.chamadas if c.get("acao")].count("reiniciar") == 1

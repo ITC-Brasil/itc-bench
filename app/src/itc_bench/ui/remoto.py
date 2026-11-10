@@ -37,6 +37,15 @@ AJUDA = (
     "Versões\n"
     "Igual à do cadastro: só Reconfigurar (servidor, chave, senha). Mais nova que o cadastro: o "
     "Bench não rebaixa; atualize o cadastro. Mais velha: Atualizar instala por cima.\n\n"
+    "RustDesk\n"
+    "Se o serviço do RustDesk não existir depois do instalador, o Bench o cria; se ele não subir "
+    "no tempo, o Bench para e inicia de novo uma vez. A senha permanente é definida pelo próprio "
+    "RustDesk (--password) com o serviço rodando, e o Bench confere que ela ficou cifrada. "
+    "Para saber se a senha bate, conecte de outro computador com a senha do cadastro.\n\n"
+    "Download recusado\n"
+    "“Recusou o pedido (HTTP 403/404…)” quer dizer que o servidor do download respondeu, mas "
+    "não entregou o arquivo: confira o Link em Instaladores (tem que ser o arquivo, não uma "
+    "página) ou use Escolher arquivo….\n\n"
     "Sem internet\n"
     "Use Escolher arquivo… e aponte o instalador num pendrive. O Bench copia e confere o SHA-256 "
     "do cadastro; arquivo diferente é recusado. Linha sem SHA-256 no cadastro aceita o arquivo "
@@ -48,7 +57,8 @@ AJUDA = (
     "Pede ao GLPI Agent desta máquina que envie o inventário agora.\n\n"
     "Cadastro incompleto\n"
     "O cartão diz qual linha falta em Servidores ou Instaladores e a instalação não começa. A tag "
-    "do GLPI é opcional (Unidades › TagGLPI).\n\n"
+    "do GLPI é opcional (Unidades › TagGLPI). O Servidor da API do RustDesk também é opcional "
+    "(Servidores › RustDesk / api, https://): sem ele, o Bench não mexe nesse campo.\n\n"
     "Sem administrador (modo de teste), a tela só mostra a situação."
 )
 
@@ -239,6 +249,8 @@ class PainelRemoto(QWidget):
         linhas = [f"{acao} {d.programa} {inst.versao}?", ""]
         if d.servidor:
             linhas.append(f"Servidor: {d.servidor}")
+        if d.api:
+            linhas.append(f"Servidor da API: {d.api}")
         if d.programa == "GLPI Agent":
             linhas.append(f"Tag: {d.tag or 'sem tag'}")
         if acao != "Reconfigurar":

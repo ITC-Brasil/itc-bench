@@ -1009,6 +1009,10 @@ proposto e aprovado com ajustes em `.conversa/` em 05/11/2026.
      (`%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config`). O resto do arquivo
      é preservado (`id`, `key_pair`, `salt`). Ao iniciar, o RustDesk a regrava cifrada (prefixo
      `00`), e o Bench confere isso. Se sobrar texto puro, o Bench tira a linha e falha.
+     **Emenda (10/11/2026, máquina real):** o RustDesk 1.5.1 regrava com prefixo `01`. O Bench
+     aceitava só `00`, via "falha" e retirava a senha já cifrada. Passa a valer qualquer versão
+     do formato (`0` + dígito + texto cifrado, `remoto.SENHA_CIFRADA`), sempre com a conferência
+     de que o texto puro sumiu do arquivo.
    - Escritas atômicas (`.tmp` + `replace`), com o `.tmp` apagado em `finally`. A pasta (e o
      caminho até ela) não pode ser ponto de reparse.
    - O Configurador não gravava método de verificação; o padrão do RustDesk fica.
@@ -2005,3 +2009,114 @@ decidir o reinício, sem digitação repetida. Decisões tomadas com o responsá
 **Consequences**
 Os cenários de escrita (criar de verdade, reiniciar) ficam para a máquina real com o instalador.
 A Preparação completa não muda.
+
+---
+
+## ADR-030 — "Servidor da API" do RustDesk, opcional, vindo de Servidores
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-019, itens 2 e 9)
+
+**Context**
+O ADR-019 grava no `RustDesk2.toml` só o servidor de ID/Relay e a chave. O campo "Servidor da
+API" do RustDesk ficava vazio, e o cliente avisa que o servidor personalizado usa HTTP por
+padrão. O responsável pediu que o Bench preencha esse campo com o servidor da API do RustDesk
+da empresa, que é outro endereço, em `https://`.
+
+**Decision**
+1. **Linha nova e opcional** em Servidores: `RustDesk`/`api`, **pública**, com a URL. O endereço
+   não entra no código nem no repositório (ADR-008).
+2. **Validação:** só `https://` com host; sem usuário e senha, query (`?`), fragmento (`#`),
+   espaço ou aspas (`remoto.validar_url_api_rustdesk`). Duplicada, com `Publico` trocado, vazia
+   ou inválida recusa o RustDesk com o motivo, como as outras linhas do ADR-019.
+3. **Gravação:** com a linha, `rustdesk2()` grava `[options] api-server`; sem ela, não mexe na
+   chave (fica o que já estava, inclusive um valor posto à mão).
+4. **Situação:** com a linha, "Configuração: conferida" exige também `api-server` igual ao
+   cadastro. A confirmação de Instalar/Reconfigurar mostra "Servidor da API: <URL>".
+5. **Log:** como o resto do ADR-019, sem URL nem host.
+
+**Alternatives considered**
+- Linha obrigatória — quebraria a instalação de quem usa o servidor gratuito, que não tem API.
+- Derivar a URL do servidor de ID (`https://<host>`) — o servidor da API é outro endereço.
+- Aceitar `http://` — o próprio RustDesk avisa contra; a URL fornecida é `https://`.
+
+**Consequences**
+O responsável cadastra `RustDesk`/`api` no NocoDB e sincroniza; depois, Reconfigurar o RustDesk
+nas máquinas já instaladas. Cenário 7.2a do roteiro de máquina real.
+
+---
+
+## ADR-031 — Senha permanente do RustDesk por `rustdesk.exe --password`
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (decisão do responsável; substitui o ADR-019, item 8, para o RustDesk)
+
+**Context**
+O ADR-019 (item 8) evitava a senha na linha de comando: o Bench gravava `password` em texto puro
+no `RustDesk.toml` do serviço e esperava o RustDesk regravá-la cifrada. Ficou registrado que isso
+nunca tinha sido testado e que, se falhasse, a decisão voltava ao responsável. Na máquina real
+(10/11/2026, RustDesk 1.5.1) três tentativas falharam: o serviço iniciou e a senha nunca foi
+cifrada. A senha definida pela tela do RustDesk aparece com prefixo `01`, que o Bench passou a
+reconhecer, mas o caminho pelo arquivo não funciona nessa versão.
+
+**Decision**
+1. **Senha por `rustdesk.exe --password`,** o caminho oficial do RustDesk, com o serviço rodando
+   (depois de gravar o `RustDesk2.toml` e iniciar o serviço).
+2. **Executor sem exceção nova:** o trecho fixo `recursos/remoto/senha.ps1` recebe a senha em
+   `ITC_SENHA` (`Sensivel`) e o caminho do `rustdesk.exe` instalado em `ITC_EXE`, e chama
+   `& $exe --password $env:ITC_SENHA`. A saída do RustDesk não é devolvida (só `OK` ou
+   `ERRO|codigo`); o log tem só o código.
+3. **Nada de senha no disco:** o Bench deixa de gravar `password` no `RustDesk.toml`. Depois do
+   `--password`, confere em até 20 s que a senha aparece cifrada (`0` + dígito) e que o texto
+   puro não está no arquivo; se o texto puro aparecer, a linha sai antes de falhar.
+
+**Risco aceito (responsável, 10/11/2026)**
+- Durante a chamada (menos de um segundo), a senha fica na linha de comando do `rustdesk.exe`:
+  visível para administradores locais (`Win32_Process`) e em auditoria de processos (evento 4688
+  com linha de comando, se ligada). Aceito porque a senha já é igual em toda a frota e reversível
+  por administrador local (ADR-024), e quem vê o processo já é administrador.
+
+**Alternatives considered**
+- Manter a gravação pelo arquivo — não funciona no RustDesk 1.5.1 (máquina real).
+- Senha definida à mão em cada máquina — trabalho e erro de digitação em ~600 notebooks.
+- Política do servidor RustDesk para a senha — depende da edição do servidor; fica para depois.
+
+**Consequences**
+`docs/modules/09-acesso-remoto.md` (ordem do RustDesk) e o roteiro 7.2b mudam. O AnyDesk não
+muda (senha pela entrada padrão, ADR-019).
+
+---
+
+## ADR-032 — Serviço do RustDesk 1.5.1: criar se faltar e um segundo início
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (máquina real; emenda ao ADR-019, item 6)
+
+**Context**
+Na máquina real (10/11/2026), o MSI do RustDesk 1.5.1 com `/qn` instala os arquivos em 2 s
+("Installation completed successfully"), mas não cria o serviço: ele só aparece quando o
+`rustdesk.exe` roda. Criado, o primeiro início estoura o tempo do Windows (eventos 7009/7000,
+30 s) e o serviço só sobe num segundo início (o técnico parava e iniciava pela tela do
+RustDesk). O Bench esperava o serviço por 90 s e falhava com "não respondeu a tempo".
+
+**Decision**
+1. Antes de esperar ou iniciar o serviço do RustDesk (Instalar e Reconfigurar,
+   `remoto._subir_rustdesk`): se o serviço `RustDesk` não existir, rodar
+   `rustdesk.exe --install-service` pelo executor (argumentos fixos, sem dado, caminho da pasta
+   instalada).
+2. Se o serviço não ficar Running no tempo, parar e iniciar **uma vez** (ação `reiniciar` do
+   `servico.ps1`). Falhando de novo, a mensagem continua "não respondeu a tempo".
+3. `servico.ps1`: o erro do `Start-Service` vira `AVISO|iniciar`; quem decide é a espera pelo
+   estado Running. Vale para os três programas.
+
+**Alternatives considered**
+- Aumentar a espera — o serviço criado não sobe sozinho; esperar mais não resolve.
+- Criar o serviço com `sc.exe create` — repete o que o próprio RustDesk faz, com o risco de
+  errar o caminho ou os argumentos do serviço.
+
+**Consequences**
+Pior caso do Instalar do RustDesk: cerca de 3 min antes da mensagem de erro. Cenário 7.2c do
+roteiro de máquina real.

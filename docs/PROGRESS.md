@@ -2,7 +2,26 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/contas-por-turno`, PR para `develop`: contas por turno na Identificação (ADR-029). Nome base = nome do computador, turnos Manhã/Tarde/Noite ou sufixo, prévia, contas Local padrão sem senha, resumo e reinício com duas confirmações. Pendente: criar as contas e reiniciar em máquina real (`docs/modules/contas-por-turno.md`).
+- **Branch:** `feat/rustdesk-servidor-api`, PR para `develop`. Acesso remoto acertado na máquina
+  real com o RustDesk 1.5.1:
+  - "Servidor da API" pela linha opcional `RustDesk`/`api` (ADR-030);
+  - senha por `rustdesk.exe --password`, sem senha no disco (ADR-031; risco aceito) e
+    reconhecimento do prefixo `01` (emenda ao ADR-019);
+  - serviço criado com `--install-service` se faltar e segundo início se não subir (ADR-032);
+  - downloads com User-Agent `ITC-Bench/<versão>` (o AnyDesk dava 403) e código HTTP na tela
+    e no log.
+- **Testado em desenvolvimento (10/11/2026, `uv run` elevado, RustDesk 1.5.1):** passaram o 7.2a
+  (Servidor da API), o 7.2b (conexão de outro computador com a senha do cadastro), o 7.2c
+  (Instalar com o RustDesk desinstalado) e o download do AnyDesk depois de trocar o Link no
+  cadastro (`docs/testes/maquina-real.md`, "Resultados registrados"). **Pendente:** a mesma
+  rodada com o instalador do CI, no roteiro completo antes da 1.0.
+- **Cadastro no NocoDB (Servidores):** os papéis do RustDesk precisam ser os do contrato
+  (`servidor`, `chave`, `senha`, `api`); o GLPI continua `GLPI Agent`/`servidor`
+  (`docs/BACKEND-SCHEMA.md`).
+- **Release:** PR #62 (`develop` → `main`) mesclado em 10/11/2026, com as contas por turno
+  (ADR-029, PR #61) e o pydantic 2.14.3 (PR #60). Versão ainda 0.17.1: para os notebooks,
+  falta subir a versão, tag, assinar e publicar (`docs/BUILD.md`). Pendente: criar as contas e
+  reiniciar em máquina real (`docs/modules/contas-por-turno.md`).
 - **Antes (0.17.1):** `chore/versao-0.17.1`, PR para `develop`: versão 0.17.1 com a correção do papel
   de parede sem SHA256 (`escrever.ps1`, PR #57). A 0.17.0 foi publicada na API (mínima 0.17.0,
   obrigatória). Depois do merge até a `main` (PR #58): tag `v0.17.1`, publicar o rascunho,
@@ -48,6 +67,12 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-10 | pós-16 — Código HTTP no download | Download recusado pelo servidor (`HTTPError`) deixa de aparecer como "Sem rede": a tela diz "recusou o pedido (HTTP N)" e manda conferir o Link; o log tem só o Id e o código, sem link nem host. Ajuda da tela Acesso remoto atualizada (serviço do RustDesk, `--password`, download recusado). Auditorias: `2026-11-10-rustdesk-servico.md` e `2026-11-10-download-user-agent.md` (informativos). |
+| 2026-11-10 | pós-16 — Download com User-Agent próprio | Máquina real: o download do AnyDesk respondia 403 ao User-Agent padrão do urllib (`Python-urllib/3.x`); com um nome próprio, 200. `instaladores._abrir` passa a mandar `ITC-Bench/<versão>`, mantido no redirecionamento (só https). Vale para todos os downloads de Instaladores. |
+| 2026-11-10 | pós-16 — Serviço do RustDesk 1.5.1 | Máquina real: o MSI 1.5.1 não cria o serviço e o primeiro início estoura o tempo do Windows. `_subir_rustdesk`: `--install-service` se o serviço faltar e, se não subir, parar e iniciar uma vez; `Start-Service` com erro vira aviso no `servico.ps1`. ADR-032; roteiro 7.2c. |
+| 2026-11-10 | pós-16 — Senha do RustDesk por `--password` | Máquina real: o RustDesk 1.5.1 não cifra a senha posta no `RustDesk.toml` (3 tentativas). Decisão do responsável: `rustdesk.exe --password` pelo trecho fixo `senha.ps1` (senha em `ITC_SENHA`), com o serviço rodando; o Bench não grava mais a senha no disco e confere a forma cifrada (`0` + dígito). Risco aceito: senha na linha de comando do `rustdesk.exe` durante a chamada. ADR-031. Auditoria: 1 baixo (aceito), 1 informativo. Roteiro 7.2b. |
+| 2026-11-10 | pós-16 — Senha do RustDesk 1.5.1 | Máquina real: o RustDesk 1.5.1 regrava a senha permanente com prefixo `01` (antes `00`). O Bench só aceitava `00`, dava "não aceitou a senha" e retirava a senha já cifrada. `senha_cifrada` passa a aceitar qualquer versão (`0` + dígito + texto), mantida a conferência de que o texto puro sumiu. Emenda ao ADR-019; roteiro 7.2b. |
+| 2026-11-10 | pós-16 — Servidor da API do RustDesk | Linha opcional `RustDesk`/`api` (pública, `https://` com host, sem credencial, query nem fragmento) gravada em `[options] api-server` do `RustDesk2.toml`; sem a linha, o campo fica como estava. Situação "conferida" compara também a API; confirmação mostra o endereço. Duplicada, não pública ou inválida recusa o RustDesk. 12 testes novos. ADR-030. Auditoria: 1 informativo. Máquina real pendente (7.2a). |
 | 2026-11-10 | pós-16 — Contas por turno | Seção "Criação de usuários" na Identificação (ADR-029): nome base lido do Windows (o que vale depois de reiniciar), turnos Manhã/Tarde/Noite (`BASE-Manha`...) ou, sem turno, sufixo opcional (`BASE-Sufixo`) ou só `BASE`; prévia automática com ✓/⚠/✕ (20 caracteres, sufixo sem acento nem espaço, já existe); contas Local padrão sem senha por `contas.criar`, uma falha não para as outras; resumo com criados, já existentes e erros; reinício só com duas confirmações. `permitir_nome_computador` só aqui (Python e `criar.ps1`). 34 testes novos, app 846. Auditoria: 3 informativos (riscos aceitos). Criação e reinício reais pendentes (máquina real). |
 | 2026-11-09 | pós-16 — SHA256 opcional | Instaladores sem SHA256 valem (ADR-028, TA-ADR-034): download só `https://`, hash calculado no download e guardado no nome `c<chave>.<sha>.<ext>` (chave de Id, Link e Versao), conferido antes de executar; Link ou Versao novos não reaproveitam o cache, e a limpeza apaga o antigo. Com hash, sem mudança; hash inválido recusado. Telas mostram "SHA-256: não cadastrado"; log sem link nem host. API aceita `papel` sem SHA256. Roteiro 7.7 e 7.8. |
 | 2026-11-08 | 16 — Atualização automática | API serve a versão (`bench_versoes`, CLI com operador, migração 0007) e o instalador (sessão, `Range` 206, `no-store`, downloads e retomadas contados em separado). Manifesto assinado ECDSA P-256 conferido pela CNG antes de ler o JSON, chaves principal e reserva no pacote, privadas só com o responsável. Download em `protegido\atualizacao` com teto e hash; faixa no alto e instalação ao fechar por `executor.disparar` (fora do Job, hash pelo handle); recusa versão menor ou igual, Preparação em andamento e retomada. Prova no runner: usuário comum cria `Global\ITCBench`; o `AppMutex` saiu e só mutex de Administradores conta; `/ESPERAPID` confere o executável; instalador recusa versão menor. CI: N → N+1 pela API falsa com cinco recusas e mutex alheio. App 47 testes novos, API 268. ADR-026, TA-ADR-033. Auditoria: 1 alto corrigido, 1 baixo e 4 informativos aceitos. UAC, SmartScreen e túnel pendentes (máquina real). |
