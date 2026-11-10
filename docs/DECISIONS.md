@@ -1009,6 +1009,10 @@ proposto e aprovado com ajustes em `.conversa/` em 05/11/2026.
      (`%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config`). O resto do arquivo
      é preservado (`id`, `key_pair`, `salt`). Ao iniciar, o RustDesk a regrava cifrada (prefixo
      `00`), e o Bench confere isso. Se sobrar texto puro, o Bench tira a linha e falha.
+     **Emenda (10/11/2026, máquina real):** o RustDesk 1.5.1 regrava com prefixo `01`. O Bench
+     aceitava só `00`, via "falha" e retirava a senha já cifrada. Passa a valer qualquer versão
+     do formato (`0` + dígito + texto cifrado, `remoto.SENHA_CIFRADA`), sempre com a conferência
+     de que o texto puro sumiu do arquivo.
    - Escritas atômicas (`.tmp` + `replace`), com o `.tmp` apagado em `finally`. A pasta (e o
      caminho até ela) não pode ser ponto de reparse.
    - O Configurador não gravava método de verificação; o padrão do RustDesk fica.

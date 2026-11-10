@@ -41,7 +41,8 @@ cópia do arquivo escolhido.
   3. Parar o serviço e encerrar só os `rustdesk.exe` da pasta instalada.
   4. Gravar o `RustDesk2.toml` (mesclado) e a linha `password` do `RustDesk.toml`.
   5. Iniciar o serviço.
-  6. Esperar até 20 s que a senha fique cifrada (`00…`) e que o texto puro suma.
+  6. Esperar até 20 s que a senha fique cifrada (`00…` nas versões antigas, `01…` no 1.5.1) e
+     que o texto puro suma.
   7. `--option stop-service-hide-tray Y` e `--option hide-icon Y`.
 
   Se a senha não for cifrada, o Bench para o serviço, tira a linha, inicia o serviço de novo e
@@ -158,7 +159,8 @@ Sem `.env`, deploy ou mudança na API.
    - em `%TEMP%`;
    - em `%ProgramData%\ITC\Bench\protegido\`;
    - em `%WINDIR%\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\`, onde o
-     `RustDesk.toml` deve ter só `password = "00…"` e nenhum `.tmp`.
+     `RustDesk.toml` deve ter só `password = "00…"` (ou `"01…"` no RustDesk 1.5.1) e nenhum
+     `.tmp`.
 
    Em nenhum desses lugares a senha pode aparecer em texto (V10).
 9. Se houver máquina em inglês, repita 2 a 4 (V9).
