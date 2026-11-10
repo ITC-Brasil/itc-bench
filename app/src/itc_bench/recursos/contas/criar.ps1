@@ -1,7 +1,7 @@
 $nome = $env:ITC_NOME
 if (Get-LocalUser -Name $nome -ErrorAction SilentlyContinue) { Falhar 'nome_existe' $nome }
 if (Get-LocalGroup -Name $nome -ErrorAction SilentlyContinue) { Falhar 'nome_grupo' $nome }
-if ($nome -ieq [Environment]::MachineName) { Falhar 'nome_computador' $nome }
+if ($nome -ieq [Environment]::MachineName -and $env:ITC_PERMITIR_NOME_PC -ne '1') { Falhar 'nome_computador' $nome }
 if ($PROTEGIDAS -contains $nome) { Falhar 'suporte' $nome }
 $p = @{ Name = $nome; FullName = $nome; AccountNeverExpires = $true }
 if ($env:ITC_SENHA) { $p.Password = ConvertTo-SecureString $env:ITC_SENHA -AsPlainText -Force } else { $p.NoPassword = $true }

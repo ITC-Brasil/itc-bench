@@ -19,13 +19,15 @@ def test_identificacao_valida_e_libera(qtbot, monkeypatch):
     p = tela_id.PainelIdentificacao(admin=True)
     qtbot.addWidget(p)
     p._recebeu(ESTADO)
-    assert not p.b_reiniciar.isEnabled()
+    assert not hasattr(p, "b_reiniciar")  # o reinício só é oferecido depois de criar (ADR-029)
     p.nome.setText("abc01-nb01")
-    assert p.b_renomear.isEnabled() and p.erro.text() == ""
+    assert p.b_executar.isEnabled() and p.erro.text() == ""
+    assert p.b_executar.text() == "Renomear e criar usuários"
     p.nome.setText("teste01")
-    assert not p.b_renomear.isEnabled() and "conta ou grupo" in p.erro.text()
+    assert not p.b_executar.isEnabled() and "conta ou grupo" in p.erro.text()
+    p.nome.clear()
     p._recebeu(Estado("PC-TESTE", "PC-NOVO", False, frozenset()))
-    assert "Depois de reiniciar: PC-NOVO" in p.situacao.text() and p.b_reiniciar.isEnabled()
+    assert "Depois de reiniciar: PC-NOVO" in p.situacao.text() and p.nome.text() == "PC-NOVO"
 
 
 def test_identificacao_sem_admin_so_le(qtbot, monkeypatch):
@@ -34,7 +36,7 @@ def test_identificacao_sem_admin_so_le(qtbot, monkeypatch):
     qtbot.addWidget(p)
     p._recebeu(Estado("PC-TESTE", "PC-NOVO", False, frozenset()))
     p.nome.setText("ABC01")
-    assert not p.b_renomear.isEnabled() and not p.b_reiniciar.isEnabled()
+    assert not p.b_executar.isEnabled() and "administrador" in p.motivo.text()
 
 
 def cadastros(*redes: Rede) -> Cadastros:

@@ -111,8 +111,18 @@ def protegidas(cadastros: Cadastros | None) -> frozenset[str]:
     return frozenset(n for n in nomes if n)
 
 
-def validar_nome(nome: str, lista: Lista | None, protegidas_: Iterable[str]) -> str | None:
-    """Mensagem do problema, ou None se o nome serve. O PowerShell confere de novo."""
+def validar_nome(
+    nome: str,
+    lista: Lista | None,
+    protegidas_: Iterable[str],
+    *,
+    permitir_nome_computador: bool = False,
+) -> str | None:
+    """Mensagem do problema, ou None se o nome serve. O PowerShell confere de novo.
+
+    `permitir_nome_computador`: só as contas por turno (ADR-029) aceitam o nome igual ao do
+    computador; a tela Contas continua recusando.
+    """
     if not nome:
         return "Digite o nome da conta."
     if len(nome) > 20:
@@ -125,7 +135,7 @@ def validar_nome(nome: str, lista: Lista | None, protegidas_: Iterable[str]) -> 
     if baixo in protegidas_:
         return "Nome reservado para a conta Suporte."
     if lista is not None:
-        if baixo == lista.computador.lower():
+        if baixo == lista.computador.lower() and not permitir_nome_computador:
             return MENSAGENS["nome_computador"]
         if any(c.nome.lower() == baixo for c in lista.contas):
             return MENSAGENS["nome_existe"]
@@ -334,10 +344,16 @@ def criar(
     clonar_sid: str | None = None,
     nunca_expira: bool = True,
     protegidas_: frozenset[str] = frozenset({SUPORTE_PADRAO.lower()}),
+    permitir_nome_computador: bool = False,
     rodar: Rodar = executor.powershell,
 ) -> Feito:
     nome = nome.strip()
-    problema = validar_nome(nome, listar(rodar=rodar), protegidas_)
+    problema = validar_nome(
+        nome,
+        listar(rodar=rodar),
+        protegidas_,
+        permitir_nome_computador=permitir_nome_computador,
+    )
     if problema:
         return Feito(False, problema)
     variaveis: dict[str, str | Sensivel] = {
@@ -346,6 +362,7 @@ def criar(
         "nunca_expira": "1" if nunca_expira else "0",
         "clonar": clonar_sid or "",
         "protegidas": _ambiente_protegidas(protegidas_),
+        "permitir_nome_pc": "1" if permitir_nome_computador else "0",
     }
     if senha is not None and senha.revelar():
         variaveis["senha"] = senha

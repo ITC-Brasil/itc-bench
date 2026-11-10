@@ -1952,3 +1952,56 @@ opcional: linha sem hash é válida e instala normalmente, sem pedir ação de n
 **Consequences**
 Cadastro mais simples; linhas sem hash ficam protegidas só pelo transporte e pelo controle de
 edição do NocoDB. O roteiro de máquina real ganha um cenário sem hash e um com hash divergente.
+
+---
+
+## ADR-029 — Contas por turno na Identificação, com o nome do computador como base
+
+**Status:** Accepted
+**Date:** 2026-11-10
+**Module:** Pós-16 (pedido do responsável)
+
+**Context**
+O ADR-023 (item 4) deixou as contas por turno fora do 13 e descreveu a opção B (sufixo fixo,
+conta padrão, senha digitada na hora). O responsável pediu o fluxo na tela Identificação:
+digitar o nome do computador uma vez, gerar as contas a partir dele, ver a prévia, criar e
+decidir o reinício, sem digitação repetida. Decisões tomadas com o responsável em 10/11/2026.
+
+**Decision**
+1. **Nome base** = o nome digitado no campo do computador, que já vem preenchido com o que vale
+   depois de reiniciar (`Estado.pendente`, ADR-018). Sem segundo campo de nome.
+2. **Regra** (`servicos/contas_turno.py`, sem Qt): com turno marcado, `BASE-Manha`,
+   `BASE-Tarde`, `BASE-Noite` (nessa ordem, sufixo ignorado); sem turno e com sufixo,
+   `BASE-Sufixo`; sem nenhum dos dois, só `BASE`. Opção "Criar também o usuário do sufixo"
+   (só com turno marcado, desmarcada por padrão; pedido do responsável em 10/11/2026): soma
+   `BASE-Sufixo` às contas dos turnos, por último. O sufixo não entra dentro do nome do turno.
+3. **Turnos sem acento** (`Manha`), por perfil, scripts e acesso remoto; a tela mostra "Manhã".
+4. **Sufixo livre, mas restrito**: letras sem acento, números, hífen e `_`, sem espaço e sem
+   hífen ou `_` na ponta. Desvia da opção B (sufixo fixo) a pedido do responsável.
+5. **Contas Local padrão, sempre sem senha**, por `contas.criar` (ADR-017). Nunca
+   administradora. Risco aceito pelo responsável: qualquer pessoa entra em qualquer turno.
+6. **Conta com o nome do computador permitida só aqui** (`permitir_nome_computador`, conferido
+   também em `criar.ps1` por `ITC_PERMITIR_NOME_PC`). A tela Contas continua recusando. Risco
+   aceito: login ambíguo `PC\PC`; e o Bench recusa renomear o computador para o nome de uma conta
+   local, então a troca futura de nome exige outro nome.
+7. **Limite de 20 caracteres** do Windows: a prévia marca ✕ e explica; nada é abreviado.
+8. Conta que já existe não é recriada (⚠); erro numa conta não para as outras (✕ com o
+   motivo). Resumo com criados, já existentes e erros.
+9. **Um bloco só, um botão** (revisão de 10/11/2026, pedido do responsável): o campo do nome já
+   vem com o nome que vale depois de reiniciar; o botão "Renomear e criar usuários" (ou "Criar
+   usuários", se o nome não mudou) renomeia e depois cria, com o nome digitado como base
+   (`contas_turno.configurar`). Se o renomear falhar, nenhuma conta é criada. Sai o botão
+   "Reiniciar agora" da tela e a pergunta de reinício depois do renomear: o reinício só é
+   oferecido depois da criação, com duas confirmações ("Reiniciar agora" → "Sim, reiniciar"),
+   pelo `identificacao.reiniciar` existente; depois o Bench fecha pela janela. "Deixar para
+   depois" não reinicia. Mantém o item 5 do ADR-023.
+10. Log: só as contagens; os nomes das contas criadas vão pelo log de `contas.criar` (ADR-017).
+
+**Alternatives considered**
+- Senha digitada na hora (opção B) — recusada pelo responsável: mais lenta na bancada.
+- Recusar a conta com o nome do computador — recusada pelo responsável.
+- Abreviar turno (M/T/N) para caber em 20 — nome menos claro.
+
+**Consequences**
+Os cenários de escrita (criar de verdade, reiniciar) ficam para a máquina real com o instalador.
+A Preparação completa não muda.
