@@ -2,7 +2,8 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/versao-0.17.1`, PR para `develop`: versão 0.17.1 com a correção do papel
+- **Branch:** `feat/contas-por-turno`, PR para `develop`: contas por turno na Identificação (ADR-029). Nome base = nome do computador, turnos Manhã/Tarde/Noite ou sufixo, prévia, contas Local padrão sem senha, resumo e reinício com duas confirmações. Pendente: criar as contas e reiniciar em máquina real (`docs/modules/contas-por-turno.md`).
+- **Antes (0.17.1):** `chore/versao-0.17.1`, PR para `develop`: versão 0.17.1 com a correção do papel
   de parede sem SHA256 (`escrever.ps1`, PR #57). A 0.17.0 foi publicada na API (mínima 0.17.0,
   obrigatória). Depois do merge até a `main` (PR #58): tag `v0.17.1`, publicar o rascunho,
   assinar e publicar a versão na API (`docs/BUILD.md`). Até lá, papel de parede só com SHA256.
@@ -32,7 +33,6 @@
   - assinatura de código (OV ou Trusted Signing) antes de distribuir em larga escala;
   - senha por máquina para a Suporte (LAPS), no lugar da senha única;
   - exigir `https` no GLPI quando ele tiver certificado (TA-ADR-031);
-  - contas por turno (opção B do ADR-023), se a carreta pedir;
   - alerta de USB por conta no Início (exige carregar hives);
   - trocar a pasta de deploy no servidor para `itc-bench`;
   - PR no TA trocando o README;
@@ -48,6 +48,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-10 | pós-16 — Contas por turno | Seção "Criação de usuários" na Identificação (ADR-029): nome base lido do Windows (o que vale depois de reiniciar), turnos Manhã/Tarde/Noite (`BASE-Manha`...) ou, sem turno, sufixo opcional (`BASE-Sufixo`) ou só `BASE`; prévia automática com ✓/⚠/✕ (20 caracteres, sufixo sem acento nem espaço, já existe); contas Local padrão sem senha por `contas.criar`, uma falha não para as outras; resumo com criados, já existentes e erros; reinício só com duas confirmações. `permitir_nome_computador` só aqui (Python e `criar.ps1`). 34 testes novos, app 846. Auditoria: 3 informativos (riscos aceitos). Criação e reinício reais pendentes (máquina real). |
 | 2026-11-09 | pós-16 — SHA256 opcional | Instaladores sem SHA256 valem (ADR-028, TA-ADR-034): download só `https://`, hash calculado no download e guardado no nome `c<chave>.<sha>.<ext>` (chave de Id, Link e Versao), conferido antes de executar; Link ou Versao novos não reaproveitam o cache, e a limpeza apaga o antigo. Com hash, sem mudança; hash inválido recusado. Telas mostram "SHA-256: não cadastrado"; log sem link nem host. API aceita `papel` sem SHA256. Roteiro 7.7 e 7.8. |
 | 2026-11-08 | 16 — Atualização automática | API serve a versão (`bench_versoes`, CLI com operador, migração 0007) e o instalador (sessão, `Range` 206, `no-store`, downloads e retomadas contados em separado). Manifesto assinado ECDSA P-256 conferido pela CNG antes de ler o JSON, chaves principal e reserva no pacote, privadas só com o responsável. Download em `protegido\atualizacao` com teto e hash; faixa no alto e instalação ao fechar por `executor.disparar` (fora do Job, hash pelo handle); recusa versão menor ou igual, Preparação em andamento e retomada. Prova no runner: usuário comum cria `Global\ITCBench`; o `AppMutex` saiu e só mutex de Administradores conta; `/ESPERAPID` confere o executável; instalador recusa versão menor. CI: N → N+1 pela API falsa com cinco recusas e mutex alheio. App 47 testes novos, API 268. ADR-026, TA-ADR-033. Auditoria: 1 alto corrigido, 1 baixo e 4 informativos aceitos. UAC, SmartScreen e túnel pendentes (máquina real). |
 | 2026-11-08 | 15 — Empacotamento, instalador e CI | PyInstaller `onedir` com `VERSIONINFO`, ícone de 8 tamanhos e OpenSSL fixado no do Python (o `PATH` da máquina de build trazia outro `libcrypto`). Inno Setup 6.7.4 com SHA-256 conferido: pasta fixa `Program Files\ITC\Bench`, endereço da API por `/APIURL=` ou página (`https://`, sem credencial, query ou fragmento, no instalador e no app), `AppMutex` sem matar o Bench, upgrade mantém `protegido\` e `ApiUrl`, desinstalação apaga `protegido\` e a chave HKLM com aviso de que a preparação fica. App empacotado confere pasta, pai e árvore (reparse, dono, ACL), ignora `QT_*`/`QML*`/`PYTHON*`, tira o `PATH` da busca de DLL; `--teste` só leitura e lendo os recursos. `app-build`: varredura do pacote (com o `PYZ`) e da árvore instalada, gitleaks, 37 conferências de instalação/desinstalação no runner, Release em rascunho por tag. Lock da API com hash. App 740 testes, API 246. ADR-025, TA-ADR-032. Auditoria: 1 médio corrigido, 5 informativos. Cenários com GUI, UAC e SmartScreen em máquina real pendentes. |
