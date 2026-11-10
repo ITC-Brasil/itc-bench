@@ -410,7 +410,7 @@ class Janela(QMainWindow):
 
     def _preparar(self) -> None:
         """Identificação, Wi-Fi e Acesso remoto (ADR-018, ADR-019): leem ao abrir; ação só admin."""
-        self.identificacao = PainelIdentificacao(self.admin)
+        self.identificacao = PainelIdentificacao(self.admin, lambda: self.cadastros)
         self.wifi = PainelWifi(self.admin, lambda: self.cadastros, lambda: self.unidade)
         self.remoto = PainelRemoto(self.admin, lambda: self.cadastros, lambda: self.unidade)
         # Software (ADR-020): mesmo padrão, leem ao abrir; ação só admin.
