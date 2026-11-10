@@ -262,3 +262,27 @@ def test_limpar_sem_base_trata_instaladores_icones_e_papel(tmp_path: Path, monke
     monkeypatch.setattr(inst, "papeis", lambda: pastas[2])
     assert len(inst.limpar(cadastros(linha()))) == 3
     assert all((p / f"{SHA}.ico").exists() for p in pastas)
+
+
+def test_download_com_user_agent_proprio(monkeypatch) -> None:
+    """O download do AnyDesk dá 403 ao User-Agent padrão do urllib; o Bench se identifica, e o
+    redirecionamento (só https) leva o mesmo cabeçalho."""
+    pedidos = []
+
+    class Abridor:
+        def open(self, pedido, timeout):
+            pedidos.append(pedido)
+            return io.BytesIO(b"")
+
+    monkeypatch.setattr(inst, "_abridor", Abridor())
+    inst._abrir("https://downloads.exemplo.invalid/a.exe")
+    assert pedidos[0].get_header("User-agent") == inst.AGENTE
+    assert inst.AGENTE.startswith("ITC-Bench/") and "Python-urllib" not in inst.AGENTE
+    seguinte = inst._SoHttps().redirect_request(
+        pedidos[0], None, 302, "Found", {}, "https://cdn.exemplo.invalid/a.exe"
+    )
+    assert seguinte.get_header("User-agent") == inst.AGENTE
+    with pytest.raises(inst.ErroInstalador):
+        inst._SoHttps().redirect_request(
+            pedidos[0], None, 302, "Found", {}, "http://cdn.exemplo.invalid/a.exe"
+        )

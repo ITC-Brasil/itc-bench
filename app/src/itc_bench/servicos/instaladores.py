@@ -16,6 +16,7 @@ from pathlib import Path, PurePath
 from typing import IO, Any
 from urllib.parse import urlsplit
 
+from itc_bench import __version__
 from itc_bench.nucleo import caminhos
 from itc_bench.nucleo.log import log
 from itc_bench.servicos.cadastros import Cadastros, Instalador
@@ -150,10 +151,16 @@ class _SoHttps(urllib.request.HTTPRedirectHandler):
 _abridor = urllib.request.build_opener(_SoHttps)
 
 
+# O download do AnyDesk responde 403 ao User-Agent padrão do urllib (`Python-urllib/3.x`),
+# testado em 10/11/2026; com um nome próprio, 200. O redirecionamento leva o mesmo cabeçalho.
+AGENTE = f"ITC-Bench/{__version__}"
+
+
 def _abrir(url: str) -> IO[bytes]:
     if urlsplit(url).scheme != "https":  # conferido em validar(); aqui de novo
         raise ErroInstalador("O link tem que ser https://.")
-    resposta: IO[bytes] = _abridor.open(url, timeout=TIMEOUT)
+    pedido = urllib.request.Request(url, headers={"User-Agent": AGENTE})  # noqa: S310 — https acima
+    resposta: IO[bytes] = _abridor.open(pedido, timeout=TIMEOUT)
     return resposta
 
 
