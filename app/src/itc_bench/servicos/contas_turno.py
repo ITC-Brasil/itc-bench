@@ -4,7 +4,8 @@
 só se der certo, cria as contas com esse nome como base.
 
 O nome base é sempre o nome do computador (o que vale depois de reiniciar, ADR-018). Regra:
-com turno marcado, uma conta `BASE-Turno` por turno (o sufixo é ignorado); sem turno e com
+com turno marcado, uma conta `BASE-Turno` por turno (o sufixo é ignorado, a não ser que o
+operador marque "Criar também o usuário do sufixo": aí entra mais `BASE-Sufixo`); sem turno e com
 sufixo, `BASE-Sufixo`; sem nenhum dos dois, só `BASE`. As contas são Local padrão, sem senha,
 e são criadas por `contas.criar` (ADR-017), que confere tudo de novo, aqui e no PowerShell.
 """
@@ -75,15 +76,26 @@ def validar_sufixo(sufixo: str) -> str | None:
     return None
 
 
-def nomes(base: str, turnos: Iterable[str], sufixo: str) -> tuple[str, ...]:
-    """Nomes das contas, na ordem Manhã, Tarde, Noite. Base vazia = nenhuma conta."""
+def usa_sufixo(turnos: Iterable[str], sufixo: str, com_sufixo: bool = False) -> bool:
+    """O sufixo vira conta sem turno marcado, ou com turno se o operador pediu (`com_sufixo`)."""
+    if not sufixo.strip():
+        return False
+    return com_sufixo or not any(t in TURNOS for t in turnos)
+
+
+def nomes(
+    base: str, turnos: Iterable[str], sufixo: str, com_sufixo: bool = False
+) -> tuple[str, ...]:
+    """Nomes das contas, na ordem Manhã, Tarde, Noite (e o sufixo por último, se `com_sufixo`).
+    Base vazia = nenhuma conta."""
     base = base.strip()
     if not base:
         return ()
     marcados = set(turnos)
     escolhidos = [t for t in TURNOS if t in marcados]
     if escolhidos:
-        return tuple(f"{base}-{t}" for t in escolhidos)
+        extra = (f"{base}-{sufixo.strip()}",) if usa_sufixo(marcados, sufixo, com_sufixo) else ()
+        return tuple(f"{base}-{t}" for t in escolhidos) + extra
     sufixo = sufixo.strip()
     if sufixo:
         return (f"{base}-{sufixo}",)
@@ -96,15 +108,18 @@ def previa(
     sufixo: str,
     lista: Lista | None,
     protegidas_: Iterable[str],
+    com_sufixo: bool = False,
 ) -> tuple[Previsto, ...]:
     """Cada conta que seria criada, com o motivo da recusa. Conta que já existe não é recusa."""
     marcados = tuple(turnos)
-    problema_sufixo = None if any(t in TURNOS for t in marcados) else validar_sufixo(sufixo)
+    problema_sufixo = validar_sufixo(sufixo) if usa_sufixo(marcados, sufixo, com_sufixo) else None
+    sufixada = f"{base.strip()}-{sufixo.strip()}"
     prot = frozenset(protegidas_)
     saida = []
-    for nome in nomes(base, marcados, sufixo):
+    for nome in nomes(base, marcados, sufixo, com_sufixo):
         existe = lista is not None and any(c.nome.lower() == nome.lower() for c in lista.contas)
-        problema = problema_sufixo or (
+        recusa_sufixo = problema_sufixo if (nome == sufixada or not marcados) else None
+        problema = recusa_sufixo or (
             None
             if existe
             else contas.validar_nome(nome, lista, prot, permitir_nome_computador=True)
@@ -118,6 +133,7 @@ def criar(
     turnos: Iterable[str],
     sufixo: str,
     *,
+    com_sufixo: bool = False,
     protegidas_: frozenset[str] = frozenset({contas.SUPORTE_PADRAO.lower()}),
     rodar: Rodar = powershell,
 ) -> Resumo:
@@ -125,7 +141,7 @@ def criar(
     marcados = tuple(turnos)
     lista = contas.listar(rodar=rodar)
     itens = []
-    for p in previa(base, marcados, sufixo, lista, protegidas_):
+    for p in previa(base, marcados, sufixo, lista, protegidas_, com_sufixo):
         if p.problema:
             itens.append(Item(p.nome, "erro", p.problema))
             continue
@@ -165,6 +181,7 @@ def configurar(
     sufixo: str,
     *,
     renomear: bool,
+    com_sufixo: bool = False,
     protegidas_: frozenset[str] = frozenset({contas.SUPORTE_PADRAO.lower()}),
     rodar: Rodar = powershell,
 ) -> Resumo:
@@ -176,5 +193,6 @@ def configurar(
     if renomeio is not None and not renomeio.ok:
         return Resumo(nome, (), renomeio)
     return replace(
-        criar(nome, marcados, sufixo, protegidas_=protegidas_, rodar=rodar), renomeio=renomeio
+        criar(nome, marcados, sufixo, com_sufixo=com_sufixo, protegidas_=protegidas_, rodar=rodar),
+        renomeio=renomeio,
     )

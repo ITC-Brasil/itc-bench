@@ -43,6 +43,38 @@ def test_nomes(turnos, sufixo, esperado):
     assert list(nomes) == [BASE if s is None else f"{BASE}-{s}" for s in esperado]
 
 
+@pytest.mark.parametrize(
+    ("turnos", "sufixo", "esperado"),
+    [
+        (("Manha", "Tarde"), "Recepcao", ["Manha", "Tarde", "Recepcao"]),
+        (("Manha", "Tarde", "Noite"), "Guiche", ["Manha", "Tarde", "Noite", "Guiche"]),
+        (("Noite",), "", ["Noite"]),  # opção marcada, sufixo vazio: só os turnos
+        ((), "Recepcao", ["Recepcao"]),  # sem turno, igual ao de sempre
+        ((), "", [None]),
+    ],
+)
+def test_nomes_com_sufixo_junto_dos_turnos(turnos, sufixo, esperado):
+    nomes = contas_turno.nomes(BASE, turnos, sufixo, com_sufixo=True)
+    assert list(nomes) == [BASE if s is None else f"{BASE}-{s}" for s in esperado]
+
+
+def test_previa_com_sufixo_recusa_so_a_conta_do_sufixo():
+    previa = contas_turno.previa(BASE, ("Manha",), "Sala 2", None, PROT, com_sufixo=True)
+    assert [(p.nome, p.problema is None) for p in previa] == [
+        (f"{BASE}-Manha", True),
+        (f"{BASE}-Sala 2", False),
+    ]
+
+
+def test_criar_com_sufixo_junto_dos_turnos():
+    falso = Falso(TECNICO)
+    resumo = contas_turno.criar(BASE, ("Tarde",), "Guiche", com_sufixo=True, rodar=falso)
+    assert [(i.nome, i.situacao) for i in resumo.itens] == [
+        (f"{BASE}-Tarde", "criado"),
+        (f"{BASE}-Guiche", "criado"),
+    ]
+
+
 def test_sem_base_nenhuma_conta():
     assert contas_turno.nomes("", ("Manha",), "x") == ()
     assert contas_turno.nomes("   ", (), "") == ()
@@ -206,6 +238,31 @@ def test_tela_atualiza_previa(qtbot, monkeypatch):
     p.turnos["Manha"].setChecked(False)
     p.turnos["Tarde"].setChecked(False)
     assert p.sufixo.isEnabled() and p.previa.text() == f"✓ {BASE}-Guiche"
+
+
+def test_tela_opcao_sufixo_junto_dos_turnos(qtbot, monkeypatch):
+    p = painel(qtbot, monkeypatch)
+    assert not p.com_sufixo.isEnabled()  # sem turno, o sufixo já vira conta sozinho
+    p.sufixo.setText("Guiche")
+    p.turnos["Manha"].setChecked(True)
+    assert p.com_sufixo.isEnabled() and not p.sufixo.isEnabled()
+    assert p.previa.text() == f"✓ {BASE}-Manha" and "opção abaixo" in p.dica_sufixo.text()
+    p.com_sufixo.setChecked(True)
+    assert p.sufixo.isEnabled() and p.dica_sufixo.text() == ""
+    assert p.previa.text() == f"✓ {BASE}-Manha\n✓ {BASE}-Guiche"
+    pedidos: list[bool] = []
+    monkeypatch.setattr(tela, "confirmar", lambda *_: True)
+    monkeypatch.setattr(tela, "escolher", lambda *_: False)
+    monkeypatch.setattr(tela.QMessageBox, "exec", lambda _self: 0)
+
+    def configurar(nome, turnos, sufixo, *, com_sufixo, **_):
+        pedidos.append(com_sufixo)
+        return contas_turno.Resumo(nome, ())
+
+    monkeypatch.setattr(contas_turno, "configurar", configurar)
+    p.b_executar.click()
+    qtbot.waitUntil(lambda: bool(pedidos))
+    assert pedidos == [True]
 
 
 def test_tela_nome_novo_entra_na_previa_e_no_botao(qtbot, monkeypatch):

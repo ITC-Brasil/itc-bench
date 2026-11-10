@@ -29,6 +29,9 @@ Branch `feat/contas-por-turno`, saindo de `develop`. Pedido do responsável em 1
 | Nenhum turno, sem sufixo | `BASE` (nome do computador) | ok (teste) |
 | Nenhum turno, sufixo `Recepcao` | `BASE-Recepcao` | ok (teste) |
 | Turno marcado e sufixo preenchido | sufixo ignorado, campo desativado com aviso | ok (teste de tela) |
+| Turnos + "Criar também o usuário do sufixo" | contas dos turnos e mais `BASE-Sufixo` | ok (teste e teste de tela) |
+| Opção marcada, sufixo vazio | só os turnos | ok (teste) |
+| Opção sem turno marcado | caixa desativada | ok (teste de tela) |
 | Ordem marcada Noite, Manhã | sai Manhã, Noite | ok (teste) |
 | Nome final acima de 20 caracteres | ✕ na prévia, botão desativado | ok (teste) |
 | Sufixo com acento, espaço ou hífen na ponta | ✕ na prévia | ok (teste) |

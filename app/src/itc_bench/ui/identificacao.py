@@ -45,7 +45,8 @@ AJUDA = (
     "3. Marque os turnos (Manhã, Tarde, Noite) que vão usar a máquina. Cada turno vira uma conta "
     "NOME-Manha, NOME-Tarde ou NOME-Noite.\n"
     "4. Sem turno marcado, o sufixo opcional cria uma conta só, NOME-Sufixo. Sem turno e sem "
-    "sufixo, a conta fica com o nome do computador. Com turno marcado, o sufixo é ignorado.\n"
+    "sufixo, a conta fica com o nome do computador. Com turno marcado, o sufixo é ignorado, a "
+    "não ser que você marque Criar também o usuário do sufixo: aí entra mais NOME-Sufixo.\n"
     "5. Confira a prévia e clique em Renomear e criar usuários. O Bench renomeia (se o nome "
     "mudou) e cria as contas Local (padrão), sem senha; a que já existe não é recriada. Se o "
     "renomear falhar, nenhuma conta é criada.\n"
@@ -158,6 +159,9 @@ class PainelIdentificacao(QWidget):
         self.sufixo.setPlaceholderText("Exemplo: Recepcao, Guiche, Administrativo")
         self.sufixo.textChanged.connect(self._atualizar)
         b.addWidget(self.sufixo)
+        self.com_sufixo = QCheckBox("Criar também o usuário do sufixo (junto com os turnos)")
+        self.com_sufixo.toggled.connect(self._atualizar)
+        b.addWidget(self.com_sufixo)
         self.dica_sufixo = _rotulo()
         self.dica_sufixo.setObjectName("dica")
         b.addWidget(self.dica_sufixo)
@@ -247,8 +251,16 @@ class PainelIdentificacao(QWidget):
 
     def _previstos(self) -> tuple[Previsto, ...]:
         return contas_turno.previa(
-            self.nome_base(), self._marcados(), self.sufixo.text(), self.lista, self._protegidas()
+            self.nome_base(),
+            self._marcados(),
+            self.sufixo.text(),
+            self.lista,
+            self._protegidas(),
+            self._com_sufixo(),
         )
+
+    def _com_sufixo(self) -> bool:
+        return bool(self._marcados()) and self.com_sufixo.isChecked()
 
     def _ocupar(self, ocupado: bool) -> None:
         self.ocupado = ocupado
@@ -261,10 +273,12 @@ class PainelIdentificacao(QWidget):
         problema_nome = self._problema_nome() if self.nome.text().strip() else None
         self.erro.setText(problema_nome or "")
         marcados = self._marcados()
-        self.sufixo.setEnabled(not marcados)
+        self.com_sufixo.setEnabled(bool(marcados))
+        self.sufixo.setEnabled(not marcados or self.com_sufixo.isChecked())
         self.dica_sufixo.setText(
-            "Com turno marcado, o sufixo é ignorado."
-            if marcados and self.sufixo.text().strip()
+            "Com turno marcado, o sufixo é ignorado. Marque a opção abaixo para criar também "
+            "o usuário do sufixo."
+            if marcados and self.sufixo.text().strip() and not self.com_sufixo.isChecked()
             else ""
         )
         previstos = self._previstos()
@@ -312,13 +326,19 @@ class PainelIdentificacao(QWidget):
         if not confirmar(self, "Configuração do computador", texto):
             return
         marcados, sufixo, prot = self._marcados(), self.sufixo.text(), self._protegidas()
+        com_sufixo = self._com_sufixo()
         self._ocupar(True)
         self.resultado.setText(
             "Renomeando e criando usuários…" if renomear else "Criando usuários…"
         )
         tarefa.iniciar(
             lambda: contas_turno.configurar(
-                nome, marcados, sufixo, renomear=renomear, protegidas_=prot
+                nome,
+                marcados,
+                sufixo,
+                renomear=renomear,
+                com_sufixo=com_sufixo,
+                protegidas_=prot,
             ),
             self._terminou,
             self._falhou_execucao,

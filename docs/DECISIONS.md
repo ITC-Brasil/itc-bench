@@ -1972,7 +1972,9 @@ decidir o reinício, sem digitação repetida. Decisões tomadas com o responsá
    depois de reiniciar (`Estado.pendente`, ADR-018). Sem segundo campo de nome.
 2. **Regra** (`servicos/contas_turno.py`, sem Qt): com turno marcado, `BASE-Manha`,
    `BASE-Tarde`, `BASE-Noite` (nessa ordem, sufixo ignorado); sem turno e com sufixo,
-   `BASE-Sufixo`; sem nenhum dos dois, só `BASE`.
+   `BASE-Sufixo`; sem nenhum dos dois, só `BASE`. Opção "Criar também o usuário do sufixo"
+   (só com turno marcado, desmarcada por padrão; pedido do responsável em 10/11/2026): soma
+   `BASE-Sufixo` às contas dos turnos, por último. O sufixo não entra dentro do nome do turno.
 3. **Turnos sem acento** (`Manha`), por perfil, scripts e acesso remoto; a tela mostra "Manhã".
 4. **Sufixo livre, mas restrito**: letras sem acento, números, hífen e `_`, sem espaço e sem
    hífen ou `_` na ponta. Desvia da opção B (sufixo fixo) a pedido do responsável.
