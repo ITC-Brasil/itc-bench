@@ -143,6 +143,19 @@ def validar_url_api_rustdesk(url: str) -> str | None:
     return None
 
 
+SENHA_RUSTDESK_MIN = 14  # ADR-031
+
+
+def validar_senha_rustdesk(senha: str) -> str | None:
+    """Motivo da recusa, sem a senha, ou None. Recusa antes de chamar o rustdesk.exe (ADR-031)."""
+    if len(senha) < SENHA_RUSTDESK_MIN:
+        return (
+            f"A “RustDesk” / senha do cadastro tem que ter pelo menos {SENHA_RUSTDESK_MIN} "
+            f"caracteres (tem {len(senha)}). Corrija no cadastro e sincronize."
+        )
+    return None
+
+
 def validar_host(host: str) -> bool:
     with contextlib.suppress(ValueError):
         return ipaddress.ip_address(host).version == 4
@@ -192,6 +205,8 @@ def dados(
                     "A “RustDesk” / chave tem que ser a chave pública do servidor (44 caracteres)."
                 )
             senha = _texto(pegar("RustDesk", "senha", False))
+            if erro := validar_senha_rustdesk(senha):
+                return erro
             api = ""
             if any(s.servico == "RustDesk" and s.papel == "api" for s in cadastros.servidores):
                 api = _texto(pegar("RustDesk", "api", True))  # opcional: só se cadastrada
@@ -823,6 +838,8 @@ def _configurar_rustdesk(
 ) -> None:
     if d.chave is None or d.senha is None:
         raise ErroRemoto("Chave ou senha do RustDesk ausente.")
+    if erro := validar_senha_rustdesk(d.senha.revelar()):
+        raise ErroRemoto(erro)
     instalado = exe("RustDesk")
     sem_reparse(pasta, windows())
     avisar("Parando o RustDesk para gravar a configuração…")

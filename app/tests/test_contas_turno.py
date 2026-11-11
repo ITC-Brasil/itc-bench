@@ -138,6 +138,28 @@ def test_criar_cria_so_o_que_falta_padrao_e_sem_senha():
         assert kw["permitir_nome_pc"] == "1"
 
 
+def test_existente_padrao_administradora_e_inexistente():
+    """Revisão 0.18: existente padrão segue "existia"; administradora é ✕ e não é alterada."""
+    padrao = conta(1010, f"{BASE}-Manha")
+    adm = conta(1011, f"{BASE}-Tarde", admin=True)
+    previa = contas_turno.previa(BASE, ("Manha", "Tarde", "Noite"), "", lista(padrao, adm), PROT)
+    assert [(p.existe, p.problema) for p in previa] == [
+        (True, None),
+        (True, contas_turno.EXISTE_ADMIN),
+        (False, None),
+    ]
+    assert tela.linha_previa(previa[1]).startswith("✕")
+    falso = Falso(TECNICO, padrao, adm)
+    resumo = contas_turno.criar(BASE, ("Manha", "Tarde", "Noite"), "", rodar=falso)
+    assert [(i.nome, i.situacao) for i in resumo.itens] == [
+        (f"{BASE}-Manha", "existia"),
+        (f"{BASE}-Tarde", "erro"),
+        (f"{BASE}-Noite", "criado"),
+    ]
+    assert (resumo.criados, resumo.existentes, resumo.erros) == (1, 1, 1)
+    assert [kw["nome"] for _, kw in falso.chamadas] == [f"{BASE}-Noite"]
+
+
 def test_criar_erro_numa_conta_nao_para_as_outras():
     class Metade(Falso):
         def __call__(self, script: str, **kw: object) -> Resultado:
