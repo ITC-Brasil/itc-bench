@@ -77,8 +77,9 @@ alteram contas ficam para uma máquina real com o Bench instalado, junto das ban
 | V6 | Windows em inglês (grupo por SID) | Máquina em inglês, se houver | **Pendente (máquina real, com o instalador)** |
 | V7 | Conta Suporte com e sem rede (cache) | Bench logado, cadastro "Conta Suporte", rede ligada e desligada | **Pendente (máquina real, com o instalador, e cadastro no NocoDB)** |
 | V8 | Marcador fora do `bench.log` e da lista de processos durante criar/trocar senha | Tela (roteiro, passo 6 para V8) | **Pendente (máquina real, com o instalador)** |
-| F1 | Filtro (ADR-036): modificáveis = locais menos nativo e Suporte; o resto em não modificáveis; contagem "N de M" | `test_modificavel`, `test_filtro_modificaveis_e_nao_modificaveis`, `test_sem_admin_so_leitura`, `test_botoes_seguem_as_regras` | Passa |
+| F1 | Filtro (ADR-036): modificáveis = locais menos nativo, Suporte e Gestão; o resto em não modificáveis; contagem "N de M" | `test_modificavel`, `test_filtro_modificaveis_e_nao_modificaveis`, `test_sem_admin_so_leitura`, `test_botoes_seguem_as_regras` | Passa |
 | F2 | Encerrar sessões (ADR-036): só contas com sessão; marcar e confirmar; pelo SID; recusa a sessão do Bench, sem sessão e falha do `logoff` com mensagem; SID inválido recusado no PowerShell real | `test_com_sessao`, `test_encerrar_sessao_*` (5), `test_encerrar_real_recusa_sid_invalido`, `test_encerrar_sessoes_marca_e_confirma`, `test_escolher_sessoes_libera_so_com_marcada` | Passa |
+| F3 | Gestão restrita (ADR-036): não modificável (com ou sem acento, qualquer caixa); toda ação recusada; nome reservado; fora do lote nas duas direções; não vale como Suporte; não deixa a Preparação pendente; recusa real no PowerShell | `test_gestao_*` (4), `test_nome_gestao_reservado_na_criacao`, `test_trechos_tem_a_mesma_lista_de_restritas`, `test_recusa_real_da_gestao_no_powershell` (3), `test_gestao_aparece_so_em_nao_modificaveis`, `test_gestao_administradora_nao_deixa_contas_pendente` | Passa |
 | V9 | Encerrar sessões de `Teste01` aberta por troca rápida de usuário; tentar a sessão do Bench | Roteiro, passo 5.8 | **Pendente (máquina real, com o instalador)** |
 
 ## Passos do responsável

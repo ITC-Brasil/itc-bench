@@ -1,7 +1,8 @@
 # Auditoria de segurança — Contas: filtro e encerrar sessões — 2026-11-11
 
 Escopo: ADR-036. `servicos/contas.py` (`modificavel`, `com_sessao`, `encerrar_sessao`,
-mensagens), `recursos/contas/encerrar.ps1`, `ui/contas.py` (filtro, `EscolherSessoes`,
+`RESTRITAS`, `recusa`, `mudariam`, `validar_nome`, mensagens), `servicos/etapas.py`
+(`_admins_extra`), `recursos/contas/comum.ps1`, `criar.ps1` e `lote.ps1` (`$RESTRITAS`), `recursos/contas/encerrar.ps1`, `ui/contas.py` (filtro, `EscolherSessoes`,
 `_encerrar`). Branch `feat/politicas-marcar-desativar-todas`. Feita com
 `docs/security/AUDIT-PROMPT.md`.
 
@@ -28,6 +29,13 @@ os nomes e o aviso "fechados sem salvar"; a sessão do Bench é recusada no trec
 (ADR-017: `recusa`, `comum.ps1`). Nenhuma regra de segurança depende do filtro.
 
 ## Conferido
+
+- **Gestão restrita:** recusada no Python (`recusa`) e de novo no trecho (`Recusa` do
+  `comum.ps1`), com teste real no PowerShell para `Gestão`, `gestao` e `GESTÃO`; nome reservado
+  em `validar_nome` e `criar.ps1`; fora do lote no `mudariam` e no `lote.ps1`. A lista é fixa
+  no código, igual nos dois lados (`test_trechos_tem_a_mesma_lista_de_restritas`). Não vale
+  como Suporte (`suporte_ok`), então o "Remover administrador de todos" continua exigindo a
+  Suporte.
 
 - **Comando:** `logoff.exe` por caminho absoluto (`[Environment]::SystemDirectory`), com só o
   número da sessão (inteiro lido do CIM); SID só por `ITC_SID`, validado por regex; sem

@@ -2246,21 +2246,30 @@ conta aberta na máquina (troca rápida de usuário) antes de excluí-la ou de a
 
 **Decision**
 1. **Filtro** acima da tabela: "Contas modificáveis" (padrão) e "Contas não modificáveis".
-   Modificável (`contas.modificavel`) = conta local que não é o Administrador nativo nem a
-   Suporte (nome cadastrado ou "Suporte"). O resto vai para "não modificáveis", só consulta. As
-   outras regras do ADR-017 (conta em uso, último administrador, sessão aberta) continuam por
-   ação, nas contas modificáveis.
-2. **Encerrar sessões…** na Conta selecionada: lista as contas com sessão aberta
+   Modificável (`contas.modificavel`) = conta local que não é o Administrador nativo, a
+   Suporte (nome cadastrado ou "Suporte") nem uma restrita fixa (item 2). O resto vai para "não
+   modificáveis", só consulta. As outras regras do ADR-017 (conta em uso, último administrador,
+   sessão aberta) continuam por ação, nas contas modificáveis.
+2. **Gestão é restrita fixa** (`contas.RESTRITAS` = `Gestão`/`Gestao`, sem diferenciar
+   maiúsculas; a mesma lista em `$RESTRITAS` do `comum.ps1`): toda ação manual é recusada com
+   "A conta Gestão é protegida: o Bench não a altera." (`recusa` → `restrita`, no Python e de
+   novo no PowerShell); o nome é reservado na criação (Python e `criar.ps1`); fica fora das
+   ações em lote, nas duas direções (`mudariam` e `lote.ps1`). **Não conta como Suporte:**
+   "Remover administrador de todos" continua exigindo a Suporte. Na Preparação completa, a
+   Gestão administradora não deixa a etapa Contas pendente (`etapas._admins_extra`).
+3. **Encerrar sessões…** na Conta selecionada: lista as contas com sessão aberta
    (`contas.com_sessao`: perfil carregado ou em uso), o técnico marca quais e confirma ("o que
    estiver aberto e não salvo é perdido"). Cada uma vai por `contas.encerrar_sessao(sid)`.
-3. **Trecho fixo `recursos/contas/encerrar.ps1`:** SID só por `ITC_SID` (validado); acha as
+4. **Trecho fixo `recursos/contas/encerrar.ps1`:** SID só por `ITC_SID` (validado); acha as
    sessões pelo dono do `explorer.exe` (como `Sids-Logados`); **recusa a sessão em que o próprio
    Bench roda** (`GetCurrentProcess().SessionId`); `logoff.exe` de `System32` por número de
    sessão. Erros como código (`sem_sessao`, `propria`, `encerrar`), sem mensagem do Windows no
    log.
-4. Exige administrador; `--dev` só lê.
+5. Exige administrador; `--dev` só lê.
 
 **Alternatives considered**
+- Gestão pelo cadastro (linha em Servidores, como a Suporte) — mais uma linha para manter por um
+  nome que é o mesmo em todos os notebooks (pedido do responsável: fixa no código).
 - Esconder as contas não modificáveis de vez — o técnico deixaria de ver que a Suporte existe.
 - Encerrar pelo texto do `quser`/`query session` — saída localizada; o dono do `explorer.exe`
   já é usado na listagem e não depende do idioma.

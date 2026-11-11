@@ -104,7 +104,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 5.5 | Clonar grupos de uma conta em "Usuários da área de trabalho remota" | Grupos iguais | 07/V5 |
 | 5.6 | Conta Suporte com e sem rede | Criada com a senha do cadastro; sem rede, do cache | 07/V7 |
 | 5.7 | Durante criar e trocar senha, `Get-CimInstance Win32_Process` em loop | Senha nunca na linha de comando | 07/V8 |
-| 5.8 | Filtro modificáveis/não modificáveis; com `Teste01` aberta por troca rápida de usuário, Encerrar sessões… marcando `Teste01` | Nativo e Suporte só em "não modificáveis"; a sessão de `Teste01` some (`query user`); marcar a sessão do Bench é recusado com a mensagem "É a sessão em que o Bench está rodando" | 07/V9 |
+| 5.8 | Filtro modificáveis/não modificáveis; com `Teste01` aberta por troca rápida de usuário, Encerrar sessões… marcando `Teste01` | Nativo, Suporte e Gestão só em "não modificáveis" e sem botão ativo na Gestão; "Remover administrador de todos" mantém a Gestão administradora; a sessão de `Teste01` some (`query user`); marcar a sessão do Bench é recusado com a mensagem "É a sessão em que o Bench está rodando" | 07/V9 |
 
 ### 6. Identificação e Wi-Fi
 
