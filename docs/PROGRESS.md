@@ -8,7 +8,7 @@
   - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
     Preparação continuam recusando);
   - Proteção do login: `setowner_5` corrigido ligando SeTakeOwnership/SeRestore só durante os
-    passos (ADR-035); na máquina do erro, "Proteger" de novo devolve o dono TrustedInstaller.
+    passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta).
   Pendente: cenários 9.2 e 9.8 em máquina real; PR para `develop` quando o responsável pedir.
   Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
   (`docs/BUILD.md`).

@@ -219,6 +219,21 @@ prova das correções dos ADR-030 a 032; a rodada com o instalador continua pend
 | 7.2c | **Passou.** Instalar com o RustDesk desinstalado antes, sem "não respondeu a tempo" | Serviço `RustDesk` Running e automático depois do Instalar |
 | 09/V3 (download) | **Passou** depois de trocar o `Link` da linha AnyDesk em Instaladores | O Link anterior era recusado (HTTP), também com o User-Agent novo |
 
+### 11/11/2026 — Proteção do login e Políticas, em desenvolvimento
+
+Condição: a mesma máquina, Bench **0.19.0** da branch `feat/politicas-marcar-desativar-todas`
+por `uv run` elevado.
+
+| # | Resultado | Evidência |
+|---|---|---|
+| 10.1 (proteger) | **Passou** depois do ADR-035 | Antes: `setowner_5` e dono Administradores; depois: `utilman.exe` e `sethc.exe` com dono `NT SERVICE\TrustedInstaller` e `Deny SYSTEM ExecuteFile` (`Get-Acl`) |
+| 9.2 (conta do Bench) | **Passou** | Políticas aplicadas na conta que roda o Bench: "Feito." no registro da tela (ADR-034) |
+
+Observado: o atalho Shift 5x continua aparecendo na tela de bloqueio porque ele é uma
+configuração à parte da proteção do `sethc.exe` (`StickyKeys` em 510 no `.DEFAULT` e na conta).
+Desliga-se em Proteção do login (tela de login) e em Mouse e teclado (por conta), como manda o
+ADR-022; a proteção impede o `sethc.exe` de rodar como SYSTEM, não a janela do atalho.
+
 Antes das correções, na mesma máquina: o arquivo não era aceito como meio da senha (3 tentativas,
 "a senha não foi cifrada; linha removida"); o MSI 1.5.1 instalava sem criar o serviço
 (eventos 7045, 7009 e 7000 do Service Control Manager); o download do AnyDesk dava 403 ao
