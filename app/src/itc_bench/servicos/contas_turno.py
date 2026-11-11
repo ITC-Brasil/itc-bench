@@ -24,6 +24,7 @@ TURNOS = ("Manha", "Tarde", "Noite")  # sem acento: perfil, scripts e acesso rem
 SUFIXO = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?$")
 
 Situacao = Literal["criado", "existia", "erro"]
+EXISTE_ADMIN = "já existe como administradora: confira antes"
 
 
 @dataclass(frozen=True)
@@ -110,20 +111,27 @@ def previa(
     protegidas_: Iterable[str],
     com_sufixo: bool = False,
 ) -> tuple[Previsto, ...]:
-    """Cada conta que seria criada, com o motivo da recusa. Conta que já existe não é recusa."""
+    """Cada conta que seria criada, com o motivo da recusa. Conta que já existe não é recusa,
+    a não ser que seja administradora (ADR-029): aí é ✕ e não conta como pronta. `admin` vem do
+    PowerShell pelo SID S-1-5-32-544, nunca pelo nome do grupo; a conta não é alterada."""
     marcados = tuple(turnos)
     problema_sufixo = validar_sufixo(sufixo) if usa_sufixo(marcados, sufixo, com_sufixo) else None
     sufixada = f"{base.strip()}-{sufixo.strip()}"
     prot = frozenset(protegidas_)
     saida = []
     for nome in nomes(base, marcados, sufixo, com_sufixo):
-        existe = lista is not None and any(c.nome.lower() == nome.lower() for c in lista.contas)
-        recusa_sufixo = problema_sufixo if (nome == sufixada or not marcados) else None
-        problema = recusa_sufixo or (
+        achada = (
             None
-            if existe
-            else contas.validar_nome(nome, lista, prot, permitir_nome_computador=True)
+            if lista is None
+            else next((c for c in lista.contas if c.nome.lower() == nome.lower()), None)
         )
+        existe = achada is not None
+        recusa_sufixo = problema_sufixo if (nome == sufixada or not marcados) else None
+        if achada is not None:
+            recusa_existe = EXISTE_ADMIN if achada.admin else None
+        else:
+            recusa_existe = contas.validar_nome(nome, lista, prot, permitir_nome_computador=True)
+        problema = recusa_sufixo or recusa_existe
         saida.append(Previsto(nome, existe, problema))
     return tuple(saida)
 

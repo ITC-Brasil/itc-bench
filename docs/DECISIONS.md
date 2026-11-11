@@ -1964,6 +1964,8 @@ edição do NocoDB. O roteiro de máquina real ganha um cenário sem hash e um c
 **Status:** Accepted
 **Date:** 2026-11-10
 **Module:** Pós-16 (pedido do responsável)
+**Emenda:** ADR-017 (permite, só aqui e por opt-in `permitir_nome_computador`, a conta com o
+nome do computador, que a tela Contas continua recusando; item 6)
 
 **Context**
 O ADR-023 (item 4) deixou as contas por turno fora do 13 e descreveu a opção B (sufixo fixo,
@@ -2000,6 +2002,11 @@ decidir o reinício, sem digitação repetida. Decisões tomadas com o responsá
    pelo `identificacao.reiniciar` existente; depois o Bench fecha pela janela. "Deixar para
    depois" não reinicia. Mantém o item 5 do ADR-023.
 10. Log: só as contagens; os nomes das contas criadas vão pelo log de `contas.criar` (ADR-017).
+11. **Conta que já existe e é administradora** (revisão da 0.18.0, 11/11/2026): não passa como
+    "existia". A prévia marca ✕ com "já existe como administradora: confira antes" e o resumo a
+    conta como erro, não como pronta. O Bench não rebaixa nem altera a conta. "Administradora" é
+    ser membro do grupo Administradores conferido pelo SID `S-1-5-32-544` (`comum.ps1`), nunca
+    pelo nome do grupo. Conta existente padrão continua ⚠ "já existia".
 
 **Alternatives considered**
 - Senha digitada na hora (opção B) — recusada pelo responsável: mais lenta na bancada.
@@ -2086,6 +2093,15 @@ reconhecer, mas o caminho pelo arquivo não funciona nessa versão.
 **Consequences**
 `docs/modules/09-acesso-remoto.md` (ordem do RustDesk) e o roteiro 7.2b mudam. O AnyDesk não
 muda (senha pela entrada padrão, ADR-019).
+
+- A senha aparece na linha de comando do `rustdesk.exe` durante a chamada e pode ser capturada
+  por auditoria de criação de processos (evento 4688 com linha de comando, Sysmon, EDR) e
+  enviada para fora da máquina pelo coletor de logs ou pelo EDR. Quem administra esses
+  coletores passa a poder ver a senha da frota (registro da revisão da 0.18.0, 11/11/2026).
+- **Mínimo de 14 caracteres** (revisão da 0.18.0): senha mais curta é recusada em
+  `remoto.dados` (e de novo antes do `--password`), com mensagem na tela que não mostra a
+  senha, antes de qualquer chamada ao `rustdesk.exe`. Evita também o falso "texto puro" na
+  conferência, quando uma senha curta aparece por acaso dentro do texto cifrado.
 
 ---
 

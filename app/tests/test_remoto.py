@@ -106,6 +106,21 @@ def arquivo(tmp_path: Path) -> Path:
 # ---------------------------------------------------------------- cadastro
 
 
+@pytest.mark.parametrize(("tamanho", "aceita"), [(13, False), (14, True)])
+def test_rustdesk_senha_minimo_14(tamanho: int, aceita: bool) -> None:
+    """ADR-031: senha curta recusada antes do rustdesk.exe, sem mostrar a senha."""
+    senha = "S" * tamanho
+    resto = [s for s in servidores_ok() if not (s.servico == "RustDesk" and s.papel == "senha")]
+    r = remoto.dados(
+        cad(servidores=[*resto, srv(4, "RustDesk", "senha", senha, False)]), "RustDesk"
+    )
+    if aceita:
+        assert isinstance(r, remoto.Dados)
+    else:
+        assert isinstance(r, str) and "14" in r and senha not in r
+        assert remoto.validar_senha_rustdesk(senha) == r
+
+
 def test_dados_completos() -> None:
     c = cad()
     g = remoto.dados(c, "GLPI Agent", "ABC01")

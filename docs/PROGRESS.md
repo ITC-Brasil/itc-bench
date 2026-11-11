@@ -6,19 +6,25 @@
   fechado antes, a pedido do responsável), versão **0.19.0**, tela Políticas:
   - "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
   - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
-    Preparação continuam recusando);
+    Preparação continuam recusando). Os 3 testes com PowerShell real são pulados no runner
+    do CI (conta nativa `-500`);
   - Proteção do login: `setowner_5` corrigido ligando SeTakeOwnership/SeRestore só durante os
     passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta);
   - Contas: filtro "modificáveis"/"não modificáveis", Gestão restrita como a Suporte e
-    "Encerrar sessões…" (ADR-036). **Só no
-    PC, sem push** (o PR #68 ainda não tem estes commits). Pendente: roteiro 5.8.
+    "Encerrar sessões…" (ADR-036). Tudo enviado ao PR #68. Pendente: roteiro 5.8.
   Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram. Pendente a rodada com
-  o instalador do CI.
+  o instalador do CI. A `develop` (com a revisão da 0.18, #69) foi trazida para esta branch.
   Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
   (`docs/BUILD.md`).
-- **0.18.0:** na `main` (#66), tag `v0.18.0` enviada em 10/11/2026 (build de release no
-  `app-build`). Falta publicar o rascunho, assinar e publicar a versão na API. Antes de publicar,
-  acertar o cadastro do NocoDB (abaixo).
+- **Revisão da 0.18 (`fix/revisao-0.18`, #69):** mesclada na `develop` e na `main` (#70) em
+  11/11/2026, sem bump de versão (0.18.1 fica com o responsável). Conta por turno que já existe
+  e é administradora vira ✕ (ADR-029, item 11); senha do RustDesk com mínimo de 14 caracteres,
+  recusada antes do `rustdesk.exe` (ADR-031); ADR-029 declara a emenda ao ADR-017; ADR-031
+  registra a exposição da senha na auditoria de processos. Pendente: roteiro 6.5, 7.2d e 7.2e
+  com o instalador.
+- **0.18.0:** na `main` (#66), tag `v0.18.0`; **publicada e assinada pelo responsável**. Antes
+  (`chore/versao-0.18.0`): contas por turno (ADR-029, #61/#62) e acesso remoto do RustDesk 1.5.1
+  (#63/#64).
 - **Na 0.18.0 (PR #63):** acesso remoto acertado na máquina real com o RustDesk 1.5.1:
   - "Servidor da API" pela linha opcional `RustDesk`/`api` (ADR-030);
   - senha por `rustdesk.exe --password`, sem senha no disco (ADR-031; risco aceito) e
