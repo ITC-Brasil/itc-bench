@@ -31,8 +31,9 @@ _COMUM = (
     "Alvos\n"
     "Máquina: vale para todas as contas. Contas futuras: o perfil padrão do Windows, copiado "
     "para contas criadas depois (as que já existem não mudam). Contas: só a conta marcada. O "
-    "Administrador nativo, a conta Suporte e a conta que está rodando o Bench são recusados. "
-    "Conta administradora é aceita, com aviso: um administrador consegue desfazer.\n\n"
+    "Administrador nativo e a conta Suporte são recusados. A conta que está rodando o Bench "
+    "(você) é aceita, com aviso: a restrição vale para ela no próximo logon. Conta "
+    "administradora é aceita, com aviso: um administrador consegue desfazer.\n\n"
     "Situação\n"
     "Aplicada, não aplicada, diferente (outro valor, outra ferramenta ou parte da política), "
     "não lida (perfil fechado: use Ler perfis fechados) e sem acesso (sem administrador). "
@@ -358,6 +359,12 @@ class PainelPoliticas(QWidget):
                 de = politicas.ESTADO_ROTULO[atual] if atual else "?"
                 linhas.append(f"{p.nome} — {a.rotulo}: {de} → {destino}")
         avisos = []
+        dono = self.leitura.dono if self.leitura else None
+        if dono and any(a.chave == dono for a in alvos_):
+            avisos.append(
+                "A conta que está rodando o Bench (você) está marcada: a restrição vale para ela "
+                "no próximo logon. Para desfazer, use Desfazer ou Desativar todas nela."
+            )
         if any(a.admin for a in alvos_):
             avisos.append("Conta administradora marcada: ela consegue desfazer a política.")
         if any(a.tipo == "padrao" for a in alvos_):

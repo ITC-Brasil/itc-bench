@@ -179,3 +179,17 @@ def test_tela_usb_sem_marcar_nem_desativar_todas(qtbot, monkeypatch):
     p = painel(qtbot, monkeypatch, usb=True)
     p.show()
     assert not p.b_marcar_todas.isVisible() and not p.b_desativar_todas.isVisible()
+
+
+def test_confirmacao_avisa_quando_a_conta_que_roda_esta_marcada(qtbot, monkeypatch):
+    """ADR-034: a conta que roda o Bench é aceita, com aviso na confirmação."""
+    p = painel(qtbot, monkeypatch)
+    eu = politicas.Alvo("S-1-5-21-1-2-3-1001", "Tecnico-Teste", True, admin=True)
+    texto = p.confirmacao("aplicar", [politicas.POR_ID["cmd"]], [eu])
+    assert "rodando o Bench (você)" in texto and "próximo logon" in texto
+    sem_eu = p.confirmacao("aplicar", [politicas.POR_ID["cmd"]], [ALUNO])
+    assert "rodando o Bench" not in sem_eu
+
+
+def test_ajuda_diz_que_a_conta_que_roda_e_aceita():
+    assert "A conta que está rodando o Bench" in tela.AJUDA and "é aceita" in tela.AJUDA

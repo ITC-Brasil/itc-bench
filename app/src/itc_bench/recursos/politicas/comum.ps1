@@ -23,7 +23,11 @@ function Hive-Formato([string]$hive) { if ($hive -cnotmatch $HIVE_OK) { Falhar '
 function Hive-Escrita([string]$hive) {
     Hive-Formato $hive
     if ($hive -match '-500$') { Falhar 'nativo' }
-    if ($hive -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { Falhar 'dono' }
+    # ADR-034: só o perfil politicas, com ITC_PERMITIR_DONO=1, escreve na conta que roda o Bench.
+    $donoOk = ($PERFIL -ceq 'politicas') -and ($env:ITC_PERMITIR_DONO -eq '1')
+    if (-not $donoOk -and $hive -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {
+        Falhar 'dono'
+    }
     $prot = @(if ($env:ITC_PROTEGIDOS) { $env:ITC_PROTEGIDOS -split "`n" | Where-Object { $_ } })
     if ($prot -contains $hive) { Falhar 'suporte' }
 }
