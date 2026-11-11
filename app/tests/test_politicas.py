@@ -569,10 +569,14 @@ def test_hive_escrita_real_conta_que_roda(perfil: str, permitir: str, esperado: 
     teste = (
         trecho
         + "\n$eu = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value\n"
-        + "if ($eu -notmatch '^S-1-5-21-') { Write-Output 'PASSOU'; exit 0 }\n"
+        # Conta de serviço ou a nativa (-500, como no runner do CI) param antes do dono.
+        + "if ($eu -notmatch '^S-1-5-21-' -or $eu -match '-500$') "
+        + "{ Write-Output 'PULAR'; exit 0 }\n"
         + "Hive-Escrita $eu\nWrite-Output 'PASSOU'\n"
     )
     r = executor.powershell(teste, perfil=perfil, permitir_dono=permitir, protegidos="")
+    if "PULAR" in r.saida:
+        pytest.skip("a conta atual não é local comum (nativa ou de serviço)")
     assert esperado in r.saida
 
 
