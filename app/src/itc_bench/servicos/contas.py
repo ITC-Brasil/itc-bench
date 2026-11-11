@@ -53,6 +53,10 @@ MENSAGENS = {
     "suporte_ausente": "A conta Suporte não existe, está desativada ou não é administradora. "
     "Rode “Aplicar conta Suporte” antes.",
     "parcial": "A conta foi criada, mas um passo seguinte falhou",
+    # Encerrar sessão (ADR-036)
+    "sem_sessao": "A conta não tem sessão aberta agora.",
+    "propria": "É a sessão em que o Bench está rodando: saia pelo próprio Windows.",
+    "encerrar": "O Windows não encerrou a sessão",
 }
 
 
@@ -225,7 +229,7 @@ def _erro(resultado: executor.Resultado) -> str:
         if linha.startswith("ERRO|"):
             _, codigo, detalhe = [*linha.split("|", 2), "", ""][:3]
             base = MENSAGENS.get(codigo)
-            if codigo in ("criar", "senha", "tipo", "excluir", "suporte", "parcial"):
+            if codigo in ("criar", "senha", "tipo", "excluir", "suporte", "parcial", "encerrar"):
                 return f"{base}: {detalhe}" if base else detalhe or "Falha do Windows."
             return base or detalhe or codigo
     return f"Falha do PowerShell (código {resultado.codigo})."
@@ -458,6 +462,27 @@ def excluir(
     avisos = _avisos_log(linhas)
     log.info("Contas: %s %s: ok%s%s", acao, conta.nome, extra, f" ({avisos})" if avisos else "")
     return Feito(True, f"Conta {conta.nome} excluída.{extra}", (), _avisos(r))
+
+
+def modificavel(conta: Conta, protegidas_: Iterable[str]) -> bool:
+    """Conta que a tela Contas deixa alterar (ADR-036): local, fora o Administrador nativo e a
+    Suporte. As outras regras (conta em uso, último administrador) continuam por ação."""
+    prot = {n.lower() for n in protegidas_}
+    return conta.local and not conta.nativo and conta.nome.lower() not in prot
+
+
+def com_sessao(lista: Lista) -> list[Conta]:
+    """Contas com sessão aberta (perfil carregado ou em uso), para "Encerrar sessões"."""
+    return [c for c in lista.contas if c.carregado or c.logada]
+
+
+def encerrar_sessao(sid: str, *, rodar: Rodar = executor.powershell) -> Feito:
+    """Encerra as sessões do Windows da conta (ADR-036). O trecho recusa a sessão do Bench."""
+    conta = listar(rodar=rodar).por_sid(sid)
+    if conta is None:
+        return Feito(False, MENSAGENS["nao_encontrada"])
+    r = rodar(script("encerrar"), timeout=TIMEOUT_ACAO, sid=sid)
+    return _feito("encerrar sessão", conta.nome, r, f"Sessão de {conta.nome} encerrada.")
 
 
 def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:

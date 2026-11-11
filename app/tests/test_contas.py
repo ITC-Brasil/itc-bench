@@ -7,6 +7,7 @@ Só nomes fictícios. Os testes que criam e apagam contas de verdade rodam apena
 import json
 import logging
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -423,3 +424,54 @@ def test_caminho_de_perfil_fora_do_log(caplog):
     lote = f"AVISO|Aluno-Teste|negado em {caminho}\nOK"
     assert contas.lote("admin", rodar=Falso(TECNICO, ALUNO, saida=lote)).ok
     assert caminho not in caplog.text
+
+
+# ---------------------------------------------------- filtro e encerrar sessão (ADR-036)
+
+
+def test_modificavel() -> None:
+    prot = frozenset({"suporte"})
+    assert contas.modificavel(ALUNO, prot) and contas.modificavel(TECNICO, prot)
+    assert not contas.modificavel(NATIVO, prot)
+    assert not contas.modificavel(SUPORTE, prot)
+    assert not contas.modificavel(MS, prot)
+
+
+def test_com_sessao() -> None:
+    aberta = conta(1005, "Aberta", carregado=True)
+    lido = lista(TECNICO, ALUNO, aberta)
+    assert [c.nome for c in contas.com_sessao(lido)] == ["Tecnico-Teste", "Aberta"]
+
+
+def test_encerrar_sessao_pelo_sid_e_trecho_fixo() -> None:
+    falso = Falso(TECNICO, ALUNO)
+    feito = contas.encerrar_sessao(ALUNO.sid, rodar=falso)
+    assert feito.ok and "Aluno-Teste" in feito.mensagem
+    script, kw = falso.chamadas[0]
+    assert kw == {"timeout": contas.TIMEOUT_ACAO, "sid": ALUNO.sid}
+    assert "logoff.exe" in script and "GetCurrentProcess().SessionId" in script
+
+
+@pytest.mark.parametrize(
+    ("saida", "trecho"),
+    [
+        ("ERRO|propria|", "o Bench está rodando"),
+        ("ERRO|sem_sessao|", "não tem sessão aberta"),
+        ("ERRO|encerrar|sessão 2, código 1", "não encerrou a sessão: sessão 2"),
+    ],
+)
+def test_encerrar_sessao_recusas_e_falha(saida: str, trecho: str) -> None:
+    feito = contas.encerrar_sessao(ALUNO.sid, rodar=Falso(TECNICO, ALUNO, saida=saida, codigo=1))
+    assert not feito.ok and trecho in feito.mensagem
+
+
+def test_encerrar_sessao_conta_que_sumiu() -> None:
+    falso = Falso(TECNICO)
+    feito = contas.encerrar_sessao(ALUNO.sid, rodar=falso)
+    assert not feito.ok and "não existe mais" in feito.mensagem and falso.chamadas == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+def test_encerrar_real_recusa_sid_invalido() -> None:
+    r = executor.powershell(contas.script("encerrar"), sid="nao-e-sid")
+    assert "ERRO|nao_encontrada" in r.saida

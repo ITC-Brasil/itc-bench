@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QRadioButton,
@@ -41,6 +43,14 @@ AJUDA = (
     "Cria, altera e exclui contas locais. A lista mostra o tipo de cada conta (Administrador ou "
     "Local padrão) e marca você, a conta nativa, a Suporte, as contas Microsoft e as "
     "desativadas.\n\n"
+    "Filtro\n"
+    "Contas modificáveis: as que o Bench deixa alterar (contas locais, menos o Administrador "
+    "nativo e a Suporte). Contas não modificáveis: o resto (Administrador nativo, Suporte, "
+    "contas Microsoft ou de domínio), só para consulta.\n\n"
+    "Encerrar sessões\n"
+    "Encerrar sessões… lista as contas com sessão aberta no Windows. Marque quais encerrar e "
+    "confirme: o que estiver aberto e não salvo nelas é perdido. A sessão em que o Bench está "
+    "rodando nunca é encerrada.\n\n"
     "Criar uma conta\n"
     "1. Preencha o nome, com até 20 caracteres.\n"
     "2. Digite a senha duas vezes, ou deixe vazio para criar sem senha.\n"
@@ -137,6 +147,51 @@ def texto_suporte(nome: str, lista: Lista | None) -> str:
     return texto + ("\n\n" + AVISO_SUPORTE_LOGADA if logada else "")
 
 
+FILTROS = {"modificaveis": "Contas modificáveis", "nao_modificaveis": "Contas não modificáveis"}
+
+
+class EscolherSessoes(QDialog):
+    """Lista das contas com sessão aberta; o técnico marca quais encerrar (ADR-036)."""
+
+    def __init__(self, pai: QWidget, abertas: list[Conta]) -> None:
+        super().__init__(pai)
+        self.setWindowTitle("Encerrar sessões")
+        v = QVBoxLayout(self)
+        v.addWidget(
+            _rotulo(
+                "Marque as contas cuja sessão será encerrada. O que estiver aberto e não salvo "
+                "nelas é perdido. A sessão em que o Bench está rodando não é encerrada."
+            )
+        )
+        self.lista = QListWidget()
+        for c in abertas:
+            item = QListWidgetItem(c.nome + (" (em uso)" if c.logada else ""))
+            item.setData(Qt.ItemDataRole.UserRole, c.sid)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self.lista.addItem(item)
+        self.lista.itemChanged.connect(lambda _: self._liberar())
+        v.addWidget(self.lista)
+        self.botoes = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self.botoes.button(QDialogButtonBox.StandardButton.Ok).setText("Encerrar")
+        self.botoes.accepted.connect(self.accept)
+        self.botoes.rejected.connect(self.reject)
+        v.addWidget(self.botoes)
+        self._liberar()
+
+    def marcadas(self) -> list[str]:
+        return [
+            self.lista.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self.lista.count())
+            if self.lista.item(i).checkState() == Qt.CheckState.Checked
+        ]
+
+    def _liberar(self) -> None:
+        self.botoes.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(self.marcadas()))
+
+
 class ConfirmarExclusao(QDialog):
     """Resumo, caixa de apagar a pasta e o nome digitado para liberar o botão."""
 
@@ -189,6 +244,12 @@ class PainelContas(QWidget):
         self.estado = _rotulo("Lendo contas…")
         self.atualizar = QPushButton("Atualizar")
         self.atualizar.clicked.connect(self.carregar)
+        # Filtro (ADR-036): só o que o Bench deixa alterar, ou o resto.
+        self.filtro = QComboBox()
+        for chave, rotulo in FILTROS.items():
+            self.filtro.addItem(rotulo, chave)
+        self.filtro.currentIndexChanged.connect(lambda _: self._preencher())
+        topo.addWidget(self.filtro)
         topo.addWidget(self.estado, 1)
         topo.addWidget(self.atualizar)
         v.addLayout(topo)
@@ -235,6 +296,10 @@ class PainelContas(QWidget):
         self.b_excluir.setObjectName("perigo")
         self.b_excluir.clicked.connect(self._excluir)
         s.addWidget(self.b_excluir)
+        self.b_encerrar = QPushButton("Encerrar sessões…")
+        self.b_encerrar.setToolTip("Encerra a sessão do Windows das contas que você marcar.")
+        self.b_encerrar.clicked.connect(self._encerrar)
+        s.addWidget(self.b_encerrar)
         self.motivo = _rotulo()
         self.motivo.setObjectName("dica")
         s.addWidget(self.motivo)
@@ -319,10 +384,37 @@ class PainelContas(QWidget):
 
     def _recebeu(self, lista: Lista) -> None:
         self.lista = lista
+        self._preencher()
+        self.outros.setText(
+            "Outros administradores (domínio/Azure AD, só leitura): "
+            + ", ".join(lista.outros_admins)
+            if lista.outros_admins
+            else ""
+        )
+        self.clone.clear()
+        self.clone.addItem(SEM_CLONE, "")
+        for c in lista.contas:
+            if c.local:
+                self.clone.addItem(c.nome, c.sid)
+        self._ocupar(False)
+
+    def visiveis(self) -> list[Conta]:
+        """As contas do filtro escolhido (ADR-036)."""
+        if self.lista is None:
+            return []
+        prot = self.prot()
+        querer = self.filtro.currentData() == "modificaveis"
+        return [c for c in self.lista.contas if contas.modificavel(c, prot) == querer]
+
+    def _preencher(self) -> None:
+        if self.lista is None:
+            return
         sid = self._sid()
         prot = self.prot()
-        self.tabela.setRowCount(len(lista.contas))
-        for i, c in enumerate(lista.contas):
+        mostradas = self.visiveis()
+        self.tabela.clearSelection()
+        self.tabela.setRowCount(len(mostradas))
+        for i, c in enumerate(mostradas):
             ultima = c.ultima.astimezone().strftime("%d/%m/%Y %H:%M") if c.ultima else "nunca"
             valores = (
                 c.nome,
@@ -337,19 +429,11 @@ class PainelContas(QWidget):
                 self.tabela.setItem(i, j, item)
             if c.sid == sid:
                 self.tabela.selectRow(i)
-        self.outros.setText(
-            "Outros administradores (domínio/Azure AD, só leitura): "
-            + ", ".join(lista.outros_admins)
-            if lista.outros_admins
-            else ""
+        self.estado.setText(
+            f"{len(mostradas)} de {len(self.lista.contas)} conta(s): "
+            f"{self.filtro.currentText().lower()}."
         )
-        self.clone.clear()
-        self.clone.addItem(SEM_CLONE, "")
-        for c in lista.contas:
-            if c.local:
-                self.clone.addItem(c.nome, c.sid)
-        self.estado.setText(f"{len(lista.contas)} conta(s) local(is).")
-        self._ocupar(False)
+        self._selecao()
 
     def _falhou_leitura(self, motivo: str) -> None:
         self.estado.setText(f"Não foi possível ler as contas: {motivo}")
@@ -375,6 +459,12 @@ class PainelContas(QWidget):
         self._validar()
         for b in (self.b_suporte, self.b_todos_admin, self.b_todos_padrao):
             b.setEnabled(self.admin and not ocupado and self.lista is not None)
+        self.b_encerrar.setEnabled(
+            self.admin
+            and not ocupado
+            and self.lista is not None
+            and bool(contas.com_sessao(self.lista))
+        )
 
     def _selecao(self) -> None:
         conta = self._conta()
@@ -507,6 +597,33 @@ class PainelContas(QWidget):
                 nome, senha, tipo, clonar_sid=clonar, nunca_expira=nunca, protegidas_=prot
             )
         )
+
+    def _encerrar(self) -> None:
+        """Encerra as sessões marcadas, uma por vez, e mostra o resultado de cada uma."""
+        if self.lista is None:
+            return
+        abertas = contas.com_sessao(self.lista)
+        if not abertas:
+            txt.aviso(self, "Encerrar sessões", "Nenhuma conta com sessão aberta.")
+            return
+        dialogo = EscolherSessoes(self, abertas)
+        if dialogo.exec() != QDialog.DialogCode.Accepted:
+            return
+        sids = dialogo.marcadas()
+        nomes = [c.nome for c in abertas if c.sid in sids]
+        if not sids or not confirmar(
+            self,
+            "Encerrar sessões",
+            "Encerrar a sessão destas contas agora? Programas abertos nelas são fechados sem "
+            "salvar.\n\n" + "\n".join(nomes),
+        ):
+            return
+
+        def encerrar_todas() -> Feito:
+            feitos = [contas.encerrar_sessao(sid) for sid in sids]
+            return Feito(all(f.ok for f in feitos), "\n".join(f.mensagem for f in feitos))
+
+        self._rodar(encerrar_todas)
 
     def _suporte(self) -> None:
         cadastros = self.obter_cadastros()
