@@ -161,7 +161,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 
 | # | Ação | Esperado | Origem |
 |---|---|---|---|
-| 10.1 | Proteger e desproteger utilman/sethc | Dono TrustedInstaller de volta; acessibilidade funciona depois | 12/V1 |
+| 10.1 | Proteger e desproteger utilman/sethc | Dono TrustedInstaller de volta (sem `setowner_5`, ADR-035); acessibilidade funciona depois | 12/V1 |
 | 10.2 | Win+U, botão de Acessibilidade e Shift 5x na tela de login | Bloqueados quando protegido | 12/V2 |
 | 10.3 | `sfc /verifyonly` | Sem violação | 12/V3 |
 | 10.4 | Binário trocado e IFEO `Debugger` (com e sem `UseFilter`) | Detectados, removidos, restaurados | 12/V4 |

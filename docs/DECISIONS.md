@@ -2194,3 +2194,39 @@ o Bench nela.
 
 **Consequences**
 Cenários 9.2 e 11/V6 do roteiro passam a esperar "aceita, com aviso".
+
+---
+
+## ADR-035 — SeTakeOwnership e SeRestore ligados só durante a operação
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (máquina real; emenda ao ADR-022, item 2, e ao ADR-011, item ACL)
+
+**Context**
+Na máquina real (11/11/2026), "Proteger" na Proteção do login deu `setowner_5` no utilman e no
+sethc: o `icacls /setowner *<SID do TrustedInstaller>` sai com 5 (acesso negado), porque dar o
+dono a outra conta exige o SeRestorePrivilege **ligado** no token que o `icacls` herda, e o
+administrador o tem desligado. A negação ao SYSTEM foi aplicada, mas o dono ficou
+Administradores, contra o ADR-022 ("o arquivo nunca fica com dono Administradores"). O
+`nucleo/acl.py` já ligava os dois privilégios na inicialização (segunda tentativa do ACL de
+`%ProgramData%\ITC`) e nunca os desligava.
+
+**Decision**
+1. `nucleo/acl.py` ganha `habilitar_privilegios()` e `desabilitar_privilegios()` (o mesmo
+   `AdjustTokenPrivileges`, com `SE_PRIVILEGE_ENABLED` ou `0`).
+2. **Proteção do login** (`protecao.alterar`): liga os dois privilégios antes dos passos
+   (`takeown`, `icacls`, `setowner`) e desliga num `finally`, também com exceção. Falha ao ligar
+   ou desligar vai ao log e não para: o passo do dono continua dizendo se deu certo.
+3. **ACL de `%ProgramData%\ITC`** (`acl.proteger`): a segunda tentativa liga e desliga num
+   `finally`, em vez de deixar ligado pelo resto da execução.
+
+**Alternatives considered**
+- `Set-Acl` com `SetOwner` no PowerShell — exige o mesmo privilégio ligado, e ligar dentro do
+  trecho pediria `Add-Type` (proibido).
+- Deixar os privilégios ligados desde a inicialização — o Bench e todo processo que ele abrisse
+  passariam por cima das permissões de arquivo.
+
+**Consequences**
+O roteiro 10.1 confere o dono TrustedInstaller de volta. Na máquina em que o erro apareceu,
+"Proteger" de novo (já com a correção) devolve o dono.

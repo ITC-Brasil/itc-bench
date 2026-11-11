@@ -71,6 +71,7 @@ As únicas escritas foram em chaves de teste `HKCU\Software\ITCBenchTeste_<hex>`
 | S1 | Extração do hive sem mudar o 11 | suíte do 11 inteira sem mudança de teste | Passa |
 | S2 | Proteger: três passos fixos, por caminho absoluto, SID do SYSTEM e do TrustedInstaller | `test_proteger_tres_passos_fixos`, `test_desproteger_remove_so_a_negacao` | Passa |
 | S3 | Dono volta ao TrustedInstaller com falha no `icacls` ou no `takeown` | `test_dono_volta_mesmo_com_falha_no_meio`, `test_dono_volta_mesmo_com_falha_no_takeown` | Passa |
+| S3b | ADR-035: SeTakeOwnership e SeRestore ligados antes dos passos e desligados no `finally` (também com exceção); falha ao ligar não para e vai ao log; o padrão usa o `nucleo/acl.py` | `test_privilegios_ligados_antes_e_desligados_depois`, `test_privilegios_desligados_mesmo_com_excecao`, `test_privilegios_negados_nao_param_e_vao_ao_log`, `test_privilegios_padrao_usam_o_acl` | Passa. Máquina real (11/11/2026), antes da correção: `setowner_5` nos dois arquivos, dono ficava Administradores |
 | S4 | Proteger recusa arquivo trocado ou não lido; só utilman/sethc | `test_proteger_recusa_arquivo_trocado_ou_nao_lido`, `test_so_utilman_e_sethc` | Passa; nada roda |
 | S5 | Cancelar entre arquivos | `test_cancelar_entre_arquivos` | O primeiro termina, o segundo fica cancelado |
 | S6 | Situação e alertas (IFEO, dono alterado, não protegido) e atalho | `test_situacao_e_alertas`, `test_atalho` (4 casos) | Passa |
