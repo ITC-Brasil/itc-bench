@@ -2120,3 +2120,37 @@ RustDesk). O Bench esperava o serviço por 90 s e falhava com "não respondeu a 
 **Consequences**
 Pior caso do Instalar do RustDesk: cerca de 3 min antes da mensagem de erro. Cenário 7.2c do
 roteiro de máquina real.
+
+---
+
+## ADR-033 — Políticas: marcar/desmarcar todas e desativar todas
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-021, item 13)
+
+**Context**
+Na tela Segurança › Políticas o técnico marca política por política (12 itens) para aplicar ou
+desfazer, e não havia como tirar de uma vez todas as restrições de uma conta, por exemplo para
+liberar a máquina para manutenção.
+
+**Decision**
+1. **"Marcar todas" / "Desmarcar todas":** um botão acima da lista que marca todas as políticas;
+   se já estão todas marcadas, desmarca todas. O texto acompanha a marcação manual e a marcação
+   sobrevive a "Atualizar". Só muda a tela: funciona sem administrador.
+2. **"Desativar todas":** ao lado de Aplicar e Desfazer, desfaz **todo o catálogo da tela** nos
+   **alvos marcados**, sem depender das caixas de política. É o mesmo Desfazer do ADR-021
+   (`politicas.aplicar("desfazer", …)`): mesma confirmação detalhada (o que muda em cada alvo),
+   com um cabeçalho "Desativar TODAS…", mesmas recusas de alvo, mesmo cancelamento entre alvos e
+   mesmo log. Sem alvo marcado, avisa e não faz nada. Exige administrador; `--dev` só lê.
+3. **Só na tela Políticas.** A tela USB tem uma política só e não muda (Desabilitar/Habilitar).
+   "Desativar todas" não toca no bloqueio de USB, que é desfeito pela tela USB.
+
+**Alternatives considered**
+- Dois botões separados para marcar e desmarcar — mais um botão para a mesma ação.
+- "Desativar todas" em todos os alvos de uma vez — alcança contas que o técnico não escolheu;
+  os alvos continuam escolhidos à mão.
+- Incluir o USB no "Desativar todas" — liberaria pendrive sem passar pela tela USB.
+
+**Consequences**
+Sem mudança no serviço, na API ou no NocoDB. Cenário 9.8 do roteiro de máquina real (11/V13).

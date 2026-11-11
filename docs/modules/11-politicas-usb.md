@@ -98,6 +98,8 @@ Pro em português) foi usada só para leitura. A única escrita foi o teste numa
 | R2 | PowerShell real: gravar, desfazer e raiz recusada, numa chave de teste | `test_escrever_real_em_chave_de_teste` | Passa; chave apagada |
 | R3 | PowerShell real: hive com nome inválido e nativo recusados | `test_hive_recusa_nome_e_sid` | Passa |
 | T1 | Telas: sem admin só leitura, situação com "pode alterar", confirmação com mudança e avisos, USB só com USB, sobras visíveis | `test_politicas_tela.py` (6 testes) | Passa |
+| T2 | Marcar/Desmarcar todas (ADR-033): alterna, completa a marcação parcial, acompanha a marcação manual, sobrevive à releitura, vale sem admin; não existe na tela USB | `test_marcar_e_desmarcar_todas`, `test_marcar_todas_com_algumas_marcadas_marca_o_resto`, `test_marcar_todas_acompanha_marcacao_manual`, `test_marcacao_sobrevive_a_releitura`, `test_marcar_todas_vale_sem_admin_e_desativar_nao`, `test_tela_usb_sem_marcar_nem_desativar_todas` | Passa |
+| T3 | Desativar todas (ADR-033): desfaz o catálogo inteiro (sem a USB) nos alvos marcados, sem depender das caixas, com a confirmação detalhada; sem alvo avisa; cancelar não altera; desativado sem admin | `test_desativar_todas_desfaz_o_catalogo_nos_alvos_marcados`, `test_desativar_todas_sem_alvo_avisa`, `test_desativar_todas_cancelado_nao_altera` | Passa |
 | M1 | Nenhum `shell=True`, `cmd /c`, `.bat` ou `-ExecutionPolicy Bypass` no `src/` | `test_sem_shell.py` e busca no `src/` | Passa |
 | V1 | Aplicar e desfazer política de máquina | Roteiro, passo 2 | **Pendente (máquina real, com o instalador)** |
 | V2 | Política de conta no usuário logado, em outro com perfil carregado e em perfil fechado | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
@@ -111,6 +113,7 @@ Pro em português) foi usada só para leitura. A única escrita foi o teste numa
 | V10 | Windows em inglês | Roteiro, passo 10 | **Pendente (máquina real, com o instalador)** |
 | V11 | `--dev` sem admin | Roteiro, passo 1 | **Pendente (máquina real, com o instalador)** |
 | V12 | Log sem nome de usuário, SID, caminho de perfil nem dados de pendrive | Roteiro, passo 11 | **Pendente (máquina real, com o instalador)** |
+| V13 | Marcar todas, Aplicar numa conta de teste; Desativar todas na mesma conta (ADR-033) | Roteiro, passo 9.8 | **Pendente (máquina real, com o instalador)** |
 
 ## Passos do responsável
 

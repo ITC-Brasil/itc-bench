@@ -155,6 +155,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 9.5 | `Teste01` tenta apagar a política | Acesso negado (dono Administradores) | 11/V5 |
 | 9.6 | Sobras do Configurador e `DisallowRun` legado | Detectadas e removíveis | 11/V7 |
 | 9.7 | USB desabilitar e habilitar por conta e na máquina | Pendrive não abre / abre | 11/V8 |
+| 9.8 | Em `Teste01`: Marcar todas → Aplicar; depois, com as caixas desmarcadas, Desativar todas | Todas aplicadas; depois todas "não aplicada" (ICS em Manual); a USB não muda | 11/V13 |
 
 ### 10. Proteção e Aparência
 
