@@ -239,11 +239,41 @@ def test_aplicar_carregado_maquina_e_padrao() -> None:
 def test_recusado_nao_escreve() -> None:
     f = Falso()
     feitos = politicas.aplicar(
-        "aplicar", ["cmd"], [alvo(DONO, True), alvo(SUPORTE)], protegidas_=PROT, rodar=f
+        "aplicar", ["cmd"], [alvo(SUPORTE), alvo(BASE + "500")], protegidas_=PROT, rodar=f
     )
     assert [x.ok for x in feitos] == [False, False]
-    assert "rodando o Bench" in feitos[0].mensagem
     assert "escrever" not in f.nomes() and "carregar" not in f.nomes()
+
+
+def test_conta_que_roda_o_bench_recebe_politica() -> None:
+    """ADR-034: Políticas aceitam a conta que roda o Bench; o trecho recebe ITC_PERMITIR_DONO."""
+    f = Falso()
+    feitos = politicas.aplicar("aplicar", ["cmd"], [alvo(DONO, True)], protegidas_=PROT, rodar=f)
+    assert [x.ok for x in feitos] == [True]
+    escritas = [kw for nome, kw in f.chamadas if nome == "escrever"]
+    assert len(escritas) == 1
+    assert escritas[0]["hive"] == DONO and escritas[0]["permitir_dono"] == "1"
+    assert escritas[0]["perfil"] == "politicas"
+
+
+def test_recusa_dono_so_sem_permissao() -> None:
+    """A recusa da conta que roda o Bench continua sendo o padrão (Aparência, Preparação)."""
+    from itc_bench.servicos import contas
+
+    lista = contas.ler(LISTA_JSON)
+    assert recusa_alvo(alvo(DONO), lista, PROT, DONO) == "dono"
+    assert recusa_alvo(alvo(DONO), lista, PROT, DONO, permitir_dono=True) is None
+    assert recusa_alvo(alvo(SUPORTE), lista, PROT, DONO, permitir_dono=True) == "suporte"
+    assert recusa_alvo(alvo(BASE + "500"), lista, PROT, DONO, permitir_dono=True) == "nativo"
+
+
+def test_trecho_libera_dono_so_para_politicas() -> None:
+    """A segunda conferência, no PowerShell, só libera com perfil politicas e a variável."""
+    from itc_bench.servicos import hive as hive_
+
+    comum = hive_.script("escrever")
+    assert "$donoOk = ($PERFIL -ceq 'politicas') -and ($env:ITC_PERMITIR_DONO -eq '1')" in comum
+    assert "Falhar 'dono'" in comum
 
 
 def test_falha_no_meio_descarrega() -> None:
@@ -522,3 +552,35 @@ def test_hive_em_uso_so_pela_abertura_exclusiva() -> None:
     load = next(linha for linha in texto.splitlines() if "'load'" in linha)
     assert "Falhar 'carregar'" in load and "em_uso" not in load
     assert "'Read', 'None'" in texto
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+@pytest.mark.parametrize(
+    ("perfil", "permitir", "esperado"),
+    [
+        ("politicas", "1", "PASSOU"),  # ADR-034
+        ("politicas", "0", "ERRO|dono"),
+        ("aparencia", "1", "ERRO|dono"),  # a Aparência continua recusando
+    ],
+)
+def test_hive_escrita_real_conta_que_roda(perfil: str, permitir: str, esperado: str) -> None:
+    """Só a conferência do trecho, com o SID da conta atual; nada é gravado no registro."""
+    trecho = hive_script_comum()
+    teste = (
+        trecho
+        + "\n$eu = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value\n"
+        # Conta de serviço ou a nativa (-500, como no runner do CI) param antes do dono.
+        + "if ($eu -notmatch '^S-1-5-21-' -or $eu -match '-500$') "
+        + "{ Write-Output 'PULAR'; exit 0 }\n"
+        + "Hive-Escrita $eu\nWrite-Output 'PASSOU'\n"
+    )
+    r = executor.powershell(teste, perfil=perfil, permitir_dono=permitir, protegidos="")
+    if "PULAR" in r.saida:
+        pytest.skip("a conta atual não é local comum (nativa ou de serviço)")
+    assert esperado in r.saida
+
+
+def hive_script_comum() -> str:
+    from itc_bench.servicos import hive as hive_
+
+    return (hive_.RECURSOS / "comum.ps1").read_text("utf-8")

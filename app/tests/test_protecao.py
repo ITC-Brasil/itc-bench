@@ -204,3 +204,70 @@ $cu.DeleteSubKeyTree($env:ITC_RAIZ, $false)
 """
     r = executor.powershell(funcoes + teste, raiz=raiz)
     assert "ANTES|False" in r.saida and "DEPOIS|True" in r.saida, (r.saida, r.erros)
+
+
+# ---------------------------------------------------- privilégios antes do setowner (máquina real)
+
+
+def test_privilegios_ligados_antes_e_desligados_depois() -> None:
+    """O `icacls /setowner` para o TrustedInstaller saía com 5 sem o SeRestore ligado no token
+    que ele herda (máquina real, 11/11/2026): o Bench liga antes dos passos e desliga no fim."""
+    ordem: list[str] = []
+
+    class Registra(Nativo):
+        def __call__(self, argumentos: list[str], **kw: Any) -> Resultado:
+            ordem.append(Path(argumentos[0]).name)
+            return super().__call__(argumentos, **kw)
+
+    feitos = protecao.alterar(
+        True,
+        ["utilman.exe"],
+        rodar_ps=ps(leitura()),
+        rodar=Registra(),
+        sistema32=s32,
+        privilegios=lambda ligar: ordem.append("ligar" if ligar else "desligar"),
+    )
+    assert feitos[0].ok
+    assert ordem == ["ligar", "takeown.exe", "icacls.exe", "icacls.exe", "desligar"]
+
+
+def test_privilegios_desligados_mesmo_com_excecao() -> None:
+    ordem: list[str] = []
+
+    def explode(argumentos: list[str], **kw: Any) -> Resultado:
+        raise OSError("falha simulada")
+
+    with pytest.raises(OSError):
+        protecao.alterar(
+            True,
+            ["utilman.exe"],
+            rodar_ps=ps(leitura()),
+            rodar=explode,
+            sistema32=s32,
+            privilegios=lambda ligar: ordem.append("ligar" if ligar else "desligar"),
+        )
+    assert ordem == ["ligar", "desligar"]
+
+
+def test_privilegios_negados_nao_param_e_vao_ao_log(caplog) -> None:
+    def nega(ligar: bool) -> None:
+        raise PermissionError("sem elevação")
+
+    n = Nativo(falhar="/setowner")
+    feitos = protecao.alterar(
+        True, ["sethc.exe"], rodar_ps=ps(leitura()), rodar=n, sistema32=s32, privilegios=nega
+    )
+    assert not feitos[0].ok and "setowner_5" in feitos[0].mensagem
+    assert len(n.chamadas) == 3  # os três passos rodaram mesmo assim
+    assert "privilégios não ligados (PermissionError)" in caplog.text
+    assert "privilégios não desligados (PermissionError)" in caplog.text
+
+
+def test_privilegios_padrao_usam_o_acl(monkeypatch) -> None:
+    from itc_bench.nucleo import acl
+
+    chamadas: list[str] = []
+    monkeypatch.setattr(acl, "habilitar_privilegios", lambda: chamadas.append("ligar"))
+    monkeypatch.setattr(acl, "desabilitar_privilegios", lambda: chamadas.append("desligar"))
+    protecao.alterar(True, ["utilman.exe"], rodar_ps=ps(leitura()), rodar=Nativo(), sistema32=s32)
+    assert chamadas == ["ligar", "desligar"]

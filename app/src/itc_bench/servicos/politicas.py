@@ -405,6 +405,7 @@ def aplicar(
         rodar=rodar,
         cancelar=cancelar,
         avisar=avisar,
+        permitir_dono=True,  # ADR-034: a conta que roda o Bench também pode receber
     )
 
 

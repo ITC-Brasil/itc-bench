@@ -7,6 +7,7 @@ Só nomes fictícios. Os testes que criam e apagam contas de verdade rodam apena
 import json
 import logging
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -423,3 +424,103 @@ def test_caminho_de_perfil_fora_do_log(caplog):
     lote = f"AVISO|Aluno-Teste|negado em {caminho}\nOK"
     assert contas.lote("admin", rodar=Falso(TECNICO, ALUNO, saida=lote)).ok
     assert caminho not in caplog.text
+
+
+# ---------------------------------------------------- filtro e encerrar sessão (ADR-036)
+
+
+def test_modificavel() -> None:
+    prot = frozenset({"suporte"})
+    assert contas.modificavel(ALUNO, prot) and contas.modificavel(TECNICO, prot)
+    assert not contas.modificavel(NATIVO, prot)
+    assert not contas.modificavel(SUPORTE, prot)
+    assert not contas.modificavel(MS, prot)
+
+
+def test_com_sessao() -> None:
+    aberta = conta(1005, "Aberta", carregado=True)
+    lido = lista(TECNICO, ALUNO, aberta)
+    assert [c.nome for c in contas.com_sessao(lido)] == ["Tecnico-Teste", "Aberta"]
+
+
+def test_encerrar_sessao_pelo_sid_e_trecho_fixo() -> None:
+    falso = Falso(TECNICO, ALUNO)
+    feito = contas.encerrar_sessao(ALUNO.sid, rodar=falso)
+    assert feito.ok and "Aluno-Teste" in feito.mensagem
+    script, kw = falso.chamadas[0]
+    assert kw == {"timeout": contas.TIMEOUT_ACAO, "sid": ALUNO.sid}
+    assert "logoff.exe" in script and "GetCurrentProcess().SessionId" in script
+
+
+@pytest.mark.parametrize(
+    ("saida", "trecho"),
+    [
+        ("ERRO|propria|", "o Bench está rodando"),
+        ("ERRO|sem_sessao|", "não tem sessão aberta"),
+        ("ERRO|encerrar|sessão 2, código 1", "não encerrou a sessão: sessão 2"),
+    ],
+)
+def test_encerrar_sessao_recusas_e_falha(saida: str, trecho: str) -> None:
+    feito = contas.encerrar_sessao(ALUNO.sid, rodar=Falso(TECNICO, ALUNO, saida=saida, codigo=1))
+    assert not feito.ok and trecho in feito.mensagem
+
+
+def test_encerrar_sessao_conta_que_sumiu() -> None:
+    falso = Falso(TECNICO)
+    feito = contas.encerrar_sessao(ALUNO.sid, rodar=falso)
+    assert not feito.ok and "não existe mais" in feito.mensagem and falso.chamadas == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+def test_encerrar_real_recusa_sid_invalido() -> None:
+    r = executor.powershell(contas.script("encerrar"), sid="nao-e-sid")
+    assert "ERRO|nao_encontrada" in r.saida
+
+
+# ---------------------------------------------------- Gestão restrita (ADR-036)
+
+GESTAO = conta(1006, "Gestão", admin=True)
+
+
+def test_gestao_nao_modificavel_e_recusada_em_toda_acao() -> None:
+    lido = lista(TECNICO, ALUNO, GESTAO)
+    assert not contas.modificavel(GESTAO, PROT)
+    assert not contas.modificavel(conta(1007, "GESTAO"), PROT)  # sem acento e maiúsculas
+    for acao in ("admin", "padrao", "senha", "sem_senha", "excluir"):
+        assert recusa(acao, GESTAO, lido, PROT) == "restrita"  # type: ignore[arg-type]
+    assert "Gestão é protegida" in contas.MENSAGENS["restrita"]
+
+
+def test_gestao_fora_do_lote_e_nao_conta_como_suporte() -> None:
+    lido = lista(TECNICO, ALUNO, GESTAO, conta(1008, "Outro", ativo=True))
+    assert "Gestão" not in contas.mudariam("padrao", lido, PROT)
+    assert "Gestão" not in contas.mudariam("admin", lista(conta(1006, "Gestão")), PROT)
+    assert not contas.suporte_ok(lista(GESTAO), PROT)  # Gestão admin não vale como Suporte
+
+
+def test_nome_gestao_reservado_na_criacao() -> None:
+    assert "Gestão" in (validar_nome("gestão", lista(ALUNO), PROT) or "")
+    assert "Gestão" in (validar_nome("Gestao", lista(ALUNO), PROT) or "")
+
+
+def test_trechos_tem_a_mesma_lista_de_restritas() -> None:
+    comum = (contas.RECURSOS / "comum.ps1").read_text("utf-8")
+    assert "$RESTRITAS = @('Gestão', 'Gestao')" in comum
+    assert "return 'restrita'" in comum
+    assert "$RESTRITAS -contains $nome" in contas.script("criar")
+    assert "-not ($RESTRITAS -contains $_.Name)" in contas.script("lote")
+    assert {"gestão", "gestao"} == contas.RESTRITAS
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+@pytest.mark.parametrize("nome", ["Gestão", "gestao", "GESTÃO"])
+def test_recusa_real_da_gestao_no_powershell(nome: str) -> None:
+    """Só a função Recusa do trecho, com uma conta fictícia; nada é alterado no Windows."""
+    teste = (
+        (contas.RECURSOS / "comum.ps1").read_text("utf-8")
+        + "\n$c = [pscustomobject]@{ Name = $env:ITC_NOME; PrincipalSource = 'Local';"
+        + " SID = [pscustomobject]@{ Value = 'S-1-5-21-1-2-3-1006' } }\n"
+        + "Write-Output ('MOTIVO|' + (Recusa 'senha' $c @() @()))\n"
+    )
+    r = executor.powershell(teste, nome=nome)
+    assert "MOTIVO|restrita" in r.saida

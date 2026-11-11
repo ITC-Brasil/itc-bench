@@ -104,6 +104,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 5.5 | Clonar grupos de uma conta em "Usuários da área de trabalho remota" | Grupos iguais | 07/V5 |
 | 5.6 | Conta Suporte com e sem rede | Criada com a senha do cadastro; sem rede, do cache | 07/V7 |
 | 5.7 | Durante criar e trocar senha, `Get-CimInstance Win32_Process` em loop | Senha nunca na linha de comando | 07/V8 |
+| 5.8 | Filtro modificáveis/não modificáveis; com `Teste01` aberta por troca rápida de usuário, Encerrar sessões… marcando `Teste01` | Nativo, Suporte e Gestão só em "não modificáveis" e sem botão ativo na Gestão; "Remover administrador de todos" mantém a Gestão administradora; a sessão de `Teste01` some (`query user`); marcar a sessão do Bench é recusado com a mensagem "É a sessão em que o Bench está rodando" | 07/V9 |
 
 ### 6. Identificação e Wi-Fi
 
@@ -152,18 +153,19 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | # | Ação | Esperado | Origem |
 |---|---|---|---|
 | 9.1 | Aplicar e desfazer política de máquina | Situação lida de novo | 11/V1 |
-| 9.2 | Política de conta na logada, em perfil carregado e em perfil fechado; conta que roda o Bench | Aplica; a do Bench recusada | 11/V2, 11/V6 |
+| 9.2 | Política de conta na logada, em perfil carregado e em perfil fechado; conta que roda o Bench | Aplica; na do Bench, a confirmação avisa e aplica (ADR-034); desfazer em seguida | 11/V2, 11/V6 |
 | 9.3 | Cancelar com perfil fechado | Hive descarregado (`reg query HKU`) | 11/V3 |
 | 9.4 | Contas futuras: criar conta depois | Recebe as políticas, só lê | 11/V4 |
 | 9.5 | `Teste01` tenta apagar a política | Acesso negado (dono Administradores) | 11/V5 |
 | 9.6 | Sobras do Configurador e `DisallowRun` legado | Detectadas e removíveis | 11/V7 |
 | 9.7 | USB desabilitar e habilitar por conta e na máquina | Pendrive não abre / abre | 11/V8 |
+| 9.8 | Em `Teste01`: Marcar todas → Aplicar; depois, com as caixas desmarcadas, Desativar todas | Todas aplicadas; depois todas "não aplicada" (ICS em Manual); a USB não muda | 11/V13 |
 
 ### 10. Proteção e Aparência
 
 | # | Ação | Esperado | Origem |
 |---|---|---|---|
-| 10.1 | Proteger e desproteger utilman/sethc | Dono TrustedInstaller de volta; acessibilidade funciona depois | 12/V1 |
+| 10.1 | Proteger e desproteger utilman/sethc | Dono TrustedInstaller de volta (sem `setowner_5`, ADR-035); acessibilidade funciona depois | 12/V1 |
 | 10.2 | Win+U, botão de Acessibilidade e Shift 5x na tela de login | Bloqueados quando protegido | 12/V2 |
 | 10.3 | `sfc /verifyonly` | Sem violação | 12/V3 |
 | 10.4 | Binário trocado e IFEO `Debugger` (com e sem `UseFilter`) | Detectados, removidos, restaurados | 12/V4 |
@@ -220,6 +222,22 @@ prova das correções dos ADR-030 a 032; a rodada com o instalador continua pend
 | 7.2b | **Passou.** Conexão de outro computador com a senha do cadastro | `bench.log`: "Senha permanente do RustDesk (ADR-031) … código 0" e "RustDesk: reconfigurado"; `RustDesk.toml` com `password` começando por `01` |
 | 7.2c | **Passou.** Instalar com o RustDesk desinstalado antes, sem "não respondeu a tempo" | Serviço `RustDesk` Running e automático depois do Instalar |
 | 09/V3 (download) | **Passou** depois de trocar o `Link` da linha AnyDesk em Instaladores | O Link anterior era recusado (HTTP), também com o User-Agent novo |
+
+### 11/11/2026 — Proteção do login e Políticas, em desenvolvimento
+
+Condição: a mesma máquina, Bench **0.19.0** da branch `feat/politicas-marcar-desativar-todas`
+por `uv run` elevado.
+
+| # | Resultado | Evidência |
+|---|---|---|
+| 10.1 (proteger) | **Passou** depois do ADR-035 | Antes: `setowner_5` e dono Administradores; depois: `utilman.exe` e `sethc.exe` com dono `NT SERVICE\TrustedInstaller` e `Deny SYSTEM ExecuteFile` (`Get-Acl`) |
+| 9.2 (conta do Bench) | **Passou** | Políticas aplicadas na conta que roda o Bench: "Feito." no registro da tela (ADR-034) |
+| 9.8 (marcar e desativar todas) | **Passou** (aprovado pelo responsável) | Marcar todas → Aplicar numa conta de teste; depois, com as caixas desmarcadas, Desativar todas (ADR-033) |
+
+Observado: o atalho Shift 5x continua aparecendo na tela de bloqueio porque ele é uma
+configuração à parte da proteção do `sethc.exe` (`StickyKeys` em 510 no `.DEFAULT` e na conta).
+Desliga-se em Proteção do login (tela de login) e em Mouse e teclado (por conta), como manda o
+ADR-022; a proteção impede o `sethc.exe` de rodar como SYSTEM, não a janela do atalho.
 
 Antes das correções, na mesma máquina: o arquivo não era aceito como meio da senha (3 tentativas,
 "a senha não foi cifrada; linha removida"); o MSI 1.5.1 instalava sem criar o serviço

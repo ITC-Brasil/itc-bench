@@ -85,9 +85,17 @@ def sids_protegidos(lista: contas.Lista, protegidas_: Iterable[str]) -> list[str
 
 
 def recusa_alvo(
-    alvo: Alvo, lista: contas.Lista, protegidas_: Iterable[str], dono: str | None
+    alvo: Alvo,
+    lista: contas.Lista,
+    protegidas_: Iterable[str],
+    dono: str | None,
+    *,
+    permitir_dono: bool = False,
 ) -> str | None:
-    """Código da recusa (chave de MENSAGENS) ou None. O trecho confere de novo."""
+    """Código da recusa (chave de MENSAGENS) ou None. O trecho confere de novo.
+
+    `permitir_dono`: só Políticas (ADR-034) aceitam a conta que roda o Bench; a Aparência não.
+    """
     if alvo.tipo != "usuario":
         return None
     conta = lista.por_sid(alvo.chave)
@@ -97,7 +105,7 @@ def recusa_alvo(
         return "nativo"
     if conta.nome.lower() in {n.lower() for n in protegidas_}:
         return "suporte"
-    if dono and conta.sid == dono:
+    if dono and conta.sid == dono and not permitir_dono:
         return "dono"
     if not conta.perfil:
         return "sem_perfil"
@@ -265,7 +273,12 @@ class Feito:
 
 
 def escrever(
-    hive: str, ops: list[dict[str, Any]], prot: list[str], rodar: Rodar, perfil: Perfil
+    hive: str,
+    ops: list[dict[str, Any]],
+    prot: list[str],
+    rodar: Rodar,
+    perfil: Perfil,
+    permitir_dono: bool = False,
 ) -> tuple[dict[str, bool], str | None]:
     r = rodar(
         script("escrever"),
@@ -274,6 +287,7 @@ def escrever(
         operacoes=json.dumps(ops),
         protegidos="\n".join(prot),
         perfil=perfil,
+        permitir_dono="1" if permitir_dono else "0",
     )
     por: dict[str, bool] = {}
     for linha in linhas(r):
@@ -299,6 +313,7 @@ def aplicar(
     cancelar: threading.Event | None = None,
     avisar: Callable[[str], None] = lambda _: None,
     mensagens: Mapping[str, str] = MENSAGENS,
+    permitir_dono: bool = False,
 ) -> list[Feito]:
     """Uma chamada de escrita por alvo, nunca interrompida; cancelar vale entre alvos.
 
@@ -318,7 +333,7 @@ def aplicar(
         ops = operacoes(alvo)
         if not ops:
             continue
-        motivo = recusa_alvo(alvo, lista, prot_nomes, dono)
+        motivo = recusa_alvo(alvo, lista, prot_nomes, dono, permitir_dono=permitir_dono)
         if motivo:
             feitos.append(Feito(alvo, False, mensagens[motivo]))
             log.warning("%s: %s alvo %s: recusado (%s)", rotulo, acao, rotulo_log, motivo)
@@ -339,7 +354,7 @@ def aplicar(
                 continue
             hive = temp = carregado
         try:
-            por, geral = escrever(hive, ops, prot, rodar, perfil)
+            por, geral = escrever(hive, ops, prot, rodar, perfil, permitir_dono)
         finally:
             if temp is not None and not descarregar(temp, rodar):
                 avisos.append(mensagens["descarregar"])
