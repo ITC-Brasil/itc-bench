@@ -2,22 +2,23 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/politicas-marcar-desativar-todas`, **PR #68 para `develop`** (o #67 foi
-  fechado antes, a pedido do responsável), versão **0.19.0**, tela Políticas:
-  - "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
+- **Branch:** nenhuma em andamento. `develop` e `main` iguais (11/11/2026) com a versão
+  **0.19.0**: PR #68 mesclado na `develop` e levado à `main` pelo #71. Na 0.19.0:
+  - Políticas: "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
   - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
     Preparação continuam recusando). Os 3 testes com PowerShell real são pulados no runner
     do CI (conta nativa `-500`);
   - Proteção do login: `setowner_5` corrigido ligando SeTakeOwnership/SeRestore só durante os
     passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta);
   - Contas: filtro "modificáveis"/"não modificáveis", Gestão restrita como a Suporte e
-    "Encerrar sessões…" (ADR-036). Tudo enviado ao PR #68. Pendente: roteiro 5.8.
-  Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram. Pendente a rodada com
-  o instalador do CI. A `develop` (com a revisão da 0.18, #69) foi trazida para esta branch.
-  Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
-  (`docs/BUILD.md`).
+    "Encerrar sessões…" (ADR-036);
+  - a revisão da 0.18 (#69, abaixo), que entrou antes na `develop`.
+  Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram.
+  **Próximo passo (responsável):** tag `v0.19.0`, publicar o rascunho, assinar e publicar a
+  versão na API (`docs/BUILD.md`). O bump 0.18.1 previsto ficou sem efeito: a `main` foi direto
+  para a 0.19.0. **Pendente em máquina real com o instalador:** roteiro 5.8, 6.5, 7.2d e 7.2e.
 - **Revisão da 0.18 (`fix/revisao-0.18`, #69):** mesclada na `develop` e na `main` (#70) em
-  11/11/2026, sem bump de versão (0.18.1 fica com o responsável). Conta por turno que já existe
+  11/11/2026, sem bump de versão; entra na 0.19.0. Conta por turno que já existe
   e é administradora vira ✕ (ADR-029, item 11); senha do RustDesk com mínimo de 14 caracteres,
   recusada antes do `rustdesk.exe` (ADR-031); ADR-029 declara a emenda ao ADR-017; ADR-031
   registra a exposição da senha na auditoria de processos. Pendente: roteiro 6.5, 7.2d e 7.2e
