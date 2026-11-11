@@ -113,6 +113,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 6.2 | Instalar uma e várias redes; já instalada; senha diferente | Situações certas por rede | 08/V3 |
 | 6.3 | SSID com acento e caractere especial | O Windows conecta sozinho | 08/V4 |
 | 6.4 | Cancelar no meio de várias | Para entre redes | 08/V5 |
+| 6.5 | **Com o instalador (não `uv run`)**: contas por turno. (a) Manhã, Tarde e Noite; (b) sem turno e com sufixo; (c) turno + "Criar também o usuário do sufixo"; (d) sem turno e sem sufixo (conta com o nome do PC); (e) base de 15 caracteres com turno (`-Manha` passa de 20); (f) uma conta já existente padrão; (g) uma conta já existente administradora | (a)–(c) `BASE-Turno`/`BASE-Sufixo` Local padrão, sem senha; (d) conta `BASE` criada, a tela Contas continua recusando esse nome; (e) ✕ com o limite de 20, nada abreviado; (f) ⚠ "já existia", não recriada; (g) ✕ "já existe como administradora: confira antes", fora das prontas no resumo, conta não alterada (confira em `lusrmgr.msc`); o reinício só é oferecido depois de criar, com duas confirmações | ADR-029 |
 
 ### 7. Acesso remoto
 
@@ -122,6 +123,8 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 7.2 | RustDesk do zero (máquina lenta se houver) | ID na tela; conexão com a senha do cadastro; `RustDesk.toml` sem `.tmp` | 09/V2, 09/V8 |
 | 7.2b | RustDesk 1.5.1: Reconfigurar com o Bench elevado e conectar de outra máquina com a senha do cadastro | Sem aviso de senha; `RustDesk.toml` do serviço com `password` começando por `01`; conexão aceita; `bench.log` sem a senha | ADR-031 |
 | 7.2c | RustDesk 1.5.1 desinstalado: Instalar pelo Bench elevado | Sem "não respondeu a tempo"; `bench.log` com `--install-service` e, se preciso, "parando e iniciando"; serviço `RustDesk` Running e automático; Configuração conferida | ADR-032 |
+| 7.2d | Depois de 7.2/7.2c, no prompt elevado: `sc qc RustDesk` | `BINARY_PATH_NAME` (ImagePath) entre aspas; `SERVICE_START_NAME` = `LocalSystem` | ADR-032 |
+| 7.2e | Senha do RustDesk no cadastro com 13 caracteres; sincronizar e Reconfigurar. Depois com 14 | 13: recusa na tela com "pelo menos 14", sem mostrar a senha e sem chamar o `rustdesk.exe` (`bench.log` sem `--password`); 14: segue como 7.2b | ADR-031 |
 | 7.2a | Com `RustDesk`/`api` no cadastro: Instalar ou Reconfigurar o RustDesk e abrir Configurações › Rede › Servidor ID/Relay | "Servidor da API" preenchido com a URL do cadastro; cartão "Configuração: conferida"; sem a linha, o campo fica como estava | ADR-030 |
 | 7.3 | AnyDesk do zero | ID na tela; acesso sem supervisão | 09/V3 |
 | 7.4 | Mesma versão (Reconfigurar) e versão mais velha (Atualizar) | Não rebaixa | 09/V4 |

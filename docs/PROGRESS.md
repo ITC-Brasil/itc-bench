@@ -2,7 +2,15 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `chore/versao-0.18.0`, PR para `develop`: versão **0.18.0** com as contas por turno
+- **Branch:** `fix/revisao-0.18` (a partir da `develop`), PR para `develop`, em andamento:
+  correções da revisão da 0.18.0. A **0.18.0 foi publicada e assinada pelo responsável**. Nesta
+  branch: conta por turno que já existe e é administradora vira ✕ (ADR-029, item 11); senha do
+  RustDesk com mínimo de 14 caracteres, recusada antes do `rustdesk.exe` (ADR-031); ADR-029
+  declara a emenda ao ADR-017; ADR-031 registra a exposição da senha na auditoria de processos;
+  roteiro 6.5, 7.2d e 7.2e em `docs/testes/maquina-real.md`. Versão não muda: o bump para
+  0.18.1 é do responsável, depois do merge. Próximo passo: revisão e merge do PR; rodar 6.5,
+  7.2d e 7.2e com o instalador.
+- **Antes (0.18.0) — branch:** `chore/versao-0.18.0`, PR para `develop`: versão **0.18.0** com as contas por turno
   (ADR-029, #61/#62) e o acesso remoto do RustDesk 1.5.1 (#63/#64), já na `main`. Depois do
   merge até a `main`: tag `v0.18.0`, publicar o rascunho, assinar e publicar a versão na API
   (`docs/BUILD.md`). Antes de publicar, acertar o cadastro do NocoDB (abaixo).
