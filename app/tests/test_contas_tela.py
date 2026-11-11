@@ -128,3 +128,22 @@ def test_escolher_sessoes_libera_so_com_marcada(qtbot):
     d.lista.item(1).setCheckState(Qt.CheckState.Checked)
     assert ok.isEnabled() and d.marcadas() == [TECNICO.sid]
     assert "(em uso)" in d.lista.item(1).text()
+
+
+def test_gestao_aparece_so_em_nao_modificaveis(qtbot, monkeypatch):
+    from test_contas import GESTAO
+
+    monkeypatch.setattr(
+        contas, "listar", lambda **_: lista(NATIVO, TECNICO, SUPORTE, ALUNO, GESTAO)
+    )
+    p = PainelContas(True, lambda: None)
+    qtbot.addWidget(p)
+    p.show()
+    qtbot.waitUntil(lambda: p.lista is not None and not p.ocupado)
+    nomes = lambda: {p.tabela.item(i, 0).text() for i in range(p.tabela.rowCount())}  # noqa: E731
+    assert "Gestão" not in nomes()
+    filtrar(p, "nao_modificaveis")
+    assert "Gestão" in nomes()
+    selecionar(p, "Gestão")
+    assert not any(b.isEnabled() for b in (p.b_admin, p.b_padrao, p.b_senha, p.b_excluir))
+    assert "Gestão é protegida" in p.motivo.text()

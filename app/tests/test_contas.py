@@ -475,3 +475,52 @@ def test_encerrar_sessao_conta_que_sumiu() -> None:
 def test_encerrar_real_recusa_sid_invalido() -> None:
     r = executor.powershell(contas.script("encerrar"), sid="nao-e-sid")
     assert "ERRO|nao_encontrada" in r.saida
+
+
+# ---------------------------------------------------- Gestão restrita (ADR-036)
+
+GESTAO = conta(1006, "Gestão", admin=True)
+
+
+def test_gestao_nao_modificavel_e_recusada_em_toda_acao() -> None:
+    lido = lista(TECNICO, ALUNO, GESTAO)
+    assert not contas.modificavel(GESTAO, PROT)
+    assert not contas.modificavel(conta(1007, "GESTAO"), PROT)  # sem acento e maiúsculas
+    for acao in ("admin", "padrao", "senha", "sem_senha", "excluir"):
+        assert recusa(acao, GESTAO, lido, PROT) == "restrita"  # type: ignore[arg-type]
+    assert "Gestão é protegida" in contas.MENSAGENS["restrita"]
+
+
+def test_gestao_fora_do_lote_e_nao_conta_como_suporte() -> None:
+    lido = lista(TECNICO, ALUNO, GESTAO, conta(1008, "Outro", ativo=True))
+    assert "Gestão" not in contas.mudariam("padrao", lido, PROT)
+    assert "Gestão" not in contas.mudariam("admin", lista(conta(1006, "Gestão")), PROT)
+    assert not contas.suporte_ok(lista(GESTAO), PROT)  # Gestão admin não vale como Suporte
+
+
+def test_nome_gestao_reservado_na_criacao() -> None:
+    assert "Gestão" in (validar_nome("gestão", lista(ALUNO), PROT) or "")
+    assert "Gestão" in (validar_nome("Gestao", lista(ALUNO), PROT) or "")
+
+
+def test_trechos_tem_a_mesma_lista_de_restritas() -> None:
+    comum = (contas.RECURSOS / "comum.ps1").read_text("utf-8")
+    assert "$RESTRITAS = @('Gestão', 'Gestao')" in comum
+    assert "return 'restrita'" in comum
+    assert "$RESTRITAS -contains $nome" in contas.script("criar")
+    assert "-not ($RESTRITAS -contains $_.Name)" in contas.script("lote")
+    assert {"gestão", "gestao"} == contas.RESTRITAS
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+@pytest.mark.parametrize("nome", ["Gestão", "gestao", "GESTÃO"])
+def test_recusa_real_da_gestao_no_powershell(nome: str) -> None:
+    """Só a função Recusa do trecho, com uma conta fictícia; nada é alterado no Windows."""
+    teste = (
+        (contas.RECURSOS / "comum.ps1").read_text("utf-8")
+        + "\n$c = [pscustomobject]@{ Name = $env:ITC_NOME; PrincipalSource = 'Local';"
+        + " SID = [pscustomobject]@{ Value = 'S-1-5-21-1-2-3-1006' } }\n"
+        + "Write-Output ('MOTIVO|' + (Recusa 'senha' $c @() @()))\n"
+    )
+    r = executor.powershell(teste, nome=nome)
+    assert "MOTIVO|restrita" in r.saida

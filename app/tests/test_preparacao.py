@@ -377,3 +377,13 @@ def test_contas_com_nativo_ativo_fica_pendente_sem_mexer_nele(monkeypatch, extra
     assert a.situacao["politicas"].situacao == "feito"
     # Suporte já certa não é reaplicada; o lote só roda se havia outro administrador.
     assert chamadas == (["padrao"] if extra_admin else [])
+
+
+def test_gestao_administradora_nao_deixa_contas_pendente() -> None:
+    """ADR-036: a Gestão fica administradora de propósito; não conta como admin sobrando."""
+    from test_contas import GESTAO, SUPORTE, lista
+
+    from itc_bench.servicos import etapas
+
+    extras = etapas._admins_extra(lista(SUPORTE, GESTAO), frozenset({"suporte"}))
+    assert extras == []
