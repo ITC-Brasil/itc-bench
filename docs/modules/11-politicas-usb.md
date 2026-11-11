@@ -16,7 +16,7 @@ Ajustes incorporados:
 - o Python nunca abre o hive temporário;
 - cancelamento só entre chamadas;
 - dono da chave na conferência de ACL e o Default User explicado;
-- recusa da conta que roda o Bench;
+- recusa da conta que roda o Bench (**revogada pelo ADR-034, 11/11/2026**: ela é aceita, com aviso);
 - aviso de edição no lugar de cadeado;
 - leitura só em 64 bits;
 - alvos só de `contas.listar()`.
@@ -84,7 +84,7 @@ Pro em português) foi usada só para leitura. A única escrita foi o teste numa
 | S2 | Desfazer: PowerShell (legado, lista vazia por último), ICS volta para Manual, escopos | `test_operacoes_powershell_aplicar_e_desfazer`, `test_ics_desfazer_volta_manual_e_escopo` | Passa |
 | S3 | Situação: aplicada, não aplicada, diferente, ICS em 3, legado do Configurador | `test_estado`, `test_estado_powershell_legado` | Passa |
 | S4 | Aviso de edição (Store no Pro, USB no Home, nada no Enterprise) | `test_aviso_edicao` | Passa |
-| S5 | Recusas: nativo, Suporte, conta que roda o Bench, sem perfil, inexistente | `test_recusa_alvo`, `test_recusado_nao_escreve`, `test_falha_ao_carregar_por_codigo` (em uso / carregar), `test_hive_em_uso_so_pela_abertura_exclusiva` | Passa; nada é escrito |
+| S5 | Recusas: nativo, Suporte, sem perfil, inexistente (a conta que roda o Bench deixou de ser recusada, ADR-034) | `test_recusa_alvo`, `test_recusado_nao_escreve`, `test_falha_ao_carregar_por_codigo` (em uso / carregar), `test_hive_em_uso_so_pela_abertura_exclusiva` | Passa; nada é escrito |
 | S6 | Máquina, conta carregada e Contas futuras num lote; protegidos passados ao trecho | `test_aplicar_carregado_maquina_e_padrao` | Ordem sobras → listar → escrever → carregar → escrever → descarregar |
 | S7 | Falha (exceção) no meio da escrita em perfil fechado | `test_falha_no_meio_descarrega` | Descarrega mesmo assim |
 | S8 | Falha parcial por política | `test_falha_parcial_por_politica` | Resultado por política, descarrega |
@@ -106,7 +106,8 @@ Pro em português) foi usada só para leitura. A única escrita foi o teste numa
 | V3 | Perfil fechado: cancelar no meio e conferir que o hive foi descarregado | Roteiro, passo 4 | **Pendente (máquina real, com o instalador)** |
 | V4 | Contas futuras: conta criada depois recebe e só lê (dono e ACL) | Roteiro, passo 5 | **Pendente (máquina real, com o instalador)** |
 | V5 | Dono da chave: a conta comum não consegue apagar a política | Roteiro, passo 6 | **Pendente (máquina real, com o instalador)** |
-| V6 | Conta que roda o Bench recusada | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
+| V6 | Conta que roda o Bench **aceita, com aviso** (ADR-034; antes, recusada) | Roteiro, passo 3 | **Pendente (máquina real, com o instalador)** |
+| S15 | Conta que roda o Bench (ADR-034): aceita só em Políticas e com `ITC_PERMITIR_DONO=1`; Aparência e Preparação continuam recusando; conferência real no PowerShell; aviso na confirmação | `test_conta_que_roda_o_bench_recebe_politica`, `test_recusa_dono_so_sem_permissao`, `test_trecho_libera_dono_so_para_politicas`, `test_hive_escrita_real_conta_que_roda` (3 casos), `test_confirmacao_avisa_quando_a_conta_que_roda_esta_marcada` | Passa |
 | V7 | Sobras do Configurador e legado do `DisallowRun` | Roteiro, passo 7 | **Pendente (máquina real, com o instalador)** |
 | V8 | USB: desabilitar e habilitar por conta e na máquina | Roteiro, passo 8 | **Pendente (máquina real, com o instalador)** |
 | V9 | Windows Home e Pro (Store no Pro; políticas com aviso no Home) | Roteiro, passo 9 | **Pendente (máquina real, com o instalador)** |
@@ -133,8 +134,8 @@ Notebook reserva com as contas comuns `Teste01` e `Teste02` e a conta Suporte.
    - Entre com `Teste01`, troque de usuário para a conta do técnico e aplique "Bloquear Editor
      do Registro" em `Teste01` (perfil carregado) e em `Teste02` (fechado).
    - Volte para cada uma: o regedit não abre.
-   - Tente aplicar na conta que está rodando o Bench e na Suporte: recusado com o motivo (V2,
-     V6).
+   - Aplique na conta que está rodando o Bench: a confirmação avisa e a política vale no próximo
+     logon dela; desfaça em seguida (V6, ADR-034). Na Suporte: recusado com o motivo (V2).
    - **`NTUSER.DAT` trocado (risco aceito, Informativo 5 da auditoria):**
      - com `Teste02` fechada, troque o `NTUSER.DAT` dela por uma cópia de outro perfil (como
        administrador de teste);

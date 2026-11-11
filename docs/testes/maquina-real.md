@@ -149,7 +149,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | # | Ação | Esperado | Origem |
 |---|---|---|---|
 | 9.1 | Aplicar e desfazer política de máquina | Situação lida de novo | 11/V1 |
-| 9.2 | Política de conta na logada, em perfil carregado e em perfil fechado; conta que roda o Bench | Aplica; a do Bench recusada | 11/V2, 11/V6 |
+| 9.2 | Política de conta na logada, em perfil carregado e em perfil fechado; conta que roda o Bench | Aplica; na do Bench, a confirmação avisa e aplica (ADR-034); desfazer em seguida | 11/V2, 11/V6 |
 | 9.3 | Cancelar com perfil fechado | Hive descarregado (`reg query HKU`) | 11/V3 |
 | 9.4 | Contas futuras: criar conta depois | Recebe as políticas, só lê | 11/V4 |
 | 9.5 | `Teste01` tenta apagar a política | Acesso negado (dono Administradores) | 11/V5 |

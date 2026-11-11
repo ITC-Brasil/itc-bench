@@ -2,10 +2,14 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/politicas-marcar-desativar-todas`, PR para `develop`: versão **0.19.0** com
-  "Marcar todas"/"Desmarcar todas" e "Desativar todas" na tela Políticas (ADR-033). Pendente: o
-  cenário 9.8 em máquina real. Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho,
-  assinar e publicar (`docs/BUILD.md`).
+- **Branch:** `feat/politicas-marcar-desativar-todas`, **só local** (o PR #67 foi fechado a
+  pedido do responsável), versão **0.19.0**, tela Políticas:
+  - "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
+  - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
+    Preparação continuam recusando).
+  Pendente: cenários 9.2 e 9.8 em máquina real; PR para `develop` quando o responsável pedir.
+  Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
+  (`docs/BUILD.md`).
 - **0.18.0:** na `main` (#66), tag `v0.18.0` enviada em 10/11/2026 (build de release no
   `app-build`). Falta publicar o rascunho, assinar e publicar a versão na API. Antes de publicar,
   acertar o cadastro do NocoDB (abaixo).
@@ -72,6 +76,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-11 | pós-16 — Políticas na conta que roda o Bench (0.19.0) | A conta dona do processo elevado deixa de ser recusada em Políticas e USB: `hive.recusa_alvo`/`hive.aplicar` com `permitir_dono` (padrão falso), e o `comum.ps1` só libera com perfil `politicas` e `ITC_PERMITIR_DONO=1`. Aparência e Preparação continuam recusando; nativo e Suporte também. Aviso na confirmação e na ajuda. 9 testes novos (3 com PowerShell real). ADR-034. Auditoria: 1 informativo (risco aceito). Roteiro 9.2 atualizado. |
 | 2026-11-11 | pós-16 — Políticas: marcar e desativar todas (0.19.0) | Tela Políticas: botão "Marcar todas"/"Desmarcar todas" (alterna, acompanha a marcação manual, sobrevive a "Atualizar", vale sem admin) e "Desativar todas" (desfaz o catálogo inteiro nos alvos marcados pelo mesmo Desfazer do ADR-021, com confirmação detalhada; sem alvo avisa; USB fora). Tela USB sem mudança. 9 testes novos. ADR-033. Auditoria: 1 informativo. Versão 0.19.0. Máquina real pendente (9.8). |
 | 2026-11-10 | Versão 0.18.0 | `__version__` 0.18.0 (README corrigido, ainda dizia 0.16.0). Entram as contas por turno na Identificação (ADR-029) e o acesso remoto do RustDesk 1.5.1 e os downloads (ADR-030 a 032). |
 | 2026-11-10 | pós-16 — Código HTTP no download | Download recusado pelo servidor (`HTTPError`) deixa de aparecer como "Sem rede": a tela diz "recusou o pedido (HTTP N)" e manda conferir o Link; o log tem só o Id e o código, sem link nem host. Ajuda da tela Acesso remoto atualizada (serviço do RustDesk, `--password`, download recusado). Auditorias: `2026-11-10-rustdesk-servico.md` e `2026-11-10-download-user-agent.md` (informativos). |

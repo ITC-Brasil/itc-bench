@@ -2154,3 +2154,43 @@ liberar a máquina para manutenção.
 
 **Consequences**
 Sem mudança no serviço, na API ou no NocoDB. Cenário 9.8 do roteiro de máquina real (11/V13).
+
+---
+
+## ADR-034 — Políticas também na conta que está rodando o Bench
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-021, item 5)
+
+**Context**
+O ADR-021 (item 5) recusava aplicar políticas na conta dona do processo elevado ("é a conta que
+está rodando o Bench"), no Python e de novo no PowerShell. O responsável quer poder aplicar as
+políticas também no usuário atual, por exemplo na conta de uso da máquina quando o técnico roda
+o Bench nela.
+
+**Decision**
+1. **Políticas (e a tela USB, que usa o mesmo serviço) aceitam a conta que roda o Bench.**
+   `politicas.aplicar` passa `permitir_dono=True` a `hive.aplicar`; `hive.recusa_alvo` só
+   recusa essa conta quando `permitir_dono` é falso.
+2. **Segunda conferência no trecho:** `comum.ps1` (`Hive-Escrita`) só libera a conta atual com o
+   perfil `politicas` **e** `ITC_PERMITIR_DONO=1`. Qualquer outro perfil continua recusando.
+3. **Aparência (papel de parede, mouse e teclado) e Preparação completa não mudam:** o padrão de
+   `permitir_dono` é falso e elas continuam recusando a conta que roda o Bench.
+4. **Continuam recusados** o Administrador nativo (RID 500) e a conta Suporte.
+5. **Aviso:** com a conta que roda o Bench marcada, a confirmação diz que a restrição vale para
+   ela no próximo logon e como desfazer (Desfazer ou Desativar todas, ADR-033). A ajuda da tela
+   diz que a conta é aceita.
+
+**Alternatives considered**
+- Manter a recusa — o técnico teria de entrar com outra conta para restringir a conta em uso.
+- Liberar também na Aparência — fora do pedido; a recusa lá continua protegendo a sessão do
+  técnico.
+
+**Riscos aceitos (responsável, 11/11/2026)**
+- O técnico pode restringir a própria conta (CMD, Regedit, Painel de Controle, PowerShell pelo
+  Explorer) e só perceber no próximo logon. O Bench continua funcionando nela (não usa o
+  Explorer para abrir processos), e Desfazer ou Desativar todas desfazem.
+
+**Consequences**
+Cenários 9.2 e 11/V6 do roteiro passam a esperar "aceita, com aviso".
