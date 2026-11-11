@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from importlib import resources
 from typing import Literal
 
+from itc_bench.nucleo import acl
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import executor
 
@@ -178,12 +179,45 @@ def alterar(
     rodar: Rodar = executor.executar,
     sistema32: Callable[[str], str] = executor.sistema32,
     cancelar: threading.Event | None = None,
+    privilegios: Callable[[bool], None] | None = None,
 ) -> list[Feito]:
     """Proteger (ou desproteger) cada arquivo; cancelamento entre arquivos, nunca no meio."""
     for exe in exes:
         if exe not in PROTEGIVEIS:
             raise ValueError(f"Arquivo fora da proteção: {exe!r}")
     antes = situacao(rodar=rodar_ps)
+    ajustar = privilegios or _privilegios
+    # O dono de volta ao TrustedInstaller (`icacls /setowner`) exige o SeRestore ligado no token
+    # que o icacls herda; sem isso ele sai com 5 (acesso negado). Ligado só durante os passos e
+    # desligado no `finally`. Falhar ao ligar não para: o passo do dono diz se deu certo.
+    try:
+        ajustar(True)
+    except OSError as falha:
+        log.warning("Proteção: privilégios não ligados (%s)", type(falha).__name__)
+    try:
+        return _alterar_arquivos(proteger, exes, antes, rodar, sistema32, cancelar)
+    finally:
+        try:
+            ajustar(False)
+        except OSError as falha:
+            log.warning("Proteção: privilégios não desligados (%s)", type(falha).__name__)
+
+
+def _privilegios(ligar: bool) -> None:
+    if ligar:
+        acl.habilitar_privilegios()
+    else:
+        acl.desabilitar_privilegios()
+
+
+def _alterar_arquivos(
+    proteger: bool,
+    exes: Sequence[str],
+    antes: Situacao,
+    rodar: Rodar,
+    sistema32: Callable[[str], str],
+    cancelar: threading.Event | None,
+) -> list[Feito]:
     acao = "proteger" if proteger else "desproteger"
     feitos = []
     for exe in exes:

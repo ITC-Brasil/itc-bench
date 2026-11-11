@@ -95,7 +95,8 @@ def test_falha_que_sobra_vira_erro(tmp_path):
     ):
         acl.proteger(tmp_path)
     assert aplicar.call_count == 2
-    privilegios.assert_called_once()
+    # Liga para a segunda tentativa e desliga logo depois: não ficam ligados no Bench.
+    assert privilegios.call_args_list == [mock.call(), mock.call(ligar=False)]
 
 
 def test_sem_admin_nao_mexe_no_acl(tmp_path, monkeypatch):

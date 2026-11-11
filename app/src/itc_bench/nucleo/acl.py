@@ -61,7 +61,10 @@ def proteger(raiz: Path, sddl: str = SDDL, exceto: Path | None = None) -> None:
     falhas = _aplicar(raiz, sddl, exceto)
     if any(codigo == _ERROR_ACCESS_DENIED for _, codigo in falhas):
         _habilitar_privilegios()
-        falhas = _aplicar(raiz, sddl, exceto)
+        try:
+            falhas = _aplicar(raiz, sddl, exceto)
+        finally:
+            _habilitar_privilegios(ligar=False)  # não ficam ligados para o resto da execução
     # Junction criada entre a primeira checagem e o ACL desviaria o log. Agora quem não é admin
     # não cria mais nada ali, então a segunda checagem fecha a corrida.
     verificar_reparse(raiz)
@@ -244,15 +247,31 @@ class _Privilegios(ctypes.Structure):
     )
 
 
-def _habilitar_privilegios() -> None:
-    """Liga SeTakeOwnership e SeRestore no token do processo (só valem em execução elevada)."""
+def habilitar_privilegios() -> None:
+    """Liga SeTakeOwnership e SeRestore no token do Bench. Os processos filhos (takeown,
+    icacls) herdam o token com eles ligados: o `icacls /setowner` para outra conta (o
+    TrustedInstaller, na Proteção do login) exige o SeRestore ligado (máquina real, 11/11/2026).
+    Quem liga desliga com `desabilitar_privilegios` assim que terminar (ADR-022, emenda)."""
+    _habilitar_privilegios()
+
+
+def desabilitar_privilegios() -> None:
+    """Desliga SeTakeOwnership e SeRestore de novo: ligados, o Bench e todo processo que ele
+    abrir depois passariam por cima das permissões de arquivo."""
+    _habilitar_privilegios(ligar=False)
+
+
+def _habilitar_privilegios(ligar: bool = True) -> None:
+    """Liga (ou desliga) SeTakeOwnership e SeRestore no token do processo (só valem em execução
+    elevada)."""
     token = wintypes.HANDLE()
     # TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY
     if not _advapi.OpenProcessToken(_kernel32.GetCurrentProcess(), 0x20 | 0x8, ctypes.byref(token)):
         raise ctypes.WinError(ctypes.get_last_error())
     try:
         for nome in _PRIVILEGIOS:
-            novo = _Privilegios(PrivilegeCount=1, Attributes=0x2)  # SE_PRIVILEGE_ENABLED
+            # SE_PRIVILEGE_ENABLED para ligar; 0 desliga sem remover o privilégio do token.
+            novo = _Privilegios(PrivilegeCount=1, Attributes=0x2 if ligar else 0)
             if not _advapi.LookupPrivilegeValueW(None, nome, ctypes.byref(novo.Luid)):
                 raise ctypes.WinError(ctypes.get_last_error())
             ctypes.set_last_error(0)
