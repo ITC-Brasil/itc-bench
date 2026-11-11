@@ -2230,3 +2230,42 @@ Administradores, contra o ADR-022 ("o arquivo nunca fica com dono Administradore
 **Consequences**
 O roteiro 10.1 confere o dono TrustedInstaller de volta. Na máquina em que o erro apareceu,
 "Proteger" de novo (já com a correção) devolve o dono.
+
+---
+
+## ADR-036 — Contas: filtro modificáveis/não modificáveis e encerrar sessões
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-017)
+
+**Context**
+A tela Contas mostrava todas as contas juntas, inclusive as que o Bench nunca deixa alterar
+(Administrador nativo, Suporte, contas Microsoft), e não havia como encerrar a sessão de outra
+conta aberta na máquina (troca rápida de usuário) antes de excluí-la ou de aplicar algo nela.
+
+**Decision**
+1. **Filtro** acima da tabela: "Contas modificáveis" (padrão) e "Contas não modificáveis".
+   Modificável (`contas.modificavel`) = conta local que não é o Administrador nativo nem a
+   Suporte (nome cadastrado ou "Suporte"). O resto vai para "não modificáveis", só consulta. As
+   outras regras do ADR-017 (conta em uso, último administrador, sessão aberta) continuam por
+   ação, nas contas modificáveis.
+2. **Encerrar sessões…** na Conta selecionada: lista as contas com sessão aberta
+   (`contas.com_sessao`: perfil carregado ou em uso), o técnico marca quais e confirma ("o que
+   estiver aberto e não salvo é perdido"). Cada uma vai por `contas.encerrar_sessao(sid)`.
+3. **Trecho fixo `recursos/contas/encerrar.ps1`:** SID só por `ITC_SID` (validado); acha as
+   sessões pelo dono do `explorer.exe` (como `Sids-Logados`); **recusa a sessão em que o próprio
+   Bench roda** (`GetCurrentProcess().SessionId`); `logoff.exe` de `System32` por número de
+   sessão. Erros como código (`sem_sessao`, `propria`, `encerrar`), sem mensagem do Windows no
+   log.
+4. Exige administrador; `--dev` só lê.
+
+**Alternatives considered**
+- Esconder as contas não modificáveis de vez — o técnico deixaria de ver que a Suporte existe.
+- Encerrar pelo texto do `quser`/`query session` — saída localizada; o dono do `explorer.exe`
+  já é usado na listagem e não depende do idioma.
+- Permitir encerrar a sessão do Bench — o Bench fecharia no meio da ação.
+
+**Consequences**
+"Aplicar conta Suporte" continua na tela (o pedido de tirá-lo ficou para depois). Cenário 5.8
+do roteiro (07/V9). Sessão sem `explorer.exe` (só serviço) não aparece como encerrável.

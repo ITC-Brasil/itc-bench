@@ -8,9 +8,11 @@
   - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
     Preparação continuam recusando);
   - Proteção do login: `setowner_5` corrigido ligando SeTakeOwnership/SeRestore só durante os
-    passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta).
-  Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram. PR #68 para `develop`;
-  pendente a rodada com o instalador do CI.
+    passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta);
+  - Contas: filtro "modificáveis"/"não modificáveis" e "Encerrar sessões…" (ADR-036). **Só no
+    PC, sem push** (o PR #68 ainda não tem estes commits). Pendente: roteiro 5.8.
+  Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram. Pendente a rodada com
+  o instalador do CI.
   Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
   (`docs/BUILD.md`).
 - **0.18.0:** na `main` (#66), tag `v0.18.0` enviada em 10/11/2026 (build de release no
@@ -79,6 +81,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-11 | pós-16 — Contas: filtro e encerrar sessões (0.19.0) | Tela Contas com filtro "Contas modificáveis" (padrão: locais menos nativo e Suporte) e "Contas não modificáveis" (o resto, consulta), contagem "N de M". "Encerrar sessões…": lista as contas com sessão aberta, marca e confirma; `contas.encerrar_sessao` pelo trecho fixo `encerrar.ps1` (sessões pelo dono do `explorer.exe`, `logoff.exe` por sessão, recusa a sessão do Bench). 11 testes novos (1 com PowerShell real), 2 ajustados. ADR-036. Auditoria: 2 informativos. Roteiro 5.8. |
 | 2026-11-11 | pós-16 — Proteção do login: dono de volta (0.19.0) | Máquina real: "Proteger" dava `setowner_5` no utilman e no sethc (negação aplicada, dono ficava Administradores), porque o `icacls /setowner` para o TrustedInstaller exige o SeRestore ligado no token herdado. `protecao.alterar` liga SeTakeOwnership/SeRestore antes dos passos e desliga no `finally`; `acl.proteger` passa a desligar depois da segunda tentativa (antes ficava ligado). 4 testes novos, 1 ajustado. ADR-035. Auditoria: 1 baixo corrigido, 1 informativo. Roteiro 10.1. |
 | 2026-11-11 | pós-16 — Políticas na conta que roda o Bench (0.19.0) | A conta dona do processo elevado deixa de ser recusada em Políticas e USB: `hive.recusa_alvo`/`hive.aplicar` com `permitir_dono` (padrão falso), e o `comum.ps1` só libera com perfil `politicas` e `ITC_PERMITIR_DONO=1`. Aparência e Preparação continuam recusando; nativo e Suporte também. Aviso na confirmação e na ajuda. 9 testes novos (3 com PowerShell real). ADR-034. Auditoria: 1 informativo (risco aceito). Roteiro 9.2 atualizado. |
 | 2026-11-11 | pós-16 — Políticas: marcar e desativar todas (0.19.0) | Tela Políticas: botão "Marcar todas"/"Desmarcar todas" (alterna, acompanha a marcação manual, sobrevive a "Atualizar", vale sem admin) e "Desativar todas" (desfaz o catálogo inteiro nos alvos marcados pelo mesmo Desfazer do ADR-021, com confirmação detalhada; sem alvo avisa; USB fora). Tela USB sem mudança. 9 testes novos. ADR-033. Auditoria: 1 informativo. Versão 0.19.0. Máquina real pendente (9.8). |
