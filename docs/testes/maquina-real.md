@@ -228,6 +228,7 @@ por `uv run` elevado.
 |---|---|---|
 | 10.1 (proteger) | **Passou** depois do ADR-035 | Antes: `setowner_5` e dono Administradores; depois: `utilman.exe` e `sethc.exe` com dono `NT SERVICE\TrustedInstaller` e `Deny SYSTEM ExecuteFile` (`Get-Acl`) |
 | 9.2 (conta do Bench) | **Passou** | Políticas aplicadas na conta que roda o Bench: "Feito." no registro da tela (ADR-034) |
+| 9.8 (marcar e desativar todas) | **Passou** (aprovado pelo responsável) | Marcar todas → Aplicar numa conta de teste; depois, com as caixas desmarcadas, Desativar todas (ADR-033) |
 
 Observado: o atalho Shift 5x continua aparecendo na tela de bloqueio porque ele é uma
 configuração à parte da proteção do `sethc.exe` (`StickyKeys` em 510 no `.DEFAULT` e na conta).

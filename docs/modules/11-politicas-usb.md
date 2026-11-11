@@ -114,7 +114,7 @@ Pro em português) foi usada só para leitura. A única escrita foi o teste numa
 | V10 | Windows em inglês | Roteiro, passo 10 | **Pendente (máquina real, com o instalador)** |
 | V11 | `--dev` sem admin | Roteiro, passo 1 | **Pendente (máquina real, com o instalador)** |
 | V12 | Log sem nome de usuário, SID, caminho de perfil nem dados de pendrive | Roteiro, passo 11 | **Pendente (máquina real, com o instalador)** |
-| V13 | Marcar todas, Aplicar numa conta de teste; Desativar todas na mesma conta (ADR-033) | Roteiro, passo 9.8 | **Pendente (máquina real, com o instalador)** |
+| V13 | Marcar todas, Aplicar numa conta de teste; Desativar todas na mesma conta (ADR-033) | Roteiro, passo 9.8 | **Passou em desenvolvimento** (11/11/2026, `uv run` elevado, aprovado pelo responsável). Pendente com o instalador |
 
 ## Passos do responsável
 

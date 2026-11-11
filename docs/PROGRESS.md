@@ -2,14 +2,15 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/politicas-marcar-desativar-todas`, **só local** (o PR #67 foi fechado a
-  pedido do responsável), versão **0.19.0**, tela Políticas:
+- **Branch:** `feat/politicas-marcar-desativar-todas`, **PR #68 para `develop`** (o #67 foi
+  fechado antes, a pedido do responsável), versão **0.19.0**, tela Políticas:
   - "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
   - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
     Preparação continuam recusando);
   - Proteção do login: `setowner_5` corrigido ligando SeTakeOwnership/SeRestore só durante os
     passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta).
-  Pendente: cenários 9.2 e 9.8 em máquina real; PR para `develop` quando o responsável pedir.
+  Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram. PR #68 para `develop`;
+  pendente a rodada com o instalador do CI.
   Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
   (`docs/BUILD.md`).
 - **0.18.0:** na `main` (#66), tag `v0.18.0` enviada em 10/11/2026 (build de release no
