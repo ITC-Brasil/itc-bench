@@ -138,10 +138,13 @@ class Identificacao:
 
 
 def _admins_extra(lista: contas.Lista, prot: frozenset[str]) -> list[contas.Conta]:
+    """Administradores além da Suporte; as restritas fixas (Gestão, ADR-036) ficam
+    administradoras de propósito e não deixam a etapa pendente."""
+    ignorar = set(prot) | contas.RESTRITAS
     return [
         c
         for c in lista.contas
-        if c.local and c.ativo and c.admin and not c.nativo and c.nome.lower() not in prot
+        if c.local and c.ativo and c.admin and not c.nativo and c.nome.lower() not in ignorar
     ]
 
 

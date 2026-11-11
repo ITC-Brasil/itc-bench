@@ -2136,3 +2136,161 @@ RustDesk). O Bench esperava o serviço por 90 s e falhava com "não respondeu a 
 **Consequences**
 Pior caso do Instalar do RustDesk: cerca de 3 min antes da mensagem de erro. Cenário 7.2c do
 roteiro de máquina real.
+
+---
+
+## ADR-033 — Políticas: marcar/desmarcar todas e desativar todas
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-021, item 13)
+
+**Context**
+Na tela Segurança › Políticas o técnico marca política por política (12 itens) para aplicar ou
+desfazer, e não havia como tirar de uma vez todas as restrições de uma conta, por exemplo para
+liberar a máquina para manutenção.
+
+**Decision**
+1. **"Marcar todas" / "Desmarcar todas":** um botão acima da lista que marca todas as políticas;
+   se já estão todas marcadas, desmarca todas. O texto acompanha a marcação manual e a marcação
+   sobrevive a "Atualizar". Só muda a tela: funciona sem administrador.
+2. **"Desativar todas":** ao lado de Aplicar e Desfazer, desfaz **todo o catálogo da tela** nos
+   **alvos marcados**, sem depender das caixas de política. É o mesmo Desfazer do ADR-021
+   (`politicas.aplicar("desfazer", …)`): mesma confirmação detalhada (o que muda em cada alvo),
+   com um cabeçalho "Desativar TODAS…", mesmas recusas de alvo, mesmo cancelamento entre alvos e
+   mesmo log. Sem alvo marcado, avisa e não faz nada. Exige administrador; `--dev` só lê.
+3. **Só na tela Políticas.** A tela USB tem uma política só e não muda (Desabilitar/Habilitar).
+   "Desativar todas" não toca no bloqueio de USB, que é desfeito pela tela USB.
+
+**Alternatives considered**
+- Dois botões separados para marcar e desmarcar — mais um botão para a mesma ação.
+- "Desativar todas" em todos os alvos de uma vez — alcança contas que o técnico não escolheu;
+  os alvos continuam escolhidos à mão.
+- Incluir o USB no "Desativar todas" — liberaria pendrive sem passar pela tela USB.
+
+**Consequences**
+Sem mudança no serviço, na API ou no NocoDB. Cenário 9.8 do roteiro de máquina real (11/V13).
+
+---
+
+## ADR-034 — Políticas também na conta que está rodando o Bench
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-021, item 5)
+
+**Context**
+O ADR-021 (item 5) recusava aplicar políticas na conta dona do processo elevado ("é a conta que
+está rodando o Bench"), no Python e de novo no PowerShell. O responsável quer poder aplicar as
+políticas também no usuário atual, por exemplo na conta de uso da máquina quando o técnico roda
+o Bench nela.
+
+**Decision**
+1. **Políticas (e a tela USB, que usa o mesmo serviço) aceitam a conta que roda o Bench.**
+   `politicas.aplicar` passa `permitir_dono=True` a `hive.aplicar`; `hive.recusa_alvo` só
+   recusa essa conta quando `permitir_dono` é falso.
+2. **Segunda conferência no trecho:** `comum.ps1` (`Hive-Escrita`) só libera a conta atual com o
+   perfil `politicas` **e** `ITC_PERMITIR_DONO=1`. Qualquer outro perfil continua recusando.
+3. **Aparência (papel de parede, mouse e teclado) e Preparação completa não mudam:** o padrão de
+   `permitir_dono` é falso e elas continuam recusando a conta que roda o Bench.
+4. **Continuam recusados** o Administrador nativo (RID 500) e a conta Suporte.
+5. **Aviso:** com a conta que roda o Bench marcada, a confirmação diz que a restrição vale para
+   ela no próximo logon e como desfazer (Desfazer ou Desativar todas, ADR-033). A ajuda da tela
+   diz que a conta é aceita.
+
+**Alternatives considered**
+- Manter a recusa — o técnico teria de entrar com outra conta para restringir a conta em uso.
+- Liberar também na Aparência — fora do pedido; a recusa lá continua protegendo a sessão do
+  técnico.
+
+**Riscos aceitos (responsável, 11/11/2026)**
+- O técnico pode restringir a própria conta (CMD, Regedit, Painel de Controle, PowerShell pelo
+  Explorer) e só perceber no próximo logon. O Bench continua funcionando nela (não usa o
+  Explorer para abrir processos), e Desfazer ou Desativar todas desfazem.
+
+**Consequences**
+Cenários 9.2 e 11/V6 do roteiro passam a esperar "aceita, com aviso".
+
+---
+
+## ADR-035 — SeTakeOwnership e SeRestore ligados só durante a operação
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (máquina real; emenda ao ADR-022, item 2, e ao ADR-011, item ACL)
+
+**Context**
+Na máquina real (11/11/2026), "Proteger" na Proteção do login deu `setowner_5` no utilman e no
+sethc: o `icacls /setowner *<SID do TrustedInstaller>` sai com 5 (acesso negado), porque dar o
+dono a outra conta exige o SeRestorePrivilege **ligado** no token que o `icacls` herda, e o
+administrador o tem desligado. A negação ao SYSTEM foi aplicada, mas o dono ficou
+Administradores, contra o ADR-022 ("o arquivo nunca fica com dono Administradores"). O
+`nucleo/acl.py` já ligava os dois privilégios na inicialização (segunda tentativa do ACL de
+`%ProgramData%\ITC`) e nunca os desligava.
+
+**Decision**
+1. `nucleo/acl.py` ganha `habilitar_privilegios()` e `desabilitar_privilegios()` (o mesmo
+   `AdjustTokenPrivileges`, com `SE_PRIVILEGE_ENABLED` ou `0`).
+2. **Proteção do login** (`protecao.alterar`): liga os dois privilégios antes dos passos
+   (`takeown`, `icacls`, `setowner`) e desliga num `finally`, também com exceção. Falha ao ligar
+   ou desligar vai ao log e não para: o passo do dono continua dizendo se deu certo.
+3. **ACL de `%ProgramData%\ITC`** (`acl.proteger`): a segunda tentativa liga e desliga num
+   `finally`, em vez de deixar ligado pelo resto da execução.
+
+**Alternatives considered**
+- `Set-Acl` com `SetOwner` no PowerShell — exige o mesmo privilégio ligado, e ligar dentro do
+  trecho pediria `Add-Type` (proibido).
+- Deixar os privilégios ligados desde a inicialização — o Bench e todo processo que ele abrisse
+  passariam por cima das permissões de arquivo.
+
+**Consequences**
+O roteiro 10.1 confere o dono TrustedInstaller de volta. Na máquina em que o erro apareceu,
+"Proteger" de novo (já com a correção) devolve o dono.
+
+---
+
+## ADR-036 — Contas: filtro modificáveis/não modificáveis e encerrar sessões
+
+**Status:** Accepted
+**Date:** 2026-11-11
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-017)
+
+**Context**
+A tela Contas mostrava todas as contas juntas, inclusive as que o Bench nunca deixa alterar
+(Administrador nativo, Suporte, contas Microsoft), e não havia como encerrar a sessão de outra
+conta aberta na máquina (troca rápida de usuário) antes de excluí-la ou de aplicar algo nela.
+
+**Decision**
+1. **Filtro** acima da tabela: "Contas modificáveis" (padrão) e "Contas não modificáveis".
+   Modificável (`contas.modificavel`) = conta local que não é o Administrador nativo, a
+   Suporte (nome cadastrado ou "Suporte") nem uma restrita fixa (item 2). O resto vai para "não
+   modificáveis", só consulta. As outras regras do ADR-017 (conta em uso, último administrador,
+   sessão aberta) continuam por ação, nas contas modificáveis.
+2. **Gestão é restrita fixa** (`contas.RESTRITAS` = `Gestão`/`Gestao`, sem diferenciar
+   maiúsculas; a mesma lista em `$RESTRITAS` do `comum.ps1`): toda ação manual é recusada com
+   "A conta Gestão é protegida: o Bench não a altera." (`recusa` → `restrita`, no Python e de
+   novo no PowerShell); o nome é reservado na criação (Python e `criar.ps1`); fica fora das
+   ações em lote, nas duas direções (`mudariam` e `lote.ps1`). **Não conta como Suporte:**
+   "Remover administrador de todos" continua exigindo a Suporte. Na Preparação completa, a
+   Gestão administradora não deixa a etapa Contas pendente (`etapas._admins_extra`).
+3. **Encerrar sessões…** na Conta selecionada: lista as contas com sessão aberta
+   (`contas.com_sessao`: perfil carregado ou em uso), o técnico marca quais e confirma ("o que
+   estiver aberto e não salvo é perdido"). Cada uma vai por `contas.encerrar_sessao(sid)`.
+4. **Trecho fixo `recursos/contas/encerrar.ps1`:** SID só por `ITC_SID` (validado); acha as
+   sessões pelo dono do `explorer.exe` (como `Sids-Logados`); **recusa a sessão em que o próprio
+   Bench roda** (`GetCurrentProcess().SessionId`); `logoff.exe` de `System32` por número de
+   sessão. Erros como código (`sem_sessao`, `propria`, `encerrar`), sem mensagem do Windows no
+   log.
+5. Exige administrador; `--dev` só lê.
+
+**Alternatives considered**
+- Gestão pelo cadastro (linha em Servidores, como a Suporte) — mais uma linha para manter por um
+  nome que é o mesmo em todos os notebooks (pedido do responsável: fixa no código).
+- Esconder as contas não modificáveis de vez — o técnico deixaria de ver que a Suporte existe.
+- Encerrar pelo texto do `quser`/`query session` — saída localizada; o dono do `explorer.exe`
+  já é usado na listagem e não depende do idioma.
+- Permitir encerrar a sessão do Bench — o Bench fecharia no meio da ação.
+
+**Consequences**
+"Aplicar conta Suporte" continua na tela (o pedido de tirá-lo ficou para depois). Cenário 5.8
+do roteiro (07/V9). Sessão sem `explorer.exe` (só serviço) não aparece como encerrável.

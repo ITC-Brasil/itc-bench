@@ -3,6 +3,9 @@
 $SID_ADM = 'S-1-5-32-544'
 $SID_USR = 'S-1-5-32-545'
 $PROTEGIDAS = @(if ($env:ITC_PROTEGIDAS) { $env:ITC_PROTEGIDAS -split "`n" | Where-Object { $_ } })
+# Restritas fixas (ADR-036), as mesmas de `RESTRITAS` em servicos/contas.py: nunca alteradas nem
+# mexidas em lote, mas não contam como Suporte. -contains não diferencia maiúsculas.
+$RESTRITAS = @('Gestão', 'Gestao')
 
 function Falhar([string]$codigo, [string]$mensagem) {
     Write-Output ('ERRO|' + $codigo + '|' + ($mensagem -replace '[\r\n]+', ' '))
@@ -50,6 +53,7 @@ function Recusa([string]$acao, $conta, $admins, $logados) {
     if ($sid -match '-500$') { return 'nativo' }
     if (-not (Eh-Local $conta)) { return 'microsoft' }
     if ($PROTEGIDAS -contains $conta.Name) { return 'suporte' }
+    if ($RESTRITAS -contains $conta.Name) { return 'restrita' }
     if ($acao -in @('padrao', 'excluir', 'senha', 'sem_senha') -and $logados -contains $sid) { return 'logada' }
     if ($acao -in @('padrao', 'excluir') -and $admins -contains $sid) {
         $outros = @(Get-LocalUser | Where-Object { $_.Enabled -and $_.SID.Value -ne $sid -and $admins -contains $_.SID.Value })

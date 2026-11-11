@@ -2,18 +2,29 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `fix/revisao-0.18` (a partir da `develop`), PR para `develop`, em andamento:
-  correções da revisão da 0.18.0. A **0.18.0 foi publicada e assinada pelo responsável**. Nesta
-  branch: conta por turno que já existe e é administradora vira ✕ (ADR-029, item 11); senha do
-  RustDesk com mínimo de 14 caracteres, recusada antes do `rustdesk.exe` (ADR-031); ADR-029
-  declara a emenda ao ADR-017; ADR-031 registra a exposição da senha na auditoria de processos;
-  roteiro 6.5, 7.2d e 7.2e em `docs/testes/maquina-real.md`. Versão não muda: o bump para
-  0.18.1 é do responsável, depois do merge. Próximo passo: revisão e merge do PR; rodar 6.5,
-  7.2d e 7.2e com o instalador.
-- **Antes (0.18.0) — branch:** `chore/versao-0.18.0`, PR para `develop`: versão **0.18.0** com as contas por turno
-  (ADR-029, #61/#62) e o acesso remoto do RustDesk 1.5.1 (#63/#64), já na `main`. Depois do
-  merge até a `main`: tag `v0.18.0`, publicar o rascunho, assinar e publicar a versão na API
-  (`docs/BUILD.md`). Antes de publicar, acertar o cadastro do NocoDB (abaixo).
+- **Branch:** `feat/politicas-marcar-desativar-todas`, **PR #68 para `develop`** (o #67 foi
+  fechado antes, a pedido do responsável), versão **0.19.0**, tela Políticas:
+  - "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
+  - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
+    Preparação continuam recusando). Os 3 testes com PowerShell real são pulados no runner
+    do CI (conta nativa `-500`);
+  - Proteção do login: `setowner_5` corrigido ligando SeTakeOwnership/SeRestore só durante os
+    passos (ADR-035); **confirmado na máquina real** (dono TrustedInstaller de volta);
+  - Contas: filtro "modificáveis"/"não modificáveis", Gestão restrita como a Suporte e
+    "Encerrar sessões…" (ADR-036). Tudo enviado ao PR #68. Pendente: roteiro 5.8.
+  Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram. Pendente a rodada com
+  o instalador do CI. A `develop` (com a revisão da 0.18, #69) foi trazida para esta branch.
+  Depois do merge até a `main`: tag `v0.19.0`, publicar o rascunho, assinar e publicar
+  (`docs/BUILD.md`).
+- **Revisão da 0.18 (`fix/revisao-0.18`, #69):** mesclada na `develop` e na `main` (#70) em
+  11/11/2026, sem bump de versão (0.18.1 fica com o responsável). Conta por turno que já existe
+  e é administradora vira ✕ (ADR-029, item 11); senha do RustDesk com mínimo de 14 caracteres,
+  recusada antes do `rustdesk.exe` (ADR-031); ADR-029 declara a emenda ao ADR-017; ADR-031
+  registra a exposição da senha na auditoria de processos. Pendente: roteiro 6.5, 7.2d e 7.2e
+  com o instalador.
+- **0.18.0:** na `main` (#66), tag `v0.18.0`; **publicada e assinada pelo responsável**. Antes
+  (`chore/versao-0.18.0`): contas por turno (ADR-029, #61/#62) e acesso remoto do RustDesk 1.5.1
+  (#63/#64).
 - **Na 0.18.0 (PR #63):** acesso remoto acertado na máquina real com o RustDesk 1.5.1:
   - "Servidor da API" pela linha opcional `RustDesk`/`api` (ADR-030);
   - senha por `rustdesk.exe --password`, sem senha no disco (ADR-031; risco aceito) e
@@ -77,6 +88,10 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-11 | pós-16 — Contas: filtro e encerrar sessões (0.19.0) | Tela Contas com filtro "Contas modificáveis" (padrão: locais menos nativo, Suporte e Gestão) e "Contas não modificáveis" (o resto, consulta), contagem "N de M". "Encerrar sessões…": lista as contas com sessão aberta, marca e confirma; `contas.encerrar_sessao` pelo trecho fixo `encerrar.ps1` (sessões pelo dono do `explorer.exe`, `logoff.exe` por sessão, recusa a sessão do Bench). **Gestão restrita fixa** (`RESTRITAS`, no Python e no `comum.ps1`): toda ação recusada, nome reservado, fora do lote, não vale como Suporte, não deixa a Preparação pendente. 22 testes novos (4 com PowerShell real), 2 ajustados. ADR-036. Auditoria: 2 informativos. Roteiro 5.8. |
+| 2026-11-11 | pós-16 — Proteção do login: dono de volta (0.19.0) | Máquina real: "Proteger" dava `setowner_5` no utilman e no sethc (negação aplicada, dono ficava Administradores), porque o `icacls /setowner` para o TrustedInstaller exige o SeRestore ligado no token herdado. `protecao.alterar` liga SeTakeOwnership/SeRestore antes dos passos e desliga no `finally`; `acl.proteger` passa a desligar depois da segunda tentativa (antes ficava ligado). 4 testes novos, 1 ajustado. ADR-035. Auditoria: 1 baixo corrigido, 1 informativo. Roteiro 10.1. |
+| 2026-11-11 | pós-16 — Políticas na conta que roda o Bench (0.19.0) | A conta dona do processo elevado deixa de ser recusada em Políticas e USB: `hive.recusa_alvo`/`hive.aplicar` com `permitir_dono` (padrão falso), e o `comum.ps1` só libera com perfil `politicas` e `ITC_PERMITIR_DONO=1`. Aparência e Preparação continuam recusando; nativo e Suporte também. Aviso na confirmação e na ajuda. 9 testes novos (3 com PowerShell real; pulados quando a conta que roda é a nativa `-500` ou de serviço, como no runner do CI, que pararia em `ERRO|nativo` antes do dono). ADR-034. Auditoria: 1 informativo (risco aceito). Roteiro 9.2 atualizado. |
+| 2026-11-11 | pós-16 — Políticas: marcar e desativar todas (0.19.0) | Tela Políticas: botão "Marcar todas"/"Desmarcar todas" (alterna, acompanha a marcação manual, sobrevive a "Atualizar", vale sem admin) e "Desativar todas" (desfaz o catálogo inteiro nos alvos marcados pelo mesmo Desfazer do ADR-021, com confirmação detalhada; sem alvo avisa; USB fora). Tela USB sem mudança. 9 testes novos. ADR-033. Auditoria: 1 informativo. Versão 0.19.0. Máquina real pendente (9.8). |
 | 2026-11-10 | Versão 0.18.0 | `__version__` 0.18.0 (README corrigido, ainda dizia 0.16.0). Entram as contas por turno na Identificação (ADR-029) e o acesso remoto do RustDesk 1.5.1 e os downloads (ADR-030 a 032). |
 | 2026-11-10 | pós-16 — Código HTTP no download | Download recusado pelo servidor (`HTTPError`) deixa de aparecer como "Sem rede": a tela diz "recusou o pedido (HTTP N)" e manda conferir o Link; o log tem só o Id e o código, sem link nem host. Ajuda da tela Acesso remoto atualizada (serviço do RustDesk, `--password`, download recusado). Auditorias: `2026-11-10-rustdesk-servico.md` e `2026-11-10-download-user-agent.md` (informativos). |
 | 2026-11-10 | pós-16 — Download com User-Agent próprio | Máquina real: o download do AnyDesk respondia 403 ao User-Agent padrão do urllib (`Python-urllib/3.x`); com um nome próprio, 200. `instaladores._abrir` passa a mandar `ITC-Bench/<versão>`, mantido no redirecionamento (só https). Vale para todos os downloads de Instaladores. |

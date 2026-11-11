@@ -4,7 +4,7 @@ Aplicativo Windows para a bancada do técnico do Grupo ITC Brasil. Faz a Prepara
 Diagnóstico dos notebooks das Unidades Móveis, com laudo escrito por IA no servidor.
 
 Substitui o ITC Configurador e o Técnico Assistente. O Técnico Assistente foi descontinuado e o
-repositório antigo fica só como referência. Versão atual: **0.18.0**, ainda antes da 1.0.0.
+repositório antigo fica só como referência. Versão atual: **0.19.0**, ainda antes da 1.0.0.
 
 ## Para quem
 

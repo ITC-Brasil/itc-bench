@@ -24,6 +24,9 @@ from itc_bench.servicos.executor import Sensivel
 RECURSOS = resources.files("itc_bench.recursos") / "contas"
 SUPORTE_PADRAO = "Suporte"
 SERVICO_SUPORTE = "Conta Suporte"
+# Contas restritas fixas (ADR-036): o Bench não as altera nem as mexe em lote, como a Suporte,
+# mas não contam como Suporte. Mesma lista em `recursos/contas/comum.ps1` ($RESTRITAS).
+RESTRITAS = frozenset({"gestão", "gestao"})
 TIMEOUT_LISTA, TIMEOUT_ACAO, TIMEOUT_LOTE = 30.0, 60.0, 120.0
 TEMPO_TAMANHO = 5.0  # teto para medir o perfil na confirmação de exclusão
 
@@ -53,6 +56,11 @@ MENSAGENS = {
     "suporte_ausente": "A conta Suporte não existe, está desativada ou não é administradora. "
     "Rode “Aplicar conta Suporte” antes.",
     "parcial": "A conta foi criada, mas um passo seguinte falhou",
+    # Encerrar sessão (ADR-036)
+    "restrita": "A conta Gestão é protegida: o Bench não a altera.",
+    "sem_sessao": "A conta não tem sessão aberta agora.",
+    "propria": "É a sessão em que o Bench está rodando: saia pelo próprio Windows.",
+    "encerrar": "O Windows não encerrou a sessão",
 }
 
 
@@ -134,6 +142,8 @@ def validar_nome(
         return "Nome reservado pelo Windows."
     if baixo in protegidas_:
         return "Nome reservado para a conta Suporte."
+    if baixo in RESTRITAS:
+        return "Nome reservado para a conta Gestão."
     if lista is not None:
         if baixo == lista.computador.lower() and not permitir_nome_computador:
             return MENSAGENS["nome_computador"]
@@ -150,6 +160,8 @@ def recusa(acao: Acao, conta: Conta, lista: Lista, protegidas_: Iterable[str]) -
         return "microsoft"
     if conta.nome.lower() in protegidas_:
         return "suporte"
+    if conta.nome.lower() in RESTRITAS:
+        return "restrita"
     if acao in ("padrao", "excluir", "senha", "sem_senha") and conta.logada:
         return "logada"
     if acao in ("padrao", "excluir") and conta.admin:
@@ -166,7 +178,9 @@ def mudariam(
 ) -> list[str]:
     """Quem a ação em lote altera, para a confirmação (o PowerShell recalcula)."""
     prot = set(protegidas_)
-    locais = [c for c in lista.contas if c.local and not c.nativo]
+    locais = [
+        c for c in lista.contas if c.local and not c.nativo and c.nome.lower() not in RESTRITAS
+    ]
     if lote == "admin":
         return [c.nome for c in locais if c.ativo and not c.admin]
     return [c.nome for c in locais if c.admin and c.nome.lower() not in prot]
@@ -225,7 +239,7 @@ def _erro(resultado: executor.Resultado) -> str:
         if linha.startswith("ERRO|"):
             _, codigo, detalhe = [*linha.split("|", 2), "", ""][:3]
             base = MENSAGENS.get(codigo)
-            if codigo in ("criar", "senha", "tipo", "excluir", "suporte", "parcial"):
+            if codigo in ("criar", "senha", "tipo", "excluir", "suporte", "parcial", "encerrar"):
                 return f"{base}: {detalhe}" if base else detalhe or "Falha do Windows."
             return base or detalhe or codigo
     return f"Falha do PowerShell (código {resultado.codigo})."
@@ -458,6 +472,28 @@ def excluir(
     avisos = _avisos_log(linhas)
     log.info("Contas: %s %s: ok%s%s", acao, conta.nome, extra, f" ({avisos})" if avisos else "")
     return Feito(True, f"Conta {conta.nome} excluída.{extra}", (), _avisos(r))
+
+
+def modificavel(conta: Conta, protegidas_: Iterable[str]) -> bool:
+    """Conta que a tela Contas deixa alterar (ADR-036): local, fora o Administrador nativo, a
+    Suporte e as restritas fixas (Gestão). As outras regras (conta em uso, último
+    administrador) continuam por ação."""
+    prot = {n.lower() for n in protegidas_} | RESTRITAS
+    return conta.local and not conta.nativo and conta.nome.lower() not in prot
+
+
+def com_sessao(lista: Lista) -> list[Conta]:
+    """Contas com sessão aberta (perfil carregado ou em uso), para "Encerrar sessões"."""
+    return [c for c in lista.contas if c.carregado or c.logada]
+
+
+def encerrar_sessao(sid: str, *, rodar: Rodar = executor.powershell) -> Feito:
+    """Encerra as sessões do Windows da conta (ADR-036). O trecho recusa a sessão do Bench."""
+    conta = listar(rodar=rodar).por_sid(sid)
+    if conta is None:
+        return Feito(False, MENSAGENS["nao_encontrada"])
+    r = rodar(script("encerrar"), timeout=TIMEOUT_ACAO, sid=sid)
+    return _feito("encerrar sessão", conta.nome, r, f"Sessão de {conta.nome} encerrada.")
 
 
 def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:

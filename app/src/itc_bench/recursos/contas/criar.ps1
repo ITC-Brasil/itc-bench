@@ -3,6 +3,7 @@ if (Get-LocalUser -Name $nome -ErrorAction SilentlyContinue) { Falhar 'nome_exis
 if (Get-LocalGroup -Name $nome -ErrorAction SilentlyContinue) { Falhar 'nome_grupo' $nome }
 if ($nome -ieq [Environment]::MachineName -and $env:ITC_PERMITIR_NOME_PC -ne '1') { Falhar 'nome_computador' $nome }
 if ($PROTEGIDAS -contains $nome) { Falhar 'suporte' $nome }
+if ($RESTRITAS -contains $nome) { Falhar 'restrita' $nome }
 $p = @{ Name = $nome; FullName = $nome; AccountNeverExpires = $true }
 if ($env:ITC_SENHA) { $p.Password = ConvertTo-SecureString $env:ITC_SENHA -AsPlainText -Force } else { $p.NoPassword = $true }
 try { New-LocalUser @p | Out-Null } catch { Falhar 'criar' $_.Exception.Message }
