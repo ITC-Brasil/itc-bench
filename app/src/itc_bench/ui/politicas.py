@@ -53,9 +53,12 @@ AJUDA = (
     "Aplica e desfaz restrições do Windows (as “GPOs” do Configurador) por conta ou na "
     "máquina. A lista é fixa no Bench; não vem do cadastro.\n\n"
     "Aplicar\n"
-    "1. Marque os alvos e as políticas.\n"
+    "1. Marque os alvos e as políticas. “Marcar todas” marca a lista inteira; clicando de novo "
+    "(“Desmarcar todas”), desmarca.\n"
     "2. Aplicar mostra o que muda em cada alvo e pede confirmação.\n"
-    "3. Desfazer volta ao padrão do Windows (o ICS volta para Manual).\n\n"
+    "3. Desfazer volta ao padrão do Windows (o ICS volta para Manual).\n"
+    "4. Desativar todas desfaz todas as políticas da lista nos alvos marcados, mesmo as "
+    "desmarcadas, com a mesma confirmação.\n\n"
     "Bloquear PowerShell pelo Explorer impede abrir pelo Iniciar, Executar e duplo clique; uma "
     "cópia renomeada abre. Programas e Recursos esconde só o painel antigo.\n\n"
     "Script do Configurador\n"
@@ -139,6 +142,16 @@ class PainelPoliticas(QWidget):
         if not usb:
             v.addWidget(self.sobras)
 
+        # Marcar/desmarcar e desativar todas (ADR-033): só na tela Políticas; a USB tem uma só.
+        self.b_marcar_todas = QPushButton("Marcar todas")
+        self.b_marcar_todas.setToolTip("Marca ou desmarca todas as políticas da lista.")
+        self.b_marcar_todas.clicked.connect(self._alternar_todas)
+        if not usb:
+            linha_marcar = QHBoxLayout()
+            linha_marcar.addStretch()
+            linha_marcar.addWidget(self.b_marcar_todas)
+            v.addLayout(linha_marcar)
+
         meio = QHBoxLayout()
         self.lista_alvos = QListWidget()
         self.lista_alvos.setMaximumWidth(240)
@@ -148,6 +161,7 @@ class PainelPoliticas(QWidget):
         self.arvore.setHeaderLabels(["Política", "Escopo", "Situação"])
         self.arvore.setColumnWidth(0, 280)
         self.arvore.setColumnWidth(1, 110)
+        self.arvore.itemChanged.connect(lambda *_: self._atualizar_marcar_todas())
         meio.addWidget(self.arvore, 1)
         v.addLayout(meio, 2)
 
@@ -157,11 +171,18 @@ class PainelPoliticas(QWidget):
         self.b_aplicar.clicked.connect(lambda: self._executar("aplicar"))
         self.b_desfazer = QPushButton("Habilitar USB" if usb else "Desfazer")
         self.b_desfazer.clicked.connect(lambda: self._executar("desfazer"))
+        self.b_desativar_todas = QPushButton("Desativar todas")
+        self.b_desativar_todas.setToolTip(
+            "Desfaz todas as políticas de segurança nos alvos marcados, sem depender das caixas."
+        )
+        self.b_desativar_todas.clicked.connect(self._desativar_todas)
         self.b_cancelar = QPushButton("Cancelar")
         self.b_cancelar.clicked.connect(self._cancelar)
         self.b_cancelar.hide()
         acoes.addWidget(self.b_aplicar)
         acoes.addWidget(self.b_desfazer)
+        if not usb:
+            acoes.addWidget(self.b_desativar_todas)
         acoes.addWidget(self.b_cancelar)
         acoes.addStretch()
         v.addLayout(acoes)
@@ -230,6 +251,14 @@ class PainelPoliticas(QWidget):
 
     def _mostrar(self) -> None:
         marcadas = {p.id for p in self._politicas_marcadas()} if not self.usb else set()
+        self.arvore.blockSignals(True)
+        try:
+            self._montar_arvore(marcadas)
+        finally:
+            self.arvore.blockSignals(False)
+        self._atualizar_marcar_todas()
+
+    def _montar_arvore(self, marcadas: set[str]) -> None:
         self.arvore.clear()
         self.itens = {}
         alvos_ = self._alvos_marcados() or self.todos
@@ -256,6 +285,25 @@ class PainelPoliticas(QWidget):
                 )
             grupo.addChild(item)
 
+    def _todas_marcadas(self) -> bool:
+        return bool(self.itens) and all(
+            item.checkState(0) == Qt.CheckState.Checked for item in self.itens.values()
+        )
+
+    def _atualizar_marcar_todas(self) -> None:
+        self.b_marcar_todas.setText("Desmarcar todas" if self._todas_marcadas() else "Marcar todas")
+
+    def _alternar_todas(self) -> None:
+        """Marca todas; se já estão todas marcadas, desmarca todas. Só a tela, nada no Windows."""
+        estado = Qt.CheckState.Unchecked if self._todas_marcadas() else Qt.CheckState.Checked
+        self.arvore.blockSignals(True)
+        try:
+            for item in self.itens.values():
+                item.setCheckState(0, estado)
+        finally:
+            self.arvore.blockSignals(False)
+        self._atualizar_marcar_todas()
+
     def _falhou(self, motivo: str) -> None:
         self.estado.setText(f"Falhou: {motivo}")
         self._fim()
@@ -269,11 +317,19 @@ class PainelPoliticas(QWidget):
     def _ocupar(self, ocupado: bool) -> None:
         self.ocupado = ocupado
         pode = self.admin and not ocupado and self.leitura is not None
-        for b in (self.b_aplicar, self.b_desfazer, self.b_sobras, self.ler_fechados):
+        altera = (
+            self.b_aplicar,
+            self.b_desfazer,
+            self.b_desativar_todas,
+            self.b_sobras,
+            self.ler_fechados,
+        )
+        for b in altera:
             b.setEnabled(pode)
         self.atualizar.setEnabled(not ocupado)
+        self.b_marcar_todas.setEnabled(not ocupado)  # só marca na tela: vale sem administrador
         if not self.admin:
-            for b in (self.b_aplicar, self.b_desfazer, self.b_sobras, self.ler_fechados):
+            for b in altera:
                 b.setToolTip("Precisa de administrador.")
 
     def _cancelar(self) -> None:
@@ -312,8 +368,26 @@ class PainelPoliticas(QWidget):
                     avisos.append(f"{p.nome}: {politicas.AVISO_EDICAO}.")
         return "\n".join(linhas + (["", *avisos] if avisos else []))
 
-    def _executar(self, acao: politicas.Acao) -> None:
-        escolhidas = self._politicas_marcadas()
+    def _desativar_todas(self) -> None:
+        """Desfaz o catálogo inteiro desta tela nos alvos marcados (ADR-033), sem depender das
+        caixas de política. Mesmo caminho e mesma confirmação detalhada do Desfazer."""
+        self._executar(
+            "desfazer",
+            self.catalogo,
+            cabecalho=(
+                "Desativar TODAS as políticas de segurança nos alvos marcados (volta ao "
+                "padrão do Windows):"
+            ),
+        )
+
+    def _executar(
+        self,
+        acao: politicas.Acao,
+        escolhidas: Sequence[politicas.Politica] | None = None,
+        *,
+        cabecalho: str = "",
+    ) -> None:
+        escolhidas = list(self._politicas_marcadas() if escolhidas is None else escolhidas)
         alvos_ = [
             a for a in self._alvos_marcados() if any(a.escopo in p.escopos for p in escolhidas)
         ]
@@ -321,6 +395,8 @@ class PainelPoliticas(QWidget):
             self._aviso("Marque pelo menos um alvo e uma política que valha para ele.")
             return
         texto = self.confirmacao(acao, escolhidas, alvos_)
+        if cabecalho:
+            texto = f"{cabecalho}\n\n{texto}"
         titulo = "USB" if self.usb else "Políticas"
         if not confirmar(self, f"{titulo} — {acao}", texto):
             return
