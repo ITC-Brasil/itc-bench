@@ -2,13 +2,15 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `fix/testes-janelas-vivas` (12/11/2026, saída da `develop`). O `app-ci` do push
-  na `develop` (#74, `e9baff7`) deu código 1 duas vezes com `952 passed`, e a suíte tinha
-  passado de ~3,5 para ~15 min. Causa: as janelas dos testes ficavam vivas (5.020 widgets depois
-  de `test_janela.py`), e cada troca de tema do `test_modo_escuro.py` repintava todas (30 a 50 s
-  por troca). `tests/conftest.py`, `_apaga_janelas_do_teste`: espera as tarefas de fundo e apaga
-  as janelas ao fim de cada teste. Suíte local de ~21 min para 3 min 35 s, mesmas 2 falhas do
-  ambiente. Falta: PR, CI verde e merge na `develop` e na `main`.
+- **Branch:** nenhuma em andamento. `develop` e `main` iguais (12/11/2026), versão **0.19.0**,
+  **sem bump e sem tag** (decisão do responsável: não versionar agora).
+- **Correção dos testes (#76 na `develop`, #77 na `main`):** o `app-ci` do push na `develop`
+  depois do #74 deu código 1 duas vezes com `952 passed`, e a suíte tinha ido de ~3,5 para ~15
+  min. Causa: as janelas dos testes ficavam vivas (5.020 widgets depois de `test_janela.py`), e
+  cada troca de tema do `test_modo_escuro.py` repintava todas (30 a 50 s por troca).
+  `tests/conftest.py`, `_apaga_janelas_do_teste`: espera as tarefas de fundo e apaga as janelas
+  ao fim de cada teste. CI do #76: teste em 3 min 23 s, sem código 1. Suíte local de ~21 min
+  para 3 min 35 s.
 - **Antes, no mesmo dia:** a pedido do responsável, a `feat/modo-escuro` foi mesclada na
   `develop` (#74) e a `develop` levada à `main` (#75); a branch de feature foi apagada. **Versão continua 0.19.0, sem bump e sem tag** (decisão do
   responsável: não versionar agora). Commits: `6cc5e6d` (modo escuro, tema e topo), `29a032d`
@@ -118,7 +120,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
-| 2026-11-12 | pós-16 — Testes: janelas apagadas ao fim de cada teste | `app-ci` do push na `develop` saiu com código 1 duas vezes com `952 passed`, e a suíte foi de ~3,5 para ~15 min no CI. As janelas criadas nos testes ficavam vivas até o fim (5.020 widgets depois de `test_janela.py`); as trocas de tema do `test_modo_escuro.py` repintavam todas (30 a 50 s cada), e destruí-las no encerramento é a causa provável do código 1. `tests/conftest.py` ganha `_apaga_janelas_do_teste` (espera o `QThreadPool` até 60 s, fecha e apaga as janelas, processa `DeferredDelete`). Suíte local de ~21 min para 3 min 35 s. Só testes; o app não muda. |
+| 2026-11-12 | pós-16 — Testes: janelas apagadas ao fim de cada teste | `app-ci` do push na `develop` saiu com código 1 duas vezes com `952 passed`, e a suíte foi de ~3,5 para ~15 min no CI. As janelas criadas nos testes ficavam vivas até o fim (5.020 widgets depois de `test_janela.py`); as trocas de tema do `test_modo_escuro.py` repintavam todas (30 a 50 s cada), e destruí-las no encerramento é a causa provável do código 1. `tests/conftest.py` ganha `_apaga_janelas_do_teste` (espera o `QThreadPool` até 60 s, fecha e apaga as janelas, processa `DeferredDelete`). Suíte local de ~21 min para 3 min 35 s; CI do #76 com teste em 3 min 23 s, sem código 1. Só testes; o app não muda. PRs #76 e #77. |
 | 2026-11-12 | pós-16 — Modo escuro, Ajuda em seções, papel de parede e topo (0.19.0, sem tag) | `ui/tema.py` com `Paleta` `CLARO` (design, sem mudança) e `ESCURO` (superfícies do design, `--cy5`, estados clareados), `Fusion` + `QPalette` + folha `qss(paleta)` em todos os controles, seis nomes sem regra estilizados, desativado legível. Configurações › "Aparência do Bench" (Claro/Escuro), em `%LOCALAPPDATA%\ITC\Bench\preferencias.json` (`servicos/preferencias.py`), aplicado antes da tela Entrar. Ajuda com índice por grupo e seções (`blocos`), passos numerados e "Abrir esta tela". Prévia do papel de parede (monitor 16:9 por estilo, conferência e decodificador fixo) e "Baixar e ver a imagem" sem aplicar. Papel de parede também na conta que roda o Bench, só pela tela (`So-Papel` no `comum.ps1`). Entrar quebra linha. 27 casos novos (6 com PowerShell real); app 951 passando. ADR-037 a ADR-040 (topo de 80 px e "?" à direita). Auditoria: 2 baixos corrigidos (caminho do perfil no log, decodificador pelo conteúdo), 3 informativos. Roteiro 10.9, 10.10, 11.3 e 11.5. |
 | 2026-11-11 | pós-16 — Contas: filtro e encerrar sessões (0.19.0) | Tela Contas com filtro "Contas modificáveis" (padrão: locais menos nativo, Suporte e Gestão) e "Contas não modificáveis" (o resto, consulta), contagem "N de M". "Encerrar sessões…": lista as contas com sessão aberta, marca e confirma; `contas.encerrar_sessao` pelo trecho fixo `encerrar.ps1` (sessões pelo dono do `explorer.exe`, `logoff.exe` por sessão, recusa a sessão do Bench). **Gestão restrita fixa** (`RESTRITAS`, no Python e no `comum.ps1`): toda ação recusada, nome reservado, fora do lote, não vale como Suporte, não deixa a Preparação pendente. 22 testes novos (4 com PowerShell real), 2 ajustados. ADR-036. Auditoria: 2 informativos. Roteiro 5.8. |
 | 2026-11-11 | pós-16 — Proteção do login: dono de volta (0.19.0) | Máquina real: "Proteger" dava `setowner_5` no utilman e no sethc (negação aplicada, dono ficava Administradores), porque o `icacls /setowner` para o TrustedInstaller exige o SeRestore ligado no token herdado. `protecao.alterar` liga SeTakeOwnership/SeRestore antes dos passos e desliga no `finally`; `acl.proteger` passa a desligar depois da segunda tentativa (antes ficava ligado). 4 testes novos, 1 ajustado. ADR-035. Auditoria: 1 baixo corrigido, 1 informativo. Roteiro 10.1. |
