@@ -39,11 +39,28 @@ menu. Desenhados em SVG no HTML de design (`inicio`, `prep`, `id`, `contas`, `wi
 `prog`, `remover`, `gpo`, `protecao`, `usb`, `aparencia`, `mouse`, `energia`, `diag`, `hist`,
 `limpeza`, `registro`, `ajuda`, `config`). Extrair para arquivos no Módulo 01.
 
+## Modo escuro (ADR-037)
+
+Configurações › "Aparência do Bench": Claro (padrão) ou Escuro. As paletas `CLARO` e `ESCURO`
+ficam em `app/src/itc_bench/ui/tema.py`. O claro usa os valores acima, e o escuro reaproveita as
+superfícies escuras do design (#1A2020, #1B1B1B, #2C2C2C), o `--cy5` e os estados clareados do
+log. A barra lateral, a marca e o botão primário são os mesmos nos dois modos. Cor nova vai na
+`Paleta`, nunca direto numa tela.
+
+## Texto de ajuda (ADR-038)
+
+A tela Ajuda separa cada `AJUDA*` em seções sozinha. Para isso, o texto segue este formato:
+- um parágrafo de abertura;
+- depois, blocos separados por linha em branco, cada um com um subtítulo curto (até 60
+  caracteres, sem pontuação final) na primeira linha;
+- passos como `1.`, `2.` e tópicos como `•`.
+
 ## Layout
 
 - Janela com barra lateral escura (`--ink`), marca no topo, grupos com rótulo em caixa alta,
   rodapé com hostname · usuário e versão.
-- Área principal: trilha (`Grupo › Tela`), título com "?", ações à direita (primária por último).
+- Área principal: trilha (`Grupo › Tela`) e título no topo de 80 px; "?" redondo no canto
+  direito do topo, por último (ADR-040); ações da tela no painel (primária por último).
 - Tabelas com coluna de situação em selo colorido (feito, pendente, não iniciado, atenção, crítico).
 - Log ao vivo em fonte mono com horário.
 

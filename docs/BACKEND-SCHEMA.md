@@ -125,7 +125,7 @@ Do Bench, com sessão `Authorization: Bearer itcbs_...`: `/v1/bench/login|logout
 | Endereço da API | `HKLM\SOFTWARE\ITC\Bench`, valor `ApiUrl` | Escrita só por admin | 04 |
 | Estado da Preparação completa para a retomada (`formato`, perfil, etapas desmarcadas, nome pedido, alvos por SID, horário, reinícios); 24 h, até 2 reinícios; sem senha, token, técnico ou nome de conta | `%ProgramData%\ITC\Bench\protegido\preparacao.json` | ACL só SYSTEM e `S-1-5-32-544`, conferida ao ler (ADR-023) | 13 |
 | Log rotativo (sem segredo nem SSID; versão com 12 caracteres) | `%ProgramData%\ITC\Bench\logs` | ACL de admin | 01 |
-| Preferências de UI (sem senha) | `%LOCALAPPDATA%\ITC\Bench` | — | 01 |
+| Preferências de UI (sem senha): `preferencias.json` com `modo` (`claro`/`escuro`); ilegível ou valor desconhecido vira claro | `%LOCALAPPDATA%\ITC\Bench\preferencias.json` | Pasta do próprio usuário; gravação por `.tmp` + troca (ADR-037) | 01, pós-16 |
 | Fila de diagnósticos não enviados (`formato`, `envio_id`, `criado_em`, `coletado_por`, hostname, corpo 1.3 já saneado); 10 itens, 14 dias | `%ProgramData%\ITC\Bench\protegido\fila-diagnostico.dpapi`; ilegível vira `fila-diagnostico.corrompida`; sem admin, só memória | DPAPI de máquina + ACL (ADR-015) | 06 |
 | Token da carreta (`itcta_`) | Não vai aos notebooks: o envio usa a sessão (ADR-016) | — | 06 |
 | Instaladores conferidos (nome = SHA-256 + extensão; sem SHA-256 no cadastro, `c<chave de Id, Link e Versao>.<SHA-256 calculado>.<ext>`, ADR-028); apagados quando nenhuma linha ativa de Instaladores os usa | `%ProgramData%\ITC\Bench\protegido\instaladores\` | ACL só SYSTEM e `S-1-5-32-544` (ADR-019) | 09 |
