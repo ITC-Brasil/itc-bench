@@ -27,7 +27,7 @@ from itc_bench.nucleo.log import log
 from itc_bench.servicos import contas, etapas, identificacao, perfis, retomada
 from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Cadastros
-from itc_bench.ui import tarefa
+from itc_bench.ui import tarefa, tema
 from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
@@ -61,13 +61,14 @@ AJUDA = (
     "preparação guardada.\n\n"
     "Sem administrador (modo de teste), só a leitura."
 )
+# Situação → tipo de cor do tema (ok, aviso, erro, info, neutro), no modo claro ou escuro.
 COR = {
-    "feito": "#1A7F3C",
-    "pendente": "#CC7A00",
-    "nao_iniciado": "#8A8378",
-    "bloqueada": "#8A8378",
-    "falhou": "#C0392B",
-    "aguardando_reinicio": "#1565C0",
+    "feito": "ok",
+    "pendente": "aviso",
+    "nao_iniciado": "neutro",
+    "bloqueada": "neutro",
+    "falhou": "erro",
+    "aguardando_reinicio": "info",
 }
 
 
@@ -369,7 +370,7 @@ class PainelPreparacao(QWidget):
             item.setText(1, prep.ROTULO[s.situacao])
             item.setText(2, s.detalhe)
             item.setToolTip(2, txt.dica(s.detalhe))
-            item.setForeground(1, QColor(COR[s.situacao]))
+            item.setForeground(1, QColor(tema.cor_situacao(COR[s.situacao])))
             if s.situacao in ("feito", "falhou", "bloqueada", "aguardando_reinicio"):
                 self._linha(f"{perfis.NOMES[eid]}: {prep.ROTULO[s.situacao]}. {s.detalhe}".strip())
 
