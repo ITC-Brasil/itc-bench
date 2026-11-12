@@ -162,6 +162,9 @@ do ambiente local**, as mesmas da `develop`, que não dependem desta mudança (c
 - **Duas conferências da conta do Bench:** a liberação depende de `So-Papel` no PowerShell.
   Qualquer operação nova no perfil `aparencia` que não seja na `$CHAVE_PAPEL` volta a ser recusada
   na conta do Bench, o que é o comportamento desejado para mouse e teclado.
+- **Troca de tema nos testes:** `tema.trocar` repinta todas as janelas vivas. Nos testes isso
+  só é barato porque `tests/conftest.py` (`_apaga_janelas_do_teste`) apaga as janelas de cada
+  teste. Sem isso, a suíte do CI foi de ~3,5 para ~15 min e o processo saiu com código 1.
 
 ## Pendente
 

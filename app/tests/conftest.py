@@ -10,6 +10,31 @@ from itc_bench.nucleo import log as _log
 
 
 @pytest.fixture(autouse=True)
+def _apaga_janelas_do_teste():
+    """Cada teste termina sem janela viva e sem tarefa de fundo rodando.
+
+    Sem isto, as janelas fechadas ficavam vivas até o fim da suíte (5.020 widgets depois dos 4
+    testes de `test_janela.py`): cada troca de tema repintava todas (30 a 50 s por troca na
+    suíte inteira), e destruí-las no encerramento do processo deu código 1 com tudo passando
+    no CI.
+    """
+    yield
+    from PySide6.QtCore import QCoreApplication, QEvent, QThreadPool
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if not isinstance(app, QApplication):
+        return
+    QThreadPool.globalInstance().waitForDone(60_000)
+    app.processEvents()  # sinais das tarefas que acabaram de terminar
+    for janela in QApplication.topLevelWidgets():
+        janela.close()
+        janela.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
+
+
+@pytest.fixture(autouse=True)
 def _sem_tecnico():
     """O técnico do log é global (ADR-013): cada teste começa e termina sem ele."""
     _log.definir_tecnico(None)
