@@ -139,9 +139,11 @@ class TelaEntrar(QWidget):
         for rotulo in (self.subtitulo, self.mensagem):
             rotulo.setTextFormat(Qt.TextFormat.PlainText)
         self.mensagem.setWordWrap(True)
+        self.subtitulo.setWordWrap(True)  # o formulário tem 360 px: o texto não pode cortar
         self.estado = QLabel()
         self.estado.setObjectName("entrarEstado")
         self.estado.setTextFormat(Qt.TextFormat.PlainText)
+        self.estado.setWordWrap(True)
         nota = QLabel("Sem internet, entra quem já fez login nesta máquina nos últimos 7 dias.")
         nota.setObjectName("entrarNota")
         nota.setWordWrap(True)

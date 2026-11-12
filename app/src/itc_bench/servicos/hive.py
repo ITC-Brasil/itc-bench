@@ -94,7 +94,8 @@ def recusa_alvo(
 ) -> str | None:
     """Código da recusa (chave de MENSAGENS) ou None. O trecho confere de novo.
 
-    `permitir_dono`: só Políticas (ADR-034) aceitam a conta que roda o Bench; a Aparência não.
+    `permitir_dono`: Políticas (ADR-034) e a tela do papel de parede (ADR-039) aceitam a conta
+    que roda o Bench; mouse e teclado e a Preparação completa não.
     """
     if alvo.tipo != "usuario":
         return None

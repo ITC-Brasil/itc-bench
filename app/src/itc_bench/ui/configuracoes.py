@@ -23,11 +23,13 @@ from PySide6.QtWidgets import (
 
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.executor import Sensivel
+from itc_bench.ui import tema
 from itc_bench.ui import texto as txt
 
 MASCARA = "••••••••"
 HEX = re.compile(r"[0-9a-f]{64}")
 SEM_UNIDADE = "— bancada (todas as unidades)"
+MODOS = (("Claro", "claro"), ("Escuro", "escuro"))
 
 AJUDA = (
     "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores e "
@@ -38,7 +40,9 @@ AJUDA = (
     "• Sem internet, o Bench usa a última cópia, guardada protegida nesta máquina, por até 7 "
     "dias. Depois disso, conecte e sincronize.\n"
     "• Unidade desta máquina: escolha a unidade para onde o notebook vai. A cópia passa a guardar "
-    "só o Wi-Fi dela. Sem unidade (bancada), guarda o Wi-Fi de todas."
+    "só o Wi-Fi dela. Sem unidade (bancada), guarda o Wi-Fi de todas.\n"
+    "• Aparência do Bench: Claro ou Escuro. Muda só o Bench, não o Windows, e vale para o seu "
+    "usuário nesta máquina."
 )
 
 
@@ -49,6 +53,7 @@ def _texto(valor: Any) -> str:
 class PainelConfiguracoes(QWidget):
     sincronizar = Signal()
     unidade_escolhida = Signal(object)  # código ou None (bancada)
+    modo_escolhido = Signal(str)  # "claro" ou "escuro" (ADR-037)
 
     def __init__(self) -> None:
         super().__init__()
@@ -61,9 +66,18 @@ class PainelConfiguracoes(QWidget):
         self.unidade.activated.connect(
             lambda indice: self.unidade_escolhida.emit(self.unidade.itemData(indice))
         )
+        self.modo = QComboBox()
+        for rotulo, valor in MODOS:
+            self.modo.addItem(rotulo, valor)
+        self.modo.activated.connect(
+            lambda indice: self.modo_escolhido.emit(self.modo.itemData(indice))
+        )
         topo = QHBoxLayout()
         topo.addWidget(self.origem)
         topo.addStretch()
+        topo.addWidget(QLabel("Aparência do Bench"))
+        topo.addWidget(self.modo)
+        topo.addSpacing(12)
         topo.addWidget(QLabel("Unidade desta máquina"))
         topo.addWidget(self.unidade)
         topo.addWidget(self.botao_sincronizar)
@@ -134,6 +148,7 @@ class PainelConfiguracoes(QWidget):
         indice = self.unidade.findData(unidade)
         self.unidade.setCurrentIndex(max(0, indice))
         self.unidade.blockSignals(False)
+        self.modo.setCurrentIndex(max(0, self.modo.findData(tema.atual().nome)))
 
         c = cadastros
         self._preencher(

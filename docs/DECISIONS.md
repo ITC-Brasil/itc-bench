@@ -2294,3 +2294,161 @@ conta aberta na máquina (troca rápida de usuário) antes de excluí-la ou de a
 **Consequences**
 "Aplicar conta Suporte" continua na tela (o pedido de tirá-lo ficou para depois). Cenário 5.8
 do roteiro (07/V9). Sessão sem `explorer.exe` (só serviço) não aparece como encerrável.
+
+## ADR-037 — Modo escuro e tema em todos os controles
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** Pós-16 (pedido do responsável)
+
+**Context**
+O responsável pediu um modo escuro sem mudar a identidade (ADR-001). Até a 0.19 só a casca
+(barra, topo, títulos, botão primário, painel) seguia o design. Tabelas, listas, caixas de
+seleção, abas e 76 dos 89 botões usavam o estilo nativo do Windows, que não acompanha uma
+paleta escura. Seis nomes de objeto (`cartao`, `faixa`, `subtitulo`, `dica`, `perigo`, `link`)
+eram definidos no código, mas não tinham regra na folha de estilo.
+
+**Decision**
+1. **Tema em tudo:** estilo `Fusion` + `QPalette` + folha de estilo gerada por `tema.qss(paleta)`.
+   Botões, campos, abas, tabelas, caixas de marcar e botões de opção seguem `.btn`, `.inp`,
+   `.tab`, `.pn`, `.row` e `.chk` do HTML de design. Os seis nomes ganham regra. ✓, ponto e seta
+   são SVGs fixos em `recursos/icones` (`marcado`, `ponto`, `seta`).
+2. **Duas paletas** em `ui/tema.py`: `CLARO`, com os valores do design, sem mudança; `ESCURO`,
+   com as superfícies escuras que o design já usa (#1A2020 do `.log`, #1B1B1B e #2C2C2C da barra),
+   o `--cy5` para ciano sobre escuro e estados clareados como no log do design
+   (#7BC896/#E3A64A). A **barra lateral, a marca, o lado escuro de Entrar e o botão primário
+   (`--cy9`) ficam iguais nos dois modos.** Contraste AA testado (`test_modo_escuro.py`).
+3. **Escolha manual:** Configurações › "Aparência do Bench" (Claro/Escuro). Abre no claro. Troca
+   na hora (`tema.trocar`) e grava em `%LOCALAPPDATA%\ITC\Bench\preferencias.json`
+   (`servicos/preferencias.py`, só preferência visual, nunca segredo). Arquivo ilegível ou valor
+   desconhecido vira claro, com aviso no log. Se não conseguir gravar, vale até fechar, com aviso
+   na tela.
+4. Cores de situação fora do tema (Preparação completa) passam por `tema.cor_situacao`.
+
+**Alternatives considered**
+- Seguir o tema do Windows: recusado pelo responsável, que prefere a escolha manual.
+- Só a casca no escuro: tabelas e botões ficariam claros dentro do escuro.
+- Manter o estilo nativo `windows11`: ele ignora parte da folha de estilo e não aceita paleta
+  escura.
+
+**Consequences**
+- Os controles deixam de ter a aparência exata do Windows e passam a seguir o design nos dois
+  modos.
+- Uma linha da tabela ou árvore pintada antes da troca mantém a cor de situação até ser
+  atualizada; o resto troca na hora.
+- A preferência é por usuário do Windows: o Bench elevado com outra conta de administrador abre
+  com a preferência dessa conta.
+
+## ADR-038 — Ajuda em seções e prévia do papel de parede
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-007, ao ADR-022 e ao ADR-023)
+
+**Context**
+A tela Ajuda (ADR-023) mostrava as 20 ajudas num texto corrido, difícil de ler. Na tela Tela e
+papel de parede (ADR-022), o técnico escolhia a imagem pelo nome do cadastro sem ver a imagem nem
+o efeito do estilo antes de aplicar.
+
+**Decision**
+1. **Ajuda em seções** (`ui/ajuda.py`): índice à esquerda com os 7 grupos do menu e as telas, com
+   os ícones da barra lateral. À direita, a ajuda da tela escolhida: caminho, nome, abertura em
+   destaque e um cartão por subtítulo, com passos numerados e tópicos. A separação (`blocos`) usa
+   a estrutura que os textos `AJUDA*` já têm: a primeira linha curta de um parágrafo, sem pontuação
+   final, vira subtítulo; linhas `1.` viram passos e `•` vira tópico. Os textos das telas não
+   mudam, e um teste confere que nenhuma palavra se perde. A busca filtra o índice. "Abrir esta
+   tela" leva à tela, e "Ver toda a ajuda" do popup abre a Ajuda já na tela certa. Tudo em
+   `QLabel` de texto puro, nunca HTML (Módulo 14).
+2. **Prévia do papel de parede** (`ui/aparencia.py`): um monitor 16:9 desenha a imagem no estilo
+   escolhido. Preencher corta, Ajustar cabe inteira, Estender deforma, e Centralizar usa o tamanho
+   real numa tela de referência de 1920x1080. A fonte da prévia é:
+   - a imagem já conferida em `%ProgramData%\ITC\Bench\papel` (`pp.caminho`); ou
+   - o arquivo de "Escolher arquivo…".
+   Antes de abrir, o arquivo passa pela mesma conferência do aplicar (`pp.conferir_imagem`:
+   20 MB, assinatura de bytes e dimensões) e é lido reduzido (960 px de largura).
+3. **"Baixar e ver a imagem"**, só com administrador, quando a imagem do cadastro ainda não está
+   na máquina: roda `pp.obter`, que baixa, confere o SHA-256 e a imagem e guarda na pasta do
+   papel (ACL do ADR-022). É o primeiro passo do Aplicar, sem gravar política em nenhuma conta.
+
+**Alternatives considered**
+- Ajuda com abas por grupo: 7 abas com até 4 telas cada e uma busca que teria de trocar de aba.
+- Ajuda em HTML (QTextBrowser): contraria o texto puro do Módulo 14.
+- Prévia baixando para uma pasta temporária: seria um segundo caminho de download, fora da pasta
+  com ACL e do controle de hash que o aplicar já usa.
+
+**Consequences**
+- "Baixar e ver a imagem" grava a imagem em `%ProgramData%\ITC\Bench\papel`, como o Aplicar. Ela sai dali pela
+  regra existente quando deixa de estar no cadastro.
+- A prévia é aproximada: a resolução e a escala do notebook podem mostrar mais ou menos da imagem.
+  A legenda avisa.
+- Uma ajuda nova precisa seguir o mesmo formato (subtítulo curto, passos `1.`, tópicos `•`) para
+  ser separada em seções.
+
+## ADR-039 — Papel de parede também na conta que roda o Bench
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** Pós-16 (pedido do responsável; emenda ao ADR-022 e ao ADR-034)
+
+**Context**
+O ADR-034 liberou as Políticas na conta que roda o Bench e manteve a recusa na Aparência e na
+Preparação. O responsável pediu que o papel de parede, na tela Tela e papel de parede, também
+seja aplicado nessa conta.
+
+**Decision**
+1. **Só a tela Tela e papel de parede** chama `pp.aplicar(..., permitir_dono=True)`. A
+   Preparação completa continua sem passar o parâmetro, e por isso continua recusando. Mouse e
+   teclado também continuam recusando.
+2. **Segunda conferência no PowerShell** (`comum.ps1`, `Hive-Escrita`): com
+   `ITC_PERMITIR_DONO=1`, a conta que roda o Bench é aceita em dois casos:
+   - perfil `politicas` (ADR-034);
+   - perfil `aparencia`, se **todas** as operações de `ITC_OPERACOES` forem na chave do papel de
+     parede (`So-Papel`). Sem operações, JSON inválido ou qualquer chave de mouse e teclado,
+     continua `dono`.
+   As demais regras do papel (só `Wallpaper`/`WallpaperStyle`, caminho na pasta do Bench, estilo
+   da lista) continuam iguais.
+3. **Tela:** a conta aparece como "(você)" na lista. A confirmação avisa que o papel vale para ela
+   no próximo logon, que ela não consegue trocar e que Desfazer devolve o papel dela. A ajuda da
+   tela diz o mesmo. O SID vem da própria leitura (`pp.ler_com_dono`).
+4. Nativo e Suporte continuam recusados nas duas conferências.
+
+**Alternatives considered**
+- Liberar todo o perfil `aparencia`: mouse e teclado na conta do técnico não foram pedidos, e a
+  regra ficaria mais larga do que o necessário.
+- Liberar também na Preparação completa: ela prepara as contas de aluno, e a conta do técnico não
+  é alvo dela.
+
+**Consequences**
+- O técnico que aplica o papel de parede na própria conta fica com o papel do Grupo e sem poder
+  trocar até usar Desfazer.
+
+## ADR-040 — Topo das telas mais alto e Ajuda no canto direito
+
+**Status:** Accepted
+**Date:** 2026-11-12
+**Module:** Pós-16 (pedido do responsável; emenda à posição do "?" do HTML de design, ADR-001 e
+ADR-007)
+
+**Context**
+O topo de cada tela tinha 64 px fixos, sem margem vertical, e o título encostava na linha de
+baixo. O "?" de 20 px ficava colado ao título. O responsável pediu mais espaço e o botão de ajuda
+do outro lado.
+
+**Decision**
+1. `ui/janela.py`, `Tela`: topo com 80 px, margens de 12 px em cima e embaixo, caminho e título
+   centralizados na vertical, com 10 px entre eles.
+2. O "?" redondo do design (`#ajudaBotao`, 20 px) vai para o **canto direito do topo**,
+   centralizado na vertical; ao passar o mouse, a borda e o "?" ficam em ciano. Continua
+   alternável e abre o mesmo cartão, que desceu para 88 px do alto, logo abaixo do topo.
+3. A tela Entrar mantém o "?" ao lado do título, dentro do formulário.
+4. O ADR-007 continua valendo: um botão de ajuda em toda tela. Muda só a posição e o formato.
+
+**Alternatives considered**
+- Só aumentar o topo e manter o "?" ao lado do título: resolvia o aperto, mas o responsável
+  preferiu o botão do outro lado.
+- Botão com texto "?  Ajuda" no canto direito: testado e recusado pelo responsável, que preferiu
+  o "?" redondo.
+
+**Consequences**
+- Os pixels do HTML de design deixam de valer para o topo. Uma ação nova no topo entra à esquerda
+  do "?", e a ajuda fica sempre por último.

@@ -172,6 +172,29 @@ def test_aplicar_por_alvo_sem_caminho_no_log(
     assert "Papel de parede: aplicar alvo usuario 2 item=papel resultado=ok" in texto
 
 
+def test_tela_aplica_na_conta_que_roda_o_bench(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """ADR-039: com permitir_dono (só a tela), a conta do Bench recebe; o trecho leva o "1"."""
+    dados = png()
+    monkeypatch.setattr(instaladores, "papeis", lambda: tmp_path)
+    pp.obter(linha(dados), base=tmp_path, abrir=abrir(dados))
+    f = Falso()
+    feitos = pp.aplicar(
+        "aplicar",
+        [alvo(DONO, True), alvo(SUPORTE)],
+        linha=linha(dados),
+        protegidas_=PROT,
+        rodar=f,
+        permitir_dono=True,
+    )
+    por = {x.alvo.chave: x for x in feitos}
+    assert por[DONO].ok and not por[SUPORTE].ok
+    escritas = [kw for n, kw in f.chamadas if n == "escrever"]
+    assert [kw["hive"] for kw in escritas] == [DONO]
+    assert escritas[0]["permitir_dono"] == "1" and escritas[0]["perfil"] == "aparencia"
+
+
 def test_aplicar_sem_imagem_baixada(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(instaladores, "papeis", lambda: tmp_path)
     with pytest.raises(pp.ErroPapel, match="baixada"):

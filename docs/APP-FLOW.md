@@ -52,8 +52,17 @@ começa e diz qual falta. Senha permanente nunca exibida.
 o laudo da IA com aviso "revise antes de abrir chamado". Histórico da máquina ao lado
 (`GET /v1/historico/{hostname}` já existe na API).
 
-**Ajuda (ADR-007)** — "?" ao lado do título de cada tela abre painel lateral com as instruções;
-"Ver toda a ajuda" leva à tela Ajuda, com índice na ordem do menu e busca.
+**Ajuda (ADR-007, ADR-038, ADR-040)** — o "?" redondo no canto direito do topo de cada tela
+abre o cartão com as instruções dela. "Ver toda a ajuda" leva à tela Ajuda, já na tela certa:
+índice por grupo do menu à esquerda, a ajuda em seções à direita (abertura, cartões, passos
+numerados), busca que filtra o índice e "Abrir esta tela".
+
+**Aparência do Bench (ADR-037)** — Configurações › "Aparência do Bench": Claro (padrão) ou
+Escuro. Troca na hora e vale para o usuário do Windows, já na tela Entrar da próxima vez.
+
+**Tela e papel de parede (ADR-038, ADR-039)** — prévia num monitor 16:9 no estilo escolhido;
+"Baixar e ver a imagem" baixa e confere sem aplicar. A conta que roda o Bench pode receber o
+papel de parede, marcada como "(você)" e com aviso na confirmação.
 
 ## Ações destrutivas
 

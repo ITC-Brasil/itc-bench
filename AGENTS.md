@@ -21,6 +21,8 @@ Assistente (FastAPI + SQLite no glpi-srv) vive em `api/`, e o Bench é cliente d
 5. `docs/PRD.md`, `docs/TRD.md`, `docs/APP-FLOW.md`, `docs/UI-UX-BRIEF.md`, `docs/BACKEND-SCHEMA.md` conforme o módulo
 6. Mexendo em `api/`: `docs/api/` (API, TOKENS, SCHEMA, DEPLOY) e `docs/api/DECISIONS-TA.md` (TA-ADR-001 em diante)
 
+Usuário ou agente novo: `PROMPT_ANALISE.md` tem o prompt de entrada (análise antes de mudar).
+
 ## Antes de encerrar a sessão (ou ao ficar sem cota/contexto)
 
 - Reescreva o bloco **ESTADO ATUAL** de `docs/PROGRESS.md`: branch, último commit, o que está

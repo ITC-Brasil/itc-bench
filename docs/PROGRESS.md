@@ -2,7 +2,31 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** nenhuma em andamento. `develop` e `main` iguais (11/11/2026) com a versão
+- **Branch:** nenhuma em andamento. Em 12/11/2026, a pedido do responsável, a
+  `feat/modo-escuro` foi mesclada na `develop` por PR e a `develop` levada à `main` por PR; a
+  branch de feature foi apagada. **Versão continua 0.19.0, sem bump e sem tag** (decisão do
+  responsável: não versionar agora). Commits: `6cc5e6d` (modo escuro, tema e topo), `29a032d`
+  (Ajuda em seções), `5ec6162` (papel de parede) e o de documentação. Entrou:
+  - modo escuro escolhido em Configurações e tema do design em todos os controles (ADR-037);
+  - botão desativado volta a parecer desativado; texto de Entrar que cortava agora quebra linha;
+  - Ajuda em seções: índice por grupo, cartões, passos numerados e "Abrir esta tela" (ADR-038);
+  - prévia do papel de parede no estilo escolhido e "Baixar e ver a imagem" (ADR-038);
+  - topo das telas com 80 px e "?" redondo no canto direito (ADR-040);
+  - papel de parede também na conta que roda o Bench, só pela tela, com aviso (ADR-039;
+    Preparação completa e Mouse e teclado continuam recusando).
+  Uma mudança na tela Registro (log colorido) foi desfeita a pedido e não entra.
+  Doc: `docs/modules/modo-escuro-ajuda-papel.md`. Auditoria:
+  `docs/security/2026-11-12-modo-escuro-ajuda-papel.md` (2 baixos corrigidos, 3 informativos).
+  Ruff, format e mypy limpos; `pytest` 951 passando, 10 pulados, 2 falhas do ambiente local, as
+  mesmas da `develop` (`test_papel_de_parede::test_trecho_aparencia_recusa_valor_e_caminho_fora`,
+  que exige elevação; `test_paridade::test_gravacoes_anonimas`, por causa da conta "Teste" desta
+  máquina).
+  Prompt de entrada para usuário ou agente novo: `PROMPT_ANALISE.md` (citado no `AGENTS.md`).
+  **Próximo passo:** roteiro 10.9, 10.10, 11.3 e 11.5 (`docs/testes/maquina-real.md`) com
+  `uv run` elevado; depois, a Preparação completa (pedido do responsável, ainda sem escopo
+  definido). A tag `v0.19.0` **não será criada**: por decisão do responsável, a próxima tag sai
+  com a próxima versão.
+- **Antes (11/11/2026):** `develop` e `main` iguais com a versão
   **0.19.0**: PR #68 mesclado na `develop` e levado à `main` pelo #71. Na 0.19.0:
   - Políticas: "Marcar todas"/"Desmarcar todas" e "Desativar todas" (ADR-033);
   - políticas também na conta que está rodando o Bench, com aviso (ADR-034; Aparência e
@@ -14,8 +38,7 @@
     "Encerrar sessões…" (ADR-036);
   - a revisão da 0.18 (#69, abaixo), que entrou antes na `develop`.
   Máquina real (11/11/2026, `uv run` elevado): 9.2, 9.8 e 10.1 passaram.
-  **Próximo passo (responsável):** tag `v0.19.0`, publicar o rascunho, assinar e publicar a
-  versão na API (`docs/BUILD.md`). O bump 0.18.1 previsto ficou sem efeito: a `main` foi direto
+  Tag, assinatura e publicação ficam para a próxima versão (`docs/BUILD.md`). O bump 0.18.1 previsto ficou sem efeito: a `main` foi direto
   para a 0.19.0. **Pendente em máquina real com o instalador:** roteiro 5.8, 6.5, 7.2d e 7.2e.
 - **Revisão da 0.18 (`fix/revisao-0.18`, #69):** mesclada na `develop` e na `main` (#70) em
   11/11/2026, sem bump de versão; entra na 0.19.0. Conta por turno que já existe
@@ -89,6 +112,7 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-12 | pós-16 — Modo escuro, Ajuda em seções, papel de parede e topo (0.19.0, sem tag) | `ui/tema.py` com `Paleta` `CLARO` (design, sem mudança) e `ESCURO` (superfícies do design, `--cy5`, estados clareados), `Fusion` + `QPalette` + folha `qss(paleta)` em todos os controles, seis nomes sem regra estilizados, desativado legível. Configurações › "Aparência do Bench" (Claro/Escuro), em `%LOCALAPPDATA%\ITC\Bench\preferencias.json` (`servicos/preferencias.py`), aplicado antes da tela Entrar. Ajuda com índice por grupo e seções (`blocos`), passos numerados e "Abrir esta tela". Prévia do papel de parede (monitor 16:9 por estilo, conferência e decodificador fixo) e "Baixar e ver a imagem" sem aplicar. Papel de parede também na conta que roda o Bench, só pela tela (`So-Papel` no `comum.ps1`). Entrar quebra linha. 27 casos novos (6 com PowerShell real); app 951 passando. ADR-037 a ADR-040 (topo de 80 px e "?" à direita). Auditoria: 2 baixos corrigidos (caminho do perfil no log, decodificador pelo conteúdo), 3 informativos. Roteiro 10.9, 10.10, 11.3 e 11.5. |
 | 2026-11-11 | pós-16 — Contas: filtro e encerrar sessões (0.19.0) | Tela Contas com filtro "Contas modificáveis" (padrão: locais menos nativo, Suporte e Gestão) e "Contas não modificáveis" (o resto, consulta), contagem "N de M". "Encerrar sessões…": lista as contas com sessão aberta, marca e confirma; `contas.encerrar_sessao` pelo trecho fixo `encerrar.ps1` (sessões pelo dono do `explorer.exe`, `logoff.exe` por sessão, recusa a sessão do Bench). **Gestão restrita fixa** (`RESTRITAS`, no Python e no `comum.ps1`): toda ação recusada, nome reservado, fora do lote, não vale como Suporte, não deixa a Preparação pendente. 22 testes novos (4 com PowerShell real), 2 ajustados. ADR-036. Auditoria: 2 informativos. Roteiro 5.8. |
 | 2026-11-11 | pós-16 — Proteção do login: dono de volta (0.19.0) | Máquina real: "Proteger" dava `setowner_5` no utilman e no sethc (negação aplicada, dono ficava Administradores), porque o `icacls /setowner` para o TrustedInstaller exige o SeRestore ligado no token herdado. `protecao.alterar` liga SeTakeOwnership/SeRestore antes dos passos e desliga no `finally`; `acl.proteger` passa a desligar depois da segunda tentativa (antes ficava ligado). 4 testes novos, 1 ajustado. ADR-035. Auditoria: 1 baixo corrigido, 1 informativo. Roteiro 10.1. |
 | 2026-11-11 | pós-16 — Políticas na conta que roda o Bench (0.19.0) | A conta dona do processo elevado deixa de ser recusada em Políticas e USB: `hive.recusa_alvo`/`hive.aplicar` com `permitir_dono` (padrão falso), e o `comum.ps1` só libera com perfil `politicas` e `ITC_PERMITIR_DONO=1`. Aparência e Preparação continuam recusando; nativo e Suporte também. Aviso na confirmação e na ajuda. 9 testes novos (3 com PowerShell real; pulados quando a conta que roda é a nativa `-500` ou de serviço, como no runner do CI, que pararia em `ERRO|nativo` antes do dono). ADR-034. Auditoria: 1 informativo (risco aceito). Roteiro 9.2 atualizado. |

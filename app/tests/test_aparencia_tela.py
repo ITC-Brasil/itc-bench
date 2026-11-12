@@ -98,12 +98,106 @@ def test_papel_lista_cadastro_e_confirma(qtbot, monkeypatch):
     cad = Cadastros("v" * 64, datetime.now(UTC), "t", None, False, (), (linha, outra), (), ())
     p = tela.PainelPapel(True, lambda: cad)
     qtbot.addWidget(p)
-    p._recebeu((ALVOS, {SID: pp.Situacao("nao_aplicado")}))
+    p._recebeu((ALVOS, (None, {SID: pp.Situacao("nao_aplicado")})))
     assert p.imagem.count() == 1 and p.imagem.currentText() == "Papel ITC"
     assert "Aluno-Teste — não aplicado" in p.lista_alvos.item(1).text()
     texto = p.confirmacao("aplicar", [ALUNO, hive.PADRAO])
     assert texto is not None and "Aluno-Teste: não aplicado → papel de parede do Grupo" in texto
     assert "Contas futuras" in texto
+
+
+def _png(caminho, largura=1600, altura=900):
+    from PySide6.QtGui import QColor, QImage
+
+    img = QImage(largura, altura, QImage.Format.Format_RGB32)
+    img.fill(QColor("#008F95"))
+    assert img.save(str(caminho), "PNG")
+    return caminho
+
+
+def _papel(monkeypatch, admin=True):
+    monkeypatch.setattr(pp, "caminho", lambda linha, base=None: None)
+    linha = Instalador(
+        9, "Papel ITC", "", "p.png", "a" * 64, "https://exemplo.invalid/p.png", "", tipo="papel"
+    )
+    cad = Cadastros("v" * 64, datetime.now(UTC), "t", None, False, (), (linha,), (), ())
+    return tela.PainelPapel(admin, lambda: cad)
+
+
+def test_papel_previa_sem_baixar_oferece_baixar(qtbot, monkeypatch):
+    _sem_tarefa(monkeypatch, tela)
+    p = _papel(monkeypatch)
+    qtbot.addWidget(p)
+    p._recebeu((ALVOS, (None, {})))
+    assert p.previa.imagem is None and "não foi baixada" in p.previa.aviso
+    assert not p.b_baixar.isHidden() and p.b_baixar.isEnabled()
+    sem_admin = _papel(monkeypatch, admin=False)
+    qtbot.addWidget(sem_admin)
+    sem_admin._recebeu((ALVOS, (None, {})))
+    assert sem_admin.b_baixar.isHidden()
+
+
+def test_papel_previa_do_arquivo_escolhido(qtbot, monkeypatch, tmp_path):
+    _sem_tarefa(monkeypatch, tela)
+    arquivo = _png(tmp_path / "escolhido.png")
+    monkeypatch.setattr(tela.QFileDialog, "getOpenFileName", lambda *a: (str(arquivo), ""))
+    p = _papel(monkeypatch)
+    qtbot.addWidget(p)
+    p._recebeu((ALVOS, (None, {})))
+    p._escolher()
+    assert p.previa.imagem is not None and p.previa.original == (1600, 900)
+    assert p.legenda.text().startswith("1600x900 · PNG")
+    assert p.b_baixar.isHidden()
+    p.estilo.setCurrentIndex(p.estilo.findData("ajustar"))
+    assert p.previa.estilo == "ajustar"
+
+
+def test_papel_previa_recusa_arquivo_invalido(tmp_path):
+    falso = tmp_path / "falso.png"
+    falso.write_bytes(b"nao e imagem" * 100)
+    pequeno = _png(tmp_path / "pequeno.png", 320, 200)
+    assert tela.carregar_previa(falso, ".png") is None
+    assert tela.carregar_previa(pequeno, ".png") is None
+    grande = tela.carregar_previa(_png(tmp_path / "ok.png", 3840, 2160), ".png")
+    assert grande is not None and grande[0].width() == 960 and grande[1] == (3840, 2160)
+    # Extensão fora da lista, mesmo com conteúdo PNG válido: recusada.
+    assert tela.carregar_previa(_png(tmp_path / "ok.gif"), ".gif") is None
+    # PNG com nome .jpg: a assinatura não bate com a extensão, recusado.
+    assert tela.carregar_previa(_png(tmp_path / "troca.jpg"), ".jpg") is None
+
+
+def test_papel_previa_posiciona_por_estilo(qtbot):
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QImage
+
+    previa = tela.PreviaPapel()
+    qtbot.addWidget(previa)
+    tela_16x9 = QRectF(0, 0, 320, 180)
+    quadrada = QImage(100, 100, QImage.Format.Format_RGB32)
+    previa.original = (960, 540)
+    esperado = {
+        "preencher": (320, 320),  # corta: cobre a largura
+        "ajustar": (180, 180),  # cabe inteira: limitada pela altura
+        "estender": (320, 180),
+        "centralizar": (160, 90),  # 960x540 numa tela de 1920x1080 = metade
+    }
+    for estilo, (w, h) in esperado.items():
+        previa.estilo = estilo
+        r = previa.destino(tela_16x9, quadrada)
+        assert (round(r.width()), round(r.height())) == (w, h), estilo
+        assert round(r.center().x()) == 160 and round(r.center().y()) == 90, estilo
+
+
+def test_tela_aceita_a_conta_que_roda_o_bench(qtbot, monkeypatch):
+    """ADR-039: a conta do Bench aparece como (você), com aviso na confirmação."""
+    _sem_tarefa(monkeypatch, tela)
+    p = _papel(monkeypatch)
+    qtbot.addWidget(p)
+    p._recebeu((ALVOS, (SID, {SID: pp.Situacao("nao_aplicado")})))
+    assert "Aluno-Teste (você) — não aplicado" in p.lista_alvos.item(1).text()
+    texto = p.confirmacao("aplicar", [ALUNO])
+    assert texto is not None and "(você) está marcada" in texto
+    assert "(você)" not in (p.confirmacao("aplicar", [hive.PADRAO]) or "")
 
 
 # ---------------------------------------------------------------- Energia
