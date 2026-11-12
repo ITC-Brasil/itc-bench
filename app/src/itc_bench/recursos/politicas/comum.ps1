@@ -20,11 +20,22 @@ function Falhar([string]$codigo) { Write-Output ('ERRO|' + $codigo); exit 1 }
 
 function Hive-Formato([string]$hive) { if ($hive -cnotmatch $HIVE_OK) { Falhar 'hive' } }
 
+function So-Papel {
+    # ADR-039: todas as operações na chave do papel de parede (mouse e teclado ficam de fora).
+    if (-not $env:ITC_OPERACOES) { return $false }
+    try { $ops = @($env:ITC_OPERACOES | ConvertFrom-Json | ForEach-Object { $_ }) } catch { return $false }
+    if ($ops.Count -eq 0) { return $false }
+    foreach ($o in $ops) { if ([string]$o.chave -cne $CHAVE_PAPEL) { return $false } }
+    return $true
+}
+
 function Hive-Escrita([string]$hive) {
     Hive-Formato $hive
     if ($hive -match '-500$') { Falhar 'nativo' }
-    # ADR-034: só o perfil politicas, com ITC_PERMITIR_DONO=1, escreve na conta que roda o Bench.
-    $donoOk = ($PERFIL -ceq 'politicas') -and ($env:ITC_PERMITIR_DONO -eq '1')
+    # Conta que roda o Bench, sempre com ITC_PERMITIR_DONO=1: perfil politicas (ADR-034) ou
+    # perfil aparencia só com operações do papel de parede (ADR-039).
+    $donoOk = ($env:ITC_PERMITIR_DONO -eq '1') -and (
+        ($PERFIL -ceq 'politicas') -or (($PERFIL -ceq 'aparencia') -and (So-Papel)))
     if (-not $donoOk -and $hive -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) {
         Falhar 'dono'
     }

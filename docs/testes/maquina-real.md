@@ -173,6 +173,8 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 10.6 | Mouse e teclado por alvo; desfazer | Valores nativos | 12/V6 |
 | 10.7 | Energia AC/DC, hibernação; desfazer | `powercfg /q` confere | 12/V7 |
 | 10.8 | Cadastro com nome de programa `<b>Teste</b>`: abrir Programas, Preparação e Configurações | Texto aparece literal, sem negrito, inclusive nas dicas | 14 |
+| 10.9 | Tela e papel de parede, elevado: imagem do cadastro ainda não baixada → "Baixar e ver a imagem"; trocar o estilo entre os quatro; depois "Escolher arquivo…" com um PNG local | Prévia aparece só depois de conferida, sem nenhuma conta alterada (situação das contas igual); o desenho muda com o estilo; a legenda mostra dimensões, tipo e tamanho; o arquivo escolhido aparece na prévia | ADR-038 |
+| 10.10 | Tela e papel de parede: marcar a conta que roda o Bench e Aplicar; sair e entrar; tentar trocar; Desfazer. Depois, em Mouse e teclado, marcar a mesma conta e Aplicar | Lista mostra "(você)"; a confirmação avisa; papel do Grupo no logon, sem trocar; Desfazer devolve o dela. Mouse e teclado: recusada ("É a conta que está rodando o Bench") | ADR-039 |
 
 ### 11. Limpeza, Registro e varreduras finais
 
@@ -180,7 +182,8 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 |---|---|---|---|
 | 11.1 | Limpeza com prévia; junction em `Temp` de `Teste01` apontando para fora | Prévia com números; nada fora apagado | 13/V6 |
 | 11.2 | Registro e Exportar | Arquivo sem nome de máquina, contas nem caminho de perfil | 13/V8 |
-| 11.3 | Ajuda com busca em todas as telas | Resultados e "?" em toda tela | 13/V9 |
+| 11.3 | Ajuda com busca em todas as telas; índice, seções e "Abrir esta tela"; "Ver toda a ajuda" no "?" de Contas | Resultados e "?" em toda tela; a busca filtra o índice; passos numerados; abre a tela certa; o popup leva à ajuda de Contas | 13/V9, ADR-038 |
+| 11.5 | Configurações › Aparência do Bench: Escuro; fechar e abrir o Bench; voltar para Claro | Troca na hora em todas as telas; abre no escuro já na tela Entrar; `%LOCALAPPDATA%\ITC\Bench\preferencias.json` com `"modo"`; sem senha nem dado de cadastro no arquivo | ADR-037 |
 | 11.4 | `findstr /s /i` pelos marcadores no `bench.log` (todos os rotacionados), em `%TEMP%`, `protegido\` e na pasta do serviço do RustDesk | Nenhuma senha; sem SSID, host, SID, nome de conta ou caminho de perfil no log | 07/V8, 08/V8, 09/V10, 10/V10, 11/V12, 12/V11 |
 
 ### 13. Atualização automática (Módulo 16)

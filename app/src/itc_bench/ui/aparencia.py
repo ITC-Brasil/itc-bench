@@ -9,8 +9,8 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QShowEvent
+from PySide6.QtCore import QObject, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QImage, QImageReader, QPainter, QPaintEvent, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -31,7 +31,7 @@ from itc_bench.servicos import aparencia as ap
 from itc_bench.servicos import contas, energia, executor, hive
 from itc_bench.servicos import papel_de_parede as pp
 from itc_bench.servicos.cadastros import Cadastros, Instalador
-from itc_bench.ui import tarefa
+from itc_bench.ui import tarefa, tema
 from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
@@ -56,12 +56,24 @@ AJUDA_TELA = (
     "3. Desfazer apaga a política; a conta volta ao papel de parede dela.\n\n"
     "A imagem fica numa pasta do Bench que o aluno lê, mas não altera. Aceita JPG e PNG, até "
     "20 MB, de 640x480 a 7680x4320.\n\n"
+    "Prévia\n"
+    "O monitor da tela mostra a imagem no estilo escolhido: Preencher corta as sobras, Ajustar "
+    "mostra a imagem inteira com faixas pretas, Estender deforma para caber e Centralizar usa o "
+    "tamanho real da imagem. Se a imagem ainda não foi baixada, use Baixar e ver a imagem: o "
+    "Bench baixa e confere, sem aplicar em nenhuma conta. Com Escolher arquivo…, a prévia mostra "
+    "o arquivo escolhido.\n\n"
     "Trocou a imagem no cadastro?\n"
     "Reaplique o papel de parede nas contas. O Bench apaga a imagem antiga quando ela sai do "
     "cadastro, e as contas que apontavam para ela ficam sem papel de parede até reaplicar.\n\n"
     "Resolução e escala\n"
     "O Bench não muda: o Windows já usa a resolução recomendada do notebook. Para ajustar, use "
-    "Abrir configurações de vídeo, na conta do aluno.\n\n" + _ALVOS
+    "Abrir configurações de vídeo, na conta do aluno.\n\n"
+    + _ALVOS.replace(
+        "O Administrador nativo, a conta Suporte e a conta que está rodando o Bench são recusados.",
+        "O Administrador nativo e a conta Suporte são recusados. A conta que está rodando o Bench "
+        "(você) é aceita, com aviso: o papel de parede vale para ela no próximo logon, e Desfazer "
+        "devolve o dela.",
+    )
 )
 
 AJUDA_MOUSE = (
@@ -298,6 +310,102 @@ class _PainelAlvos(QWidget):
 
 # ---------------------------------------------------------------- Tela e papel de parede
 
+# Tela de referência da prévia: o estilo Centralizar depende do tamanho real da imagem.
+TELA_REFERENCIA = (1920, 1080)
+
+
+def carregar_previa(
+    arquivo: Path, ext: str, largura: int = 960
+) -> tuple[QImage, tuple[int, int]] | None:
+    """(imagem reduzida, tamanho original) para a prévia, depois da mesma conferência do aplicar
+    (extensão, tamanho, bytes, dimensões). None se a imagem for recusada ou não abrir."""
+    if ext not in pp.EXTENSOES or pp.conferir_imagem(arquivo, ext):
+        return None
+    leitor = QImageReader(str(arquivo))
+    # Decodificador fixo pelo tipo já conferido (PNG ou JPEG), nunca escolhido pelo conteúdo.
+    leitor.setFormat(b"png" if ext == ".png" else b"jpeg")
+    leitor.setDecideFormatFromContent(False)
+    leitor.setAutoTransform(True)
+    tamanho = leitor.size()
+    if not tamanho.isValid():
+        return None
+    original = (tamanho.width(), tamanho.height())
+    if tamanho.width() > largura:
+        leitor.setScaledSize(tamanho.scaled(largura, largura, Qt.AspectRatioMode.KeepAspectRatio))
+    imagem = leitor.read()
+    return None if imagem.isNull() else (imagem, original)
+
+
+class PreviaPapel(QWidget):
+    """Monitor 16:9 com a imagem desenhada no estilo escolhido (como o Windows vai mostrar)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.imagem: QImage | None = None
+        self.original: tuple[int, int] | None = None
+        self.estilo = "preencher"
+        self.aviso = "Sem imagem para mostrar."
+        self.setMinimumSize(320, 200)
+
+    def mostrar(self, imagem: QImage | None, original: tuple[int, int] | None, aviso: str) -> None:
+        self.imagem, self.original, self.aviso = imagem, original, aviso
+        self.update()
+
+    def definir_estilo(self, estilo: str) -> None:
+        self.estilo = estilo
+        self.update()
+
+    def tela(self) -> QRectF:
+        """Área da "tela" do monitor, 16:9, centrada no widget."""
+        margem = 10.0
+        largura = self.width() - 2 * margem
+        altura = min(self.height() - 2 * margem, largura * 9 / 16)
+        largura = altura * 16 / 9
+        return QRectF((self.width() - largura) / 2, (self.height() - altura) / 2, largura, altura)
+
+    def destino(self, tela: QRectF, imagem: QImage) -> QRectF:
+        """Onde a imagem cai dentro da tela, por estilo (preencher corta, ajustar cabe inteira)."""
+        iw, ih = imagem.width(), imagem.height()
+        if self.estilo == "estender":
+            return QRectF(tela)
+        if self.estilo == "centralizar":
+            ow, oh = self.original or (iw, ih)
+            escala = tela.width() / TELA_REFERENCIA[0]
+            w, h = ow * escala, oh * escala
+        else:
+            fator = (max if self.estilo == "preencher" else min)(
+                tela.width() / iw, tela.height() / ih
+            )
+            w, h = iw * fator, ih * fator
+        return QRectF(tela.center().x() - w / 2, tela.center().y() - h / 2, w, h)
+
+    def paintEvent(self, _evento: QPaintEvent) -> None:
+        p = tema.atual()
+        pintor = QPainter(self)
+        pintor.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pintor.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        tela = self.tela()
+        moldura = tela.adjusted(-6, -6, 6, 6)
+        pintor.setPen(QColor(p.linha))  # contorno: a moldura não some no modo escuro
+        pintor.setBrush(QColor(tema.INK))
+        pintor.drawRoundedRect(moldura, 8, 8)
+        pintor.setPen(Qt.PenStyle.NoPen)
+        pintor.setBrush(QColor("#000000"))
+        pintor.drawRect(tela)
+        if self.imagem is None:
+            pintor.setPen(QColor(p.trilha))
+            pintor.drawText(
+                tela.adjusted(16, 0, -16, 0),
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                self.aviso,
+            )
+        else:
+            pintor.save()
+            pintor.setClipRect(tela)
+            pintor.drawImage(self.destino(tela, self.imagem), self.imagem)
+            pintor.restore()
+        pintor.end()
+
 
 class PainelPapel(_PainelAlvos):
     titulo = "Papel de parede"
@@ -305,6 +413,7 @@ class PainelPapel(_PainelAlvos):
     def __init__(self, admin: bool, obter_cadastros: Callable[[], Cadastros | None]) -> None:
         super().__init__(admin, obter_cadastros)
         self.situacao: dict[str, pp.Situacao] = {}
+        self.dono: str | None = None  # SID da conta que roda o Bench (ADR-039)
         self.origem: Path | None = None
         lado = QVBoxLayout()
         self.imagem = QComboBox()
@@ -312,11 +421,21 @@ class PainelPapel(_PainelAlvos):
         self.estilo = QComboBox()
         for chave, rotulo in pp.ROTULO_ESTILO.items():
             self.estilo.addItem(rotulo, chave)
+        self.previa = PreviaPapel()
+        self.estilo.currentIndexChanged.connect(
+            lambda _: self.previa.definir_estilo(str(self.estilo.currentData()))
+        )
         self.detalhe = _rotulo("")
         self.b_escolher = QPushButton("Escolher arquivo…")
         self.b_escolher.clicked.connect(self._escolher)
         self.b_video = QPushButton("Abrir configurações de vídeo")
         self.b_video.clicked.connect(self._video)
+        self.legenda = _rotulo("")
+        self.legenda.setObjectName("dica")
+        self.b_baixar = QPushButton("Baixar e ver a imagem")
+        self.b_baixar.setToolTip("Baixa e confere a imagem do cadastro, sem aplicar em ninguém.")
+        self.b_baixar.clicked.connect(self._baixar_previa)
+        self.b_baixar.hide()
         for w in (
             _rotulo("Imagem (cadastro):"),
             self.imagem,
@@ -326,24 +445,26 @@ class PainelPapel(_PainelAlvos):
             self.b_escolher,
         ):
             lado.addWidget(w)
-        lado.addStretch()
+        lado.addWidget(self.previa, 1)
+        lado.addWidget(self.legenda)
+        lado.addWidget(self.b_baixar, 0, Qt.AlignmentFlag.AlignLeft)
         lado.addWidget(_rotulo("Resolução e escala ficam com o Windows."))
         lado.addWidget(self.b_video)
         self.meio.addLayout(lado, 1)
         self._fechar_layout()
 
     def _botoes(self) -> list[QPushButton]:
-        return [*super()._botoes(), self.b_escolher]
+        return [*super()._botoes(), self.b_escolher, self.b_baixar]
 
     def linha(self) -> Instalador | None:
         indice = self.imagem.currentData()
         return next((i for i in pp.linhas(self.obter_cadastros()) if i.id == indice), None)
 
     def _ler(self, alvos_: list[hive.Alvo], fechados: bool) -> Any:
-        return pp.ler(alvos_, self.linha(), descarregados=fechados)
+        return pp.ler_com_dono(alvos_, self.linha(), descarregados=fechados)
 
     def _guardar(self, leitura: Any) -> None:
-        self.situacao = leitura
+        self.dono, self.situacao = leitura
         atual = self.imagem.currentData()
         self.imagem.blockSignals(True)
         self.imagem.clear()
@@ -360,17 +481,67 @@ class PainelPapel(_PainelAlvos):
         linha = self.linha()
         if linha is None:
             self.detalhe.setText("Sem imagem no cadastro (Instaladores, tipo papel).")
+            self._previa(None, "Sem imagem no cadastro.")
             return
-        guardada = self.admin and pp.caminho(linha) is not None
+        guardada = pp.caminho(linha) if self.admin else None
         sha = linha.sha256.strip().lower()
         self.detalhe.setText(
             (f"SHA-256 {sha[:12]}… — " if sha else "SHA-256: não cadastrado — ")
             + ("conferida nesta máquina." if guardada else "será baixada ao aplicar.")
         )
+        if guardada is not None:
+            self._previa(guardada, "")
+        elif pp.validar(linha):
+            self._previa(None, "Imagem inválida no cadastro.")
+        else:
+            self._previa(None, "A imagem ainda não foi baixada nesta máquina.", baixar=True)
+
+    def _previa(self, arquivo: Path | None, aviso: str, *, baixar: bool = False) -> None:
+        """Mostra o arquivo (já conferido ou escolhido) no monitor da prévia."""
+        imagem = original = None
+        if arquivo is not None:
+            ext = arquivo.suffix.lower()
+            try:
+                lida = carregar_previa(arquivo, ext)
+                if lida is not None:
+                    imagem, original = lida
+            except OSError as erro:
+                log.warning("Papel de parede: prévia não abriu (%s)", type(erro).__name__)
+            if imagem is None:
+                aviso = "Não foi possível mostrar a imagem."
+        self.previa.mostrar(imagem, original, aviso)
+        legenda = ""
+        if arquivo is not None and imagem is not None and original is not None:
+            mb = f"{arquivo.stat().st_size / 1024 / 1024:.1f}".replace(".", ",")
+            legenda = (
+                f"{original[0]}x{original[1]} · {arquivo.suffix.upper().lstrip('.')} · {mb} MB. "
+                "Prévia numa tela 16:9; no notebook, segue a resolução dele."
+            )
+        self.legenda.setText(legenda)
+        self.b_baixar.setVisible(baixar and self.admin)
+
+    def _baixar_previa(self) -> None:
+        linha = self.linha()
+        if linha is None or self.ocupado:
+            return
+        self._ocupar(True)
+        self.estado.setText("Baixando e conferindo a imagem…")
+
+        def feito(_arquivo: Path) -> None:
+            self._ocupar(False)
+            self.estado.setText("Imagem conferida. Nada foi aplicado.")
+            self._trocou_imagem()
+
+        def falhou(motivo: str) -> None:
+            self._ocupar(False)
+            self.estado.setText(f"A imagem não baixou: {motivo}")
+
+        tarefa.iniciar(lambda: pp.obter(linha), feito, falhou)
 
     def _rotulo_alvo(self, a: hive.Alvo) -> str:
         s = self.situacao.get(a.chave)
-        return a.rotulo + (f" — {pp.ROTULO_ESTADO[s.estado]}" if s else "")
+        voce = " (você)" if self.dono and a.chave == self.dono else ""
+        return a.rotulo + voce + (f" — {pp.ROTULO_ESTADO[s.estado]}" if s else "")
 
     def _escolher(self) -> None:
         linha = self.linha()
@@ -382,6 +553,7 @@ class PainelPapel(_PainelAlvos):
         if caminho:
             self.origem = Path(caminho)
             self.detalhe.setText(f"Arquivo escolhido ({self.origem.name}); conferido ao aplicar.")
+            self._previa(self.origem, "")
 
     def _video(self) -> None:
         try:
@@ -405,6 +577,12 @@ class PainelPapel(_PainelAlvos):
             linhas += ["", f"Estilo: {self.estilo.currentText()}. Vale no próximo logon."]
         if any(a.tipo == "padrao" for a in alvos_):
             linhas.append("Contas futuras: só contas criadas depois recebem.")
+        if self.dono and any(a.chave == self.dono for a in alvos_):
+            linhas.append(
+                "A conta que está rodando o Bench (você) está marcada: o papel de parede vale "
+                "para ela no próximo logon, e ela não consegue trocar. Para voltar, use Desfazer "
+                "nela."
+            )
         return "\n".join(linhas)
 
     def _tarefa(
@@ -432,6 +610,7 @@ class PainelPapel(_PainelAlvos):
                 protegidas_=prot,
                 cancelar=cancelar,
                 avisar=avisar,
+                permitir_dono=True,  # ADR-039: a conta que roda o Bench também recebe
             )
 
         return rodar

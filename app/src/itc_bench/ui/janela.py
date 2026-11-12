@@ -27,7 +27,16 @@ from PySide6.QtWidgets import (
 from itc_bench import __version__
 from itc_bench.nucleo import instalacao
 from itc_bench.nucleo.log import definir_tecnico, log
-from itc_bench.servicos import api, atualizacao, cadastros, coleta, contas, diagnostico, perfis
+from itc_bench.servicos import (
+    api,
+    atualizacao,
+    cadastros,
+    coleta,
+    contas,
+    diagnostico,
+    perfis,
+    preferencias,
+)
 from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
 from itc_bench.servicos.executor import Sensivel
@@ -108,7 +117,7 @@ class PopupAjuda(QWidget):
         corpo.addWidget(self.texto)
         corpo.addWidget(self.ver_tudo, 0, Qt.AlignmentFlag.AlignLeft)
         fora = QVBoxLayout(self)
-        fora.setContentsMargins(28, 72, 28, 0)
+        fora.setContentsMargins(28, 88, 28, 0)  # logo abaixo do topo (80 px)
         fora.addWidget(cartao, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
         pai.installEventFilter(self)
         self.hide()
@@ -134,26 +143,26 @@ class Tela(QWidget):
         trilha.setObjectName("trilha")
         self.titulo = QLabel(item.titulo)
         self.titulo.setObjectName("titulo")
+        # "?" redondo do design, no canto direito do topo (ADR-040; o ADR-007 só exige o botão).
         self.botao_ajuda = QPushButton("?")
         self.botao_ajuda.setObjectName("ajudaBotao")
         self.botao_ajuda.setFixedSize(20, 20)
         self.botao_ajuda.setCheckable(True)
         self.botao_ajuda.setToolTip("Ajuda desta tela")
-        linha = QHBoxLayout()
-        linha.setSpacing(10)
-        linha.addWidget(self.titulo)
-        linha.addWidget(self.botao_ajuda)
-        linha.addStretch()
         textos = QVBoxLayout()
-        textos.setSpacing(5)
+        textos.setSpacing(10)  # 6 deixava o caminho colado no título
+        textos.addStretch()
         textos.addWidget(trilha)
-        textos.addLayout(linha)
+        textos.addWidget(self.titulo)
+        textos.addStretch()
         topo = QFrame()
         topo.setObjectName("topo")
-        topo.setFixedHeight(64)
+        topo.setFixedHeight(80)  # 64 deixava o título encostado na linha de baixo
         lt = QHBoxLayout(topo)
-        lt.setContentsMargins(24, 0, 24, 0)
+        lt.setContentsMargins(24, 12, 24, 12)
         lt.addLayout(textos)
+        lt.addStretch()
+        lt.addWidget(self.botao_ajuda, 0, Qt.AlignmentFlag.AlignVCenter)
 
         painel = QFrame()
         painel.setObjectName("painel")
@@ -363,6 +372,19 @@ class Janela(QMainWindow):
             avisos.append("Sem administrador: os cadastros ficam só em memória nesta sessão.")
         return avisos
 
+    def escolher_modo(self, modo: str) -> None:
+        """Claro ou escuro (ADR-037): troca na hora e grava nas preferências do usuário."""
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            tema.trocar(app, modo)
+        try:
+            preferencias.gravar_modo(modo)
+        except (OSError, ValueError) as erro:
+            # Sem str(erro): o OSError traz o caminho, com a pasta do perfil (ADR-023).
+            motivo = erro.strerror if isinstance(erro, OSError) and erro.strerror else "erro"
+            log.error("Aparência não gravada (%s)", type(erro).__name__)
+            txt.aviso(self, "Aparência", f"O modo foi trocado só até fechar o Bench.\n\n{motivo}")
+
     def escolher_unidade(self, codigo: str | None) -> None:
         """Grava em HKLM (com admin) e ressincroniza filtrado; sem rede, filtra o cache."""
         if codigo == self.unidade:
@@ -393,6 +415,7 @@ class Janela(QMainWindow):
         self.configuracoes = PainelConfiguracoes()
         self.configuracoes.sincronizar.connect(self.sincronizar)
         self.configuracoes.unidade_escolhida.connect(self.escolher_unidade)
+        self.configuracoes.modo_escolhido.connect(self.escolher_modo)
         tela.corpo.addWidget(self.configuracoes, 1)
         tela.ajuda.texto.setText(AJUDA_CONFIGURACOES)
 
@@ -736,6 +759,7 @@ class Janela(QMainWindow):
         self.inicio.criticos.connect(self._selo_alertas)
         self.limpeza = PainelLimpeza(self.admin)
         self.ajuda_geral = PainelAjuda()
+        self.ajuda_geral.abrir_tela.connect(self.abrir)
         for chave, painel in (
             ("inicio", self.inicio),
             ("prep", self.preparacao),

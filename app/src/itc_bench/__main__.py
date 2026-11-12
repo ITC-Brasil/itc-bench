@@ -16,7 +16,7 @@ from itc_bench import __version__
 from itc_bench.nucleo import acl, caminhos, elevacao, instalacao
 from itc_bench.nucleo.log import configurar as configurar_log
 from itc_bench.nucleo.log import log
-from itc_bench.servicos import api, atualizacao
+from itc_bench.servicos import api, atualizacao, preferencias
 from itc_bench.servicos.cadastros import Armazem
 from itc_bench.servicos.executor import Sensivel
 from itc_bench.servicos.fila import NOME as NOME_FILA
@@ -119,7 +119,7 @@ def main() -> int:
         log.error("%s", erro_acl)
 
     app = QApplication(argv)
-    tema.aplicar(app)
+    tema.aplicar(app, preferencias.modo())
     if erro_acl:
         txt.aviso(None, "ITC Bench", f"{erro_acl}\n\nDetalhes em {arquivo}.")
     dev = "--dev" in argv

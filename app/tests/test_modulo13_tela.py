@@ -32,7 +32,44 @@ def test_painel_ajuda_filtra(qtbot):
     p = ajuda.PainelAjuda()
     qtbot.addWidget(p)
     p.busca.setText("lixeira")
-    assert "Limpeza" in p.texto.toPlainText() and "Wi-Fi" not in p.contagem.text()
+    assert p.atual == "limpeza" and "lixeira" in p.texto_atual().casefold()
+    assert p.itens["wifi"].isHidden() and not p.itens["limpeza"].isHidden()
+    p.busca.setText("palavra-que-nao-existe-em-lugar-nenhum")
+    assert p.atual is None and p.contagem.text() == "0 tela(s)"
+
+
+def test_painel_ajuda_vai_para_a_tela_e_abre(qtbot):
+    p = ajuda.PainelAjuda()
+    qtbot.addWidget(p)
+    p.busca.setText("lixeira")
+    p.ir_para("contas")
+    assert p.busca.text() == "" and p.atual == "contas"
+    with qtbot.waitSignal(p.abrir_tela) as sinal:
+        next(b for b in p.conteudo.findChildren(ajuda.QPushButton)).click()
+    assert sinal.args == ["contas"]
+
+
+def test_ajuda_separa_secoes_passos_e_topicos():
+    b = ajuda.blocos(
+        "Abertura da tela.\n\nCriar uma conta\n1. Preencha o nome.\n2. Clique em Criar.\n\n"
+        "Avisos\n• Primeiro.\n• Segundo.\n\nContinua a seção anterior."
+    )
+    assert [x.titulo for x in b] == [None, "Criar uma conta", "Avisos"]
+    assert b[1].linhas == [("passo", "1", "Preencha o nome."), ("passo", "2", "Clique em Criar.")]
+    assert b[2].linhas[0] == ("topico", "•", "Primeiro.")
+    assert b[2].linhas[-1] == ("texto", "", "Continua a seção anterior.")
+
+
+def test_toda_ajuda_vira_secoes_sem_perder_texto():
+    for chave, texto in ajuda.TEXTOS.items():
+        partes = ajuda.blocos(texto)
+        assert partes, chave
+        juntas = " ".join(
+            [x.titulo or "" for x in partes] + [t for x in partes for _, _, t in x.linhas]
+        )
+        palavras = {w for w in ajuda._normal(texto).split() if len(w) > 3}
+        faltando = {w for w in palavras if w not in ajuda._normal(juntas)}
+        assert not faltando, (chave, faltando)
 
 
 def test_preparacao_sem_admin_so_le(qtbot, monkeypatch):

@@ -200,8 +200,19 @@ def ler(
     rodar: Rodar = executor.powershell,
     descarregados: bool = False,
 ) -> dict[str, Situacao]:
+    return ler_com_dono(alvos_, linha, rodar=rodar, descarregados=descarregados)[1]
+
+
+def ler_com_dono(
+    alvos_: Sequence[Alvo],
+    linha: Instalador | None,
+    *,
+    rodar: Rodar = executor.powershell,
+    descarregados: bool = False,
+) -> tuple[str | None, dict[str, Situacao]]:
+    """Como `ler`, mais o SID da conta que roda o Bench (aviso da tela, ADR-039)."""
     usuarios = [a for a in alvos_ if a.tipo != "maquina"]
-    _, _, dados = hive.ler(
+    _, dono, dados = hive.ler(
         usuarios, _chaves(), perfil="aparencia", rodar=rodar, descarregados=descarregados
     )
     atual = caminho(linha) if linha is not None else None
@@ -213,7 +224,7 @@ def ler(
             if d == hive.NAO_LIDA
             else estado(d if isinstance(d, dict) else None, atual)
         )
-    return saida
+    return dono, saida
 
 
 # ---------------------------------------------------------------- aplicar / desfazer
@@ -261,8 +272,13 @@ def aplicar(
     rodar: Rodar = executor.powershell,
     cancelar: threading.Event | None = None,
     avisar: Callable[[str], None] = lambda _: None,
+    permitir_dono: bool = False,
 ) -> list[Feito]:
-    """Aplicar exige a imagem já guardada (`obter`) e confere o SHA-256 de novo antes."""
+    """Aplicar exige a imagem já guardada (`obter`) e confere o SHA-256 de novo antes.
+
+    `permitir_dono`: a tela Tela e papel de parede aceita a conta que roda o Bench (ADR-039).
+    A Preparação completa não passa, e continua recusando.
+    """
     imagem: Path | None = None
     if acao == "aplicar":
         if linha is None:
@@ -287,4 +303,5 @@ def aplicar(
         cancelar=cancelar,
         avisar=avisar,
         mensagens=hive.MENSAGENS_APARENCIA,
+        permitir_dono=permitir_dono,
     )
