@@ -26,6 +26,7 @@ OUTRO = BASE + "1004"  # perfil não carregado
 SUPORTE = BASE + "1002"
 NOMES = {"1001": "Tecnico-Teste", "1002": "Suporte", "1003": "Aluno-Teste", "1004": "Aluno-Dois"}
 PROT = frozenset({"suporte"})
+PAPEL = "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"  # = $CHAVE_PAPEL
 
 
 def _conta(rid: str, *, carregado: bool = False, perfil: bool = True) -> dict[str, Any]:
@@ -267,12 +268,15 @@ def test_recusa_dono_so_sem_permissao() -> None:
     assert recusa_alvo(alvo(BASE + "500"), lista, PROT, DONO, permitir_dono=True) == "nativo"
 
 
-def test_trecho_libera_dono_so_para_politicas() -> None:
-    """A segunda conferência, no PowerShell, só libera com perfil politicas e a variável."""
+def test_trecho_libera_dono_so_para_politicas_e_papel() -> None:
+    """A segunda conferência, no PowerShell, só libera com a variável e perfil politicas, ou
+    perfil aparencia com operações só do papel de parede (ADR-039)."""
     from itc_bench.servicos import hive as hive_
 
     comum = hive_.script("escrever")
-    assert "$donoOk = ($PERFIL -ceq 'politicas') -and ($env:ITC_PERMITIR_DONO -eq '1')" in comum
+    assert "$donoOk = ($env:ITC_PERMITIR_DONO -eq '1') -and (" in comum
+    assert "($PERFIL -ceq 'politicas') -or (($PERFIL -ceq 'aparencia') -and (So-Papel))" in comum
+    assert "-cne $CHAVE_PAPEL) { return $false }" in comum
     assert "Falhar 'dono'" in comum
 
 
@@ -556,14 +560,19 @@ def test_hive_em_uso_so_pela_abertura_exclusiva() -> None:
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows")
 @pytest.mark.parametrize(
-    ("perfil", "permitir", "esperado"),
+    ("perfil", "permitir", "chave", "esperado"),
     [
-        ("politicas", "1", "PASSOU"),  # ADR-034
-        ("politicas", "0", "ERRO|dono"),
-        ("aparencia", "1", "ERRO|dono"),  # a Aparência continua recusando
+        ("politicas", "1", None, "PASSOU"),  # ADR-034
+        ("politicas", "0", None, "ERRO|dono"),
+        ("aparencia", "1", None, "ERRO|dono"),  # sem operações: recusa
+        ("aparencia", "1", PAPEL, "PASSOU"),  # ADR-039: só papel de parede
+        ("aparencia", "0", PAPEL, "ERRO|dono"),
+        ("aparencia", "1", r"Control Panel\Mouse", "ERRO|dono"),  # mouse continua recusando
     ],
 )
-def test_hive_escrita_real_conta_que_roda(perfil: str, permitir: str, esperado: str) -> None:
+def test_hive_escrita_real_conta_que_roda(
+    perfil: str, permitir: str, chave: str | None, esperado: str
+) -> None:
     """Só a conferência do trecho, com o SID da conta atual; nada é gravado no registro."""
     trecho = hive_script_comum()
     teste = (
@@ -574,7 +583,10 @@ def test_hive_escrita_real_conta_que_roda(perfil: str, permitir: str, esperado: 
         + "{ Write-Output 'PULAR'; exit 0 }\n"
         + "Hive-Escrita $eu\nWrite-Output 'PASSOU'\n"
     )
-    r = executor.powershell(teste, perfil=perfil, permitir_dono=permitir, protegidos="")
+    ops = json.dumps([{"chave": chave, "nome": "x"}]) if chave else ""
+    r = executor.powershell(
+        teste, perfil=perfil, permitir_dono=permitir, protegidos="", operacoes=ops
+    )
     if "PULAR" in r.saida:
         pytest.skip("a conta atual não é local comum (nativa ou de serviço)")
     assert esperado in r.saida
