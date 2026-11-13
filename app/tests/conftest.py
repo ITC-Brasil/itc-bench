@@ -49,6 +49,8 @@ def _sem_rede_nem_registro(request, monkeypatch):
 
     monkeypatch.setattr(cadastros, "unidade_da_maquina", lambda: None)
     monkeypatch.setattr(cadastros, "gravar_unidade", lambda codigo: None)
+    # ADR-048: o nome desta máquina não decide a unidade nos testes.
+    monkeypatch.setattr(cadastros, "nome_do_computador", lambda: "PC-DE-TESTE")
     if request.module.__name__ == "test_api_cliente":
         return  # testa o cliente real contra o servidor local roteirizado
 
@@ -56,6 +58,18 @@ def _sem_rede_nem_registro(request, monkeypatch):
         raise api.SemConexao("teste")
 
     monkeypatch.setattr(api, "cadastros", sem_conexao)
+
+
+@pytest.fixture(autouse=True)
+def _sem_mudar_monitor(monkeypatch):
+    """Monitores (ADR-041): nenhum teste muda a resolução ou a escala da máquina."""
+    from itc_bench.nucleo import video
+
+    def proibido(*_args: object) -> int:
+        raise AssertionError("teste tentou mudar o monitor de verdade")
+
+    monkeypatch.setattr(video, "mudar_modo", proibido)
+    monkeypatch.setattr(video, "mudar_escala", proibido)
 
 
 @pytest.fixture(autouse=True)

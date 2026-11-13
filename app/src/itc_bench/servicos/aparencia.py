@@ -11,7 +11,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from itc_bench.servicos import executor, hive
+from itc_bench.nucleo.log import log
+from itc_bench.servicos import cursores, executor, hive
 from itc_bench.servicos.hive import Acao, Alvo, Feito, Rodar
 
 _MOUSE = "Control Panel\\Mouse"
@@ -19,6 +20,7 @@ _CURSORES = "Control Panel\\Cursors"
 _TECLADO = "Control Panel\\Keyboard"
 _ACESS = "Software\\Microsoft\\Accessibility"
 _SHIFT = "Control Panel\\Accessibility\\"
+_TEMA = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"  # ADR-044
 # Espelho das chaves exatas do perfil `aparencia` no comum.ps1 (o trecho confere de novo).
 CHAVES_ACEITAS = frozenset(
     {
@@ -29,6 +31,7 @@ CHAVES_ACEITAS = frozenset(
         _SHIFT + "Keyboard Response",
         _SHIFT + "ToggleKeys",
         _ACESS,
+        _TEMA,
     }
 )
 
@@ -71,38 +74,44 @@ _ARQUIVO_FUNCAO = {
     "UpArrow": "up",
     "Wait": "busy",
 }
-_MAO = {
-    "preto": ("aero_link.cur", "aero_link_l.cur", "aero_link_xl.cur"),
-    "invertido": ("aero_link_i.cur", "aero_link_il.cur", "aero_link_im.cur"),
-}
+_MAO = {"preto": ("aero_link.cur",), "invertido": ("aero_link_i.cur",)}
 CORES = {"branco": "Branco", "preto": "Preto", "invertido": "Invertido"}
-TAMANHOS = {"normal": "normal", "grande": "grande", "extra": "extra grande"}
-_NIVEL = {"normal": 0, "grande": 1, "extra": 2}
+# Tamanho do ponteiro de 1 a 15, como o controle deslizante do Windows 11 (ADR-047).
+TAMANHOS = tuple(range(1, 16))
 
 
 def _ponteiro(opcao: str) -> list[Escrita]:
-    cor, tam = opcao.split("_")
-    nivel = _NIVEL[tam]
-    if cor == "branco":
-        tamanho = (1, 6, 11)[nivel]
+    """`<cor>_<tamanho>`, tamanho de 1 a 15 como o controle deslizante do Windows (ADR-047).
+
+    O tamanho vale para todos os estilos pelo `CursorBaseSize` (32 + (n - 1) x 16): os cursores
+    do Windows trazem imagens de até 128 px e o próprio Windows amplia.
+    """
+    cor, tam = opcao.rsplit("_", 1)
+    tamanho = int(tam)
+    medidas: list[Escrita] = [
+        (_CURSORES, "CursorBaseSize", "dword", 32 + (tamanho - 1) * 16),
+        (_ACESS, "CursorSize", "dword", tamanho),
+        (_ACESS, "CursorType", "dword", 0),
+    ]
+    if cor == "branco" or cor in cursores.CORES:
+        # Colorido (ADR-046): o esquema branco com os cursores recoloridos pelo Bench.
+        ponteiros = dict(_PADRAO_PONTEIROS)
+        if cor in cursores.CORES:
+            ponteiros.update({f: str(cursores.arquivo(cor, f)) for f in cursores.FUNCOES})
         return [
-            *((_CURSORES, n, "expand_sz", v) for n, v in _PADRAO_PONTEIROS.items()),
+            *((_CURSORES, n, "expand_sz", v) for n, v in ponteiros.items()),
             (_CURSORES, "Scheme Source", "dword", 2),
-            (_CURSORES, "CursorBaseSize", "dword", 32 + (tamanho - 1) * 16),
-            (_ACESS, "CursorSize", "dword", tamanho),
-            (_ACESS, "CursorType", "dword", 0),
+            *medidas,
         ]
-    sufixo = ("r" if cor == "preto" else "i") + ("", "l", "m")[nivel]
+    sufixo = "r" if cor == "preto" else "i"
     return [
         *(
             (_CURSORES, n, "expand_sz", f"%SystemRoot%\\cursors\\{base}_{sufixo}.cur")
             for n, base in _ARQUIVO_FUNCAO.items()
         ),
-        (_CURSORES, "Hand", "expand_sz", f"%SystemRoot%\\cursors\\{_MAO[cor][nivel]}"),
+        (_CURSORES, "Hand", "expand_sz", f"%SystemRoot%\\cursors\\{_MAO[cor][0]}"),
         (_CURSORES, "Scheme Source", "dword", 1),
-        (_CURSORES, "CursorBaseSize", "dword", 32),
-        (_ACESS, "CursorSize", "dword", 1),
-        (_ACESS, "CursorType", "dword", 0),
+        *medidas,
     ]
 
 
@@ -135,8 +144,15 @@ CATALOGO: tuple[Ajuste, ...] = (
     Ajuste(
         "ponteiro",
         "Ponteiro do mouse",
-        {f"{c}_{t}": f"{CORES[c]}, {TAMANHOS[t]}" for c in CORES for t in TAMANHOS},
-        "branco_normal",
+        {
+            f"{c}_{t}": f"{rotulo}, tamanho {t}"
+            for c, rotulo in (
+                *CORES.items(),
+                *((c, r) for c, (r, _) in cursores.CORES.items()),
+            )
+            for t in TAMANHOS
+        },
+        "branco_1",
         _ponteiro,
     ),
     Ajuste(
@@ -184,6 +200,22 @@ CATALOGO: tuple[Ajuste, ...] = (
 )
 POR_ID = {a.id: a for a in CATALOGO}
 
+
+def _modo(opcao: str) -> list[Escrita]:
+    claro = 1 if opcao == "claro" else 0
+    return [
+        (_TEMA, "AppsUseLightTheme", "dword", claro),
+        (_TEMA, "SystemUsesLightTheme", "dword", claro),
+    ]
+
+
+# Modo claro ou escuro do Windows (ADR-044): na aba Papel de parede, não em Mouse e teclado.
+MODO_WINDOWS = Ajuste(
+    "modo_windows", "Modo do Windows", {"claro": "Claro", "escuro": "Escuro"}, "claro", _modo
+)
+CATALOGO_TEMA: tuple[Ajuste, ...] = (MODO_WINDOWS,)
+TODOS = {a.id: a for a in (*CATALOGO, *CATALOGO_TEMA)}
+
 Estado = Literal["padrao", "ajustado", "diferente", "nao_lida", "sem_acesso"]
 ROTULO_ESTADO: dict[Estado, str] = {
     "padrao": "padrão do Windows",
@@ -200,9 +232,9 @@ class Situacao:
     valor: str | None = None  # opção reconhecida
 
 
-def _chaves() -> list[dict[str, Any]]:
+def _chaves(catalogo: Sequence[Ajuste] = CATALOGO) -> list[dict[str, Any]]:
     nomes: dict[str, list[str]] = {}
-    for a in CATALOGO:
+    for a in catalogo:
         for opcao in a.opcoes:
             for chave, nome, _, _ in a.escritas(opcao):
                 lista = nomes.setdefault(chave, [])
@@ -231,17 +263,21 @@ def estado(ajuste: Ajuste, valores: Mapping[str, str | None]) -> Situacao:
 
 
 def ler(
-    alvos_: Sequence[Alvo], *, rodar: Rodar = executor.powershell, descarregados: bool = False
+    alvos_: Sequence[Alvo],
+    *,
+    rodar: Rodar = executor.powershell,
+    descarregados: bool = False,
+    catalogo: Sequence[Ajuste] = CATALOGO,
 ) -> dict[tuple[str, str], Situacao]:
     """(ajuste, alvo.chave) → situação."""
     usuarios = [a for a in alvos_ if a.tipo != "maquina"]
     _, _, dados = hive.ler(
-        usuarios, _chaves(), perfil="aparencia", rodar=rodar, descarregados=descarregados
+        usuarios, _chaves(catalogo), perfil="aparencia", rodar=rodar, descarregados=descarregados
     )
     saida = {}
     for a in usuarios:
         d = dados.get(a.chave)
-        for aj in CATALOGO:
+        for aj in catalogo:
             if d == hive.NAO_LIDA:
                 saida[(aj.id, a.chave)] = Situacao("nao_lida")
             elif not isinstance(d, dict) or not d.get("ok"):
@@ -255,7 +291,7 @@ def operacoes(escolhas: Mapping[str, str]) -> list[dict[str, Any]]:
     """`escolhas`: ajuste → opção (desfazer = a opção padrão). Só valores do catálogo."""
     ops = []
     for aid, opcao in escolhas.items():
-        ajuste = POR_ID.get(aid)
+        ajuste = TODOS.get(aid)
         if ajuste is None or opcao not in ajuste.opcoes:
             raise ValueError(f"Ajuste ou valor fora da lista: {aid!r}")
         for chave, nome, tipo, dado in ajuste.escritas(opcao):
@@ -283,17 +319,30 @@ def aplicar(
     rodar: Rodar = executor.powershell,
     cancelar: threading.Event | None = None,
     avisar: Callable[[str], None] = lambda _: None,
+    rotulo: str = "Mouse e teclado",
+    preparar_cursores: Callable[[str], object] = cursores.preparar,
 ) -> list[Feito]:
     """Aplicar as opções escolhidas, ou desfazer (padrão do Windows) os ajustes das chaves."""
     if acao == "desfazer":
-        escolhas = {aid: POR_ID[aid].padrao if aid in POR_ID else "" for aid in escolhas}
+        escolhas = {aid: TODOS[aid].padrao if aid in TODOS else "" for aid in escolhas}
     ops = operacoes(escolhas)
+    cor = escolhas.get("ponteiro", "").split("_")[0]
+    if cor in cursores.CORES:
+        # ADR-046: os arquivos do ponteiro colorido precisam existir antes de gravar o registro.
+        avisar(f"Gerando o ponteiro {cursores.CORES[cor][0].lower()}…")
+        try:
+            preparar_cursores(cor)
+        except (cursores.ErroCursor, OSError) as erro:
+            log.warning("Ponteiro colorido: não gerado (%s)", type(erro).__name__)
+            detalhe = str(erro) if isinstance(erro, cursores.ErroCursor) else type(erro).__name__
+            motivo = f"Não foi possível gerar o ponteiro colorido ({detalhe})."
+            return [Feito(a, False, motivo) for a in alvos_ if a.tipo != "maquina"]
     return hive.aplicar(
         acao,
         [a for a in alvos_ if a.tipo != "maquina"],
         lambda _: ops,
-        nomes={a.id: a.nome for a in CATALOGO},
-        rotulo="Mouse e teclado",
+        nomes={a.id: a.nome for a in TODOS.values()},
+        rotulo=rotulo,
         item="ajuste",
         perfil="aparencia",
         protegidas_=protegidas_,

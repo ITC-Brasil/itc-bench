@@ -155,7 +155,9 @@ def main() -> int:
         atualizar=atualizar,
         mutex_alheio=estado_mutex == "alheio",
     )
-    janela.show()
+    # Abre maximizada (ADR-043): ocupa a tela, com a barra de título e a de tarefas do Windows.
+    # O tamanho de `resize` em `Janela` vale quando o técnico restaura a janela.
+    janela.showMaximized()
     if "--teste" in argv:
         log.info("Modo teste: janela aberta; fechando.")
         QTimer.singleShot(800, app.quit)

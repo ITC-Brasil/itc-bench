@@ -8,10 +8,12 @@ técnico não apagam: o cadastro é da máquina.
 Segredos (`Servidores.Valor`/`Observacao` sem `Publico`, `WiFi.Senha`) viram `Sensivel` ao ler.
 O log tem contagens, a versão curta e `Id`; nunca valor nem SSID.
 
-Unidade da máquina: `HKLM\SOFTWARE\ITC\Bench`, valor `Unidade`, escolhida em Configurações.
+Unidade da máquina: `HKLM\SOFTWARE\ITC\Bench`, valor `Unidade`, escolhida em Configurações ou,
+sem escolha, identificada pelo código no começo do nome do computador (ADR-048).
 """
 
 import json
+import re
 import winreg
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -339,6 +341,37 @@ def rotulo(cadastros: Cadastros | None, offline: bool, agora: datetime | None = 
     if offline or cadastros.defasado:
         return f"offline · dados de {quando}"
     return f"sincronizado {quando}"
+
+
+# ---------------------------------------------------------------- unidade pelo nome (ADR-048)
+
+# Mesmo formato de `Unidades.Codigo` (ADR-018): sigla de 1 a 6 letras e o número da UM.
+CODIGO_UNIDADE = re.compile(r"^[A-Z]{1,6}[0-9]{2}$")
+CHAVE_NOME_PC = r"SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName"
+
+
+def codigo_do_nome(nome: str) -> str | None:
+    """`BSBIA01-EST94` → `BSBIA01`: o que vem antes do primeiro hífen, se for um código."""
+    prefixo = nome.strip().split("-", 1)[0].upper()
+    return prefixo if CODIGO_UNIDADE.fullmatch(prefixo) else None
+
+
+def nome_do_computador() -> str:
+    """Nome que vale depois de reiniciar (o pendente, se houver troca); vazio se não ler."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, CHAVE_NOME_PC) as chave:
+            valor, _ = winreg.QueryValueEx(chave, "ComputerName")
+    except OSError:
+        return ""
+    return str(valor).strip()
+
+
+def unidade_pelo_nome(c: "Cadastros | None", nome: str) -> Unidade | None:
+    """A unidade do cadastro cujo código abre o nome do computador, ou None."""
+    codigo = codigo_do_nome(nome)
+    if c is None or codigo is None:
+        return None
+    return c.unidade_por_codigo(codigo)
 
 
 def unidade_da_maquina() -> str | None:

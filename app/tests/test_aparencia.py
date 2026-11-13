@@ -61,11 +61,21 @@ def test_operacoes_recusam_fora_da_lista() -> None:
     ]
 
 
-def test_ponteiro_preto_grande() -> None:
-    escritas = {n: d for _, n, _, d in ap.POR_ID["ponteiro"].escritas("preto_grande")}
-    assert escritas["Arrow"] == "%SystemRoot%\\cursors\\arrow_rl.cur"
-    assert escritas["Hand"] == "%SystemRoot%\\cursors\\aero_link_l.cur"
-    assert escritas["CursorSize"] == 1
+def test_ponteiro_preto_tamanho_6() -> None:
+    """ADR-047: o tamanho vem do CursorBaseSize; os arquivos são os do tamanho base."""
+    escritas = {n: d for _, n, _, d in ap.POR_ID["ponteiro"].escritas("preto_6")}
+    assert escritas["Arrow"] == r"%SystemRoot%\cursors\arrow_r.cur"
+    assert escritas["Hand"] == r"%SystemRoot%\cursors\aero_link.cur"
+    assert escritas["CursorSize"] == 6 and escritas["CursorBaseSize"] == 112
+
+
+def test_ponteiro_tamanhos_de_1_a_15() -> None:
+    p = ap.POR_ID["ponteiro"]
+    assert p.padrao == "branco_1"
+    for n in (1, 8, 15):
+        escritas = {nome: d for _, nome, _, d in p.escritas(f"branco_{n}")}
+        assert escritas["CursorSize"] == n and escritas["CursorBaseSize"] == 32 + (n - 1) * 16
+    assert "branco_16" not in p.opcoes and "branco_0" not in p.opcoes
 
 
 def test_estado() -> None:
@@ -76,8 +86,8 @@ def test_estado() -> None:
     )
     assert ap.estado(v, {"Control Panel\\Mouse|MouseSensitivity": "99"}).estado == "diferente"
     p = ap.POR_ID["ponteiro"]
-    lidos = {f"{c}|{n}": str(d) for c, n, _, d in p.escritas("invertido_extra")}
-    assert ap.estado(p, lidos) == ap.Situacao("ajustado", "invertido_extra")
+    lidos = {f"{c}|{n}": str(d) for c, n, _, d in p.escritas("invertido_11")}
+    assert ap.estado(p, lidos) == ap.Situacao("ajustado", "invertido_11")
 
 
 def test_aplicar_e_desfazer_por_alvo(caplog: pytest.LogCaptureFixture) -> None:
@@ -117,7 +127,7 @@ def test_preferencia_herda_acl_e_tipo_nativo() -> None:
             f"$base = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('{raiz}')",
         )
     )
-    ops = ap.operacoes({"velocidade": "15", "ponteiro": "preto_normal"})
+    ops = ap.operacoes({"velocidade": "15", "ponteiro": "preto_1"})
     try:
         r = executor.powershell(trecho, hive=ALUNO, operacoes=json.dumps(ops), perfil="aparencia")
         assert r.ok, (r.saida, r.erros)
@@ -136,3 +146,44 @@ def test_preferencia_herda_acl_e_tipo_nativo() -> None:
         executor.powershell(
             f"[Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree('{raiz}', $false)"
         )
+
+
+# ---------------------------------------------------------------- modo do Windows (ADR-044)
+
+
+def test_modo_windows_grava_os_dois_valores_do_tema() -> None:
+    ops = ap.operacoes({"modo_windows": "escuro"})
+    assert [(o["chave"], o["nome"], o["tipo"], o["dado"]) for o in ops] == [
+        (ap._TEMA, "AppsUseLightTheme", "dword", 0),
+        (ap._TEMA, "SystemUsesLightTheme", "dword", 0),
+    ]
+    assert [o["dado"] for o in ap.operacoes({"modo_windows": "claro"})] == [1, 1]
+    with pytest.raises(ValueError):
+        ap.operacoes({"modo_windows": "azul"})
+
+
+def test_modo_windows_fora_de_mouse_e_teclado() -> None:
+    """A tela Mouse e teclado continua só com o CATALOGO; o modo fica na aba Papel de parede."""
+    assert "modo_windows" not in ap.POR_ID
+    assert ap.MODO_WINDOWS.padrao == "claro"
+    for opcao in ap.MODO_WINDOWS.opcoes:
+        for chave, _, _, _ in ap.MODO_WINDOWS.escritas(opcao):
+            assert chave in ap.CHAVES_ACEITAS
+
+
+def test_modo_windows_estado_e_desfazer() -> None:
+    m = ap.MODO_WINDOWS
+    assert ap.estado(m, {}).estado == "padrao"  # ausente = claro, padrão do Windows
+    escuro = {f"{ap._TEMA}|AppsUseLightTheme": "0", f"{ap._TEMA}|SystemUsesLightTheme": "0"}
+    assert ap.estado(m, escuro) == ap.Situacao("ajustado", "escuro")
+    f = Falso()
+    ap.aplicar(
+        "desfazer",
+        {"modo_windows": "escuro"},
+        [alvo(ALUNO, True)],
+        protegidas_=PROT,
+        rodar=f,
+        rotulo="Modo do Windows",
+    )
+    ops = json.loads(next(kw for n, kw in f.chamadas if n == "escrever")["operacoes"])
+    assert [o["dado"] for o in ops] == [1, 1]
