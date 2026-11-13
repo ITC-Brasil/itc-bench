@@ -138,10 +138,19 @@ def test_trecho_real_recusa_sem_tocar_em_nada():
     r = executor.powershell(TRECHO, timeout=60, acao="limpar", sids=",".join(sids), protegidas="")
     assert r.ok, r.erros
     saida = json.loads(r.saida)
+    # A conta que roda os testes é recusada antes de abrir pasta. No runner do CI ela é o
+    # Administrador nativo (-500), conferido antes de "dono"; numa conta de serviço, nem é SID
+    # de usuário local.
+    if not eu.startswith("S-1-5-21-"):
+        esperado_eu = "sid_invalido"
+    elif eu.endswith("-500"):
+        esperado_eu = "nativo"
+    else:
+        esperado_eu = "dono"
     assert [(d["n"], d["codigo"], d["categoria"]) for d in saida] == [
         (1, "sid_invalido", ""),
         (2, "nativo", ""),
-        (3, "dono", ""),
+        (3, esperado_eu, ""),
     ]
 
 
