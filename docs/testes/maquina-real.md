@@ -175,6 +175,11 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 10.8 | Cadastro com nome de programa `<b>Teste</b>`: abrir Programas, Preparação e Configurações | Texto aparece literal, sem negrito, inclusive nas dicas | 14 |
 | 10.9 | Tela e papel de parede, elevado: imagem do cadastro ainda não baixada → "Baixar e ver a imagem"; trocar o estilo entre os quatro; depois "Escolher arquivo…" com um PNG local | Prévia aparece só depois de conferida, sem nenhuma conta alterada (situação das contas igual); o desenho muda com o estilo; a legenda mostra dimensões, tipo e tamanho; o arquivo escolhido aparece na prévia | ADR-038 |
 | 10.10 | Tela e papel de parede: marcar a conta que roda o Bench e Aplicar; sair e entrar; tentar trocar; Desfazer. Depois, em Mouse e teclado, marcar a mesma conta e Aplicar | Lista mostra "(você)"; a confirmação avisa; papel do Grupo no logon, sem trocar; Desfazer devolve o dela. Mouse e teclado: recusada ("É a conta que está rodando o Bench") | ADR-039 |
+| 10.11 | Monitores, elevado, notebook + monitor externo: mudar resolução e frequência de cada um; Manter | Cada cartão só lista o que o monitor aceita; muda na hora; Manter mantém | ADR-041 |
+| 10.12 | Monitores: externo em Retrato e escala 150% no notebook; Aplicar e não responder | Volta sozinho em 15 s para como estava (resolução, orientação e escala) | ADR-041 |
+| 10.13 | Monitores com dois externos (notebook fechado ou desktop); tirar um cabo e Atualizar; aplicar no que saiu | Dois cartões, depois um; aplicar no que saiu é recusado ("não está mais conectado") | ADR-041 |
+| 10.14 | Tela e papel de parede: Modo do Windows = Escuro, marcar `Teste01` e a conta que roda o Bench, Aplicar; entrar em `Teste01` | Confirmação cita o modo; `Teste01` entra no escuro com o papel do Grupo e consegue trocar o modo; a conta do Bench recebe só o papel de parede | ADR-044 |
+| 10.15 | Mouse e teclado: Personalizado, cor rosa, tamanho 6, marcar `Teste01`, Aplicar; entrar em `Teste01` | `%ProgramData%\ITC\Bench\cursores\rosa\` com 11 `.cur` e ACL de leitura para Usuários; ponteiro rosa no tamanho 6; ocupado igual ao do Windows; Desfazer volta ao branco | ADR-046 |
 
 ### 11. Limpeza, Registro e varreduras finais
 
@@ -184,6 +189,10 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 11.2 | Registro e Exportar | Arquivo sem nome de máquina, contas nem caminho de perfil | 13/V8 |
 | 11.3 | Ajuda com busca em todas as telas; índice, seções e "Abrir esta tela"; "Ver toda a ajuda" no "?" de Contas | Resultados e "?" em toda tela; a busca filtra o índice; passos numerados; abre a tela certa; o popup leva à ajuda de Contas | 13/V9, ADR-038 |
 | 11.5 | Configurações › Aparência do Bench: Escuro; fechar e abrir o Bench; voltar para Claro | Troca na hora em todas as telas; abre no escuro já na tela Entrar; `%LOCALAPPDATA%\ITC\Bench\preferencias.json` com `"modo"`; sem senha nem dado de cadastro no arquivo | ADR-037 |
+| 11.6 | Limpeza de contas, elevado: `Teste01` com arquivos em Downloads, Documentos e Área de Trabalho, cache do Edge e um programa em `AppData\Local\Programs`; Calcular contas | Tamanhos por categoria; Suporte, Gestão, Administrador nativo, a conta do técnico e conta com sessão aparecem sem caixa de marcar, com o motivo | ADR-042 |
+| 11.7 | Marcar `Teste01`, Limpar contas, confirmar duas vezes; entrar em `Teste01` | Pastas vazias (com nome em português); papel de parede e políticas iguais; favoritos e senhas do Edge ficam; conta continua padrão | ADR-042 |
+| 11.8 | Junction em `Downloads` de `Teste01` apontando para outra pasta com arquivo; Limpar contas | A junction some, o arquivo de destino fica | ADR-042 |
+| 11.9 | Renomear para `<código de uma unidade>-EST01` na Identificação, reiniciar, abrir o Bench sem unidade gravada e entrar online | Configurações mostra a unidade do nome e o aviso "identificada pelo nome do computador"; o Wi-Fi é só dessa unidade; escolher bancada fica valendo na sessão | ADR-048 |
 | 11.4 | `findstr /s /i` pelos marcadores no `bench.log` (todos os rotacionados), em `%TEMP%`, `protegido\` e na pasta do serviço do RustDesk | Nenhuma senha; sem SSID, host, SID, nome de conta ou caminho de perfil no log | 07/V8, 08/V8, 09/V10, 10/V10, 11/V12, 12/V11 |
 
 ### 13. Atualização automática (Módulo 16)

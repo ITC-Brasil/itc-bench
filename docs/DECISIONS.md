@@ -2452,3 +2452,310 @@ do outro lado.
 **Consequences**
 - Os pixels do HTML de design deixam de valer para o topo. Uma ação nova no topo entra à esquerda
   do "?", e a ajuda fica sempre por último.
+
+## ADR-041 — Monitores: resolução, frequência, orientação e escala pelo Bench
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável; revisa o item 1 do ADR-022, que deixava resolução,
+frequência e escala só com o Windows)
+
+**Context**
+O ADR-022 tirou resolução, frequência e escala do Bench: usavam ctypes, a escala usa uma API não
+documentada e o Windows já escolhe a resolução nativa. Na bancada, o técnico liga notebooks a um
+ou mais monitores externos e precisa ajustar cada um sem sair do Bench. Pedido de 13/11/2026:
+resolução, escala, frequência e orientação, para qualquer combinação de monitores (notebook mais
+externos, ou só externos), só pela tela (fora da Preparação completa).
+
+**Decision**
+1. **Onde:** a tela "Tela e papel de parede" ganha duas abas, **Monitores** (primeira) e Papel de
+   parede (a de antes, sem mudança). O menu continua com 20 telas e 7 grupos (ADR-004).
+2. **Leitura** (`nucleo/video.py`, ctypes do `user32`, na lista fechada de ctypes): monitores
+   ativos por `QueryDisplayConfig`; nome do EDID por `DisplayConfigGetDeviceInfo`; modos por
+   `EnumDisplaySettingsExW` (32 bits, sempre em paisagem); escala pelos tipos `-3`/`-4`.
+   Clonados (duplicar) aparecem uma vez. Nome na tela: "Tela do notebook", o nome do EDID ou
+   "Monitor externo", numerados na ordem do Windows, com "(principal)".
+3. **Lista fechada do Windows:** a tela só oferece o que o próprio monitor informou, e
+   `servicos/video.py` valida de novo antes de aplicar (resolução listada, frequência listada
+   para aquela resolução, orientação 0°/90°/180°/270°, escala entre o mínimo e o máximo do
+   monitor). Nada é digitado.
+4. **Aplicar:** `ChangeDisplaySettingsExW` primeiro com `CDS_TEST` e só depois com
+   `CDS_UPDATEREGISTRY`; escala por `DisplayConfigSetDeviceInfo`. Monitor por monitor; uma falha
+   não para os outros. Sem mudança, o Windows não é chamado.
+5. **Prazo para manter:** depois de aplicar, "Manter" ou "Voltar como estava" com contagem de
+   15 s; sem resposta (a imagem pode ter sumido), o Bench volta sozinho à situação lida antes.
+6. **Quem pode:** só com administrador e fora do `--dev`, como as outras telas de ação.
+7. **Log:** só o número do monitor e o código de retorno; nunca o nome do monitor.
+8. **Testes** nunca mudam o monitor real: `conftest.py` troca `mudar_modo` e `mudar_escala` por
+   uma função que falha.
+
+**Riscos aceitos**
+- A escala usa uma API que a Microsoft não documenta. Se o Windows mudar, a leitura falha e a
+  lista de escala fica desligada ("não informada pelo Windows"); a resolução continua.
+- A escala vale para a conta que roda o Bench (o Windows grava por usuário). Resolução,
+  frequência e orientação valem para a máquina. A ajuda da tela diz isso.
+
+**Alternatives considered**
+- Manter só "Abrir configurações de vídeo" (ADR-022): recusado pelo responsável.
+- `SetDisplayConfig` para estender ou duplicar e para a posição: fora do pedido; fica para depois.
+- Ajuste na Preparação completa e nos perfis: o monitor da sala não é o da bancada; fora.
+
+**Consequences**
+- Roteiro de máquina real 10.11 a 10.13. O ADR-022 continua valendo para o resto do inventário.
+
+## ADR-042 — Limpeza de contas: arquivos e caches da conta, sem tocar nas configurações
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável; é o "zerar aluno" que o ADR-023 deixou para um ADR
+próprio)
+
+**Context**
+Os notebooks enchem o disco com o que cada conta acumula: downloads, documentos, caches de
+navegador e programas instalados só para a conta. A Limpeza de manutenção (ADR-023) só apaga os
+temporários. O responsável pediu, em 13/11/2026, uma limpeza geral por conta que libere o HD sem
+mexer no que o Bench configurou (papel de parede, políticas) nem no tipo de conta.
+
+**Decision**
+1. **Onde:** seção "Limpeza de contas" na tela Limpeza, abaixo da limpeza de manutenção, com
+   "Calcular contas" (prévia por conta e por categoria) e "Limpar contas".
+2. **O que apaga** (lista fechada no trecho `recursos/limpeza/contas.ps1`, caminhos dentro do
+   perfil, sem texto vindo de fora):
+   - pastas pessoais: `Desktop`, `Documents`, `Downloads`, `Pictures`, `Videos`, `Music`,
+     `Saved Games`;
+   - temporários e caches do Windows: `AppData\Local\Temp`, `CrashDumps`, `D3DSCache`,
+     `Microsoft\Windows\INetCache`, `Microsoft\Windows\WER`, `Microsoft\Windows\Explorer`;
+   - cache dos navegadores: `Cache`, `Code Cache`, `GPUCache` e `Service Worker\CacheStorage` de
+     cada perfil do Edge e do Chrome, `cache2` do Firefox e o cache do Teams clássico;
+   - programas só da conta: `AppData\Local\Programs`.
+3. **O que fica:** o registro da conta (`NTUSER.DAT`: papel de parede, políticas, preferências),
+   o tipo e os grupos da conta, favoritos, senhas e configurações dos navegadores, o resto do
+   `AppData`, os apps da Microsoft Store (`Packages`) e os `desktop.ini` (nome das pastas).
+   Pastas redirecionadas para fora do perfil (OneDrive) não são seguidas.
+4. **Contas:** qualquer conta marcada (administradoras inclusive, decisão do responsável), menos
+   o Administrador nativo, a Suporte (`Suporte` e o nome cadastrado), a Gestão (ADR-036), a
+   conta que roda o Bench e conta com sessão aberta (hive carregado). As recusas valem no Python
+   (`limpeza.recusa_conta`) e de novo no trecho.
+5. **Como apaga:** de vez, sem lixeira. Nunca desce em reparse point (o link é removido como
+   link) e cada caminho é conferido contra a raiz, como na limpeza de manutenção. Arquivo em uso
+   fica e é contado.
+6. **Confirmação:** duas. A primeira lista contas, tamanhos, o que é apagado e o que fica; a
+   segunda repete que não dá para desfazer. Só com administrador e fora do `--dev`.
+7. **Log e saída:** o trecho devolve números pela posição da conta; nenhum SID, nome ou caminho
+   vai ao log.
+
+**Alternatives considered**
+- Mandar para a lixeira: não libera o disco até esvaziar.
+- Apagar todo o `AppData` de terceiros, com perfis de navegador: mais espaço, mas programas e
+  navegadores voltariam como novos e favoritos e senhas se perderiam.
+- Apagar e recriar o perfil: perde as configurações do Bench, que é o que o responsável quer
+  manter.
+
+**Consequences**
+- Programas instalados só para a conta somem, mas a entrada em "Aplicativos instalados" daquela
+  conta pode ficar até o próximo logon do programa; reinstalação pelo Bench continua possível.
+- Roteiro de máquina real 11.6 a 11.8.
+
+## ADR-043 — Janela principal abre maximizada
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável)
+
+**Context**
+A janela abria com 1180x720 px. Na bancada, o técnico maximizava toda vez, e as telas com tabela
+(Contas, Limpeza, Programas) ficavam apertadas.
+
+**Decision**
+1. `__main__.py` abre a janela com `showMaximized()`: ocupa a área de trabalho do monitor, com a
+   barra de título e a barra de tarefas do Windows.
+2. O `resize(1180, 720)` de `Janela` continua: é o tamanho quando o técnico restaura a janela.
+3. Sem tela cheia (`showFullScreen`): esconderia a barra de tarefas e os botões de fechar e
+   minimizar.
+
+**Alternatives considered**
+- Tela cheia: recusada pelo motivo do item 3.
+- Lembrar o último tamanho em preferências: mais código para pouco ganho; fica para depois, se
+  pedido.
+
+**Consequences**
+- `test_abre_maximizada` em `tests/test_janela.py`.
+
+## ADR-044 — Modo claro ou escuro do Windows na aba Papel de parede
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável)
+
+**Context**
+O responsável pediu para escolher o modo claro ou escuro do Windows das contas na mesma tela do
+papel de parede. O modo é uma preferência por conta, em
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`: `AppsUseLightTheme` e
+`SystemUsesLightTheme` (DWORD, 1 = claro, 0 = escuro).
+
+**Decision**
+1. **Ajuste `modo_windows`** em `servicos/aparencia.py` (`MODO_WINDOWS`), opções `claro`
+   (padrão do Windows) e `escuro`, gravando os dois valores. Fica fora do `CATALOGO` de Mouse e
+   teclado: aparece só na aba Papel de parede.
+2. **Lista fechada em duas camadas:** a chave entra em `CHAVES_ACEITAS` e em `$EXATAS_APARENCIA`
+   do `comum.ps1` (perfil `aparencia`), sem outro valor nem outra chave.
+3. **Tela:** "Modo do Windows" com "Não mudar" (padrão), "Claro" e "Escuro". Com Claro ou
+   Escuro, o Aplicar do papel de parede grava também o modo nas mesmas contas marcadas, numa
+   segunda chamada separada. A confirmação mostra o modo escolhido.
+4. **Conta que roda o Bench:** o modo não é aplicado nela (o ADR-039 libera só o papel de
+   parede para essa conta); a confirmação e a ajuda dizem para mudar pelo Windows.
+5. **Preferência, não política:** a chave herda a ACL, e o aluno pode trocar depois. Vale no
+   próximo logon. Desfazer devolve só o papel de parede.
+
+**Alternatives considered**
+- Pôr o modo na tela Mouse e teclado: o responsável pediu na tela do papel de parede.
+- Bloquear a troca pelo aluno por política: não pedido, e o Windows não tem política documentada
+  só para o modo.
+
+**Consequences**
+- Roteiro de máquina real 10.14. Testes em `test_aparencia.py` e `test_aparencia_tela.py`.
+
+## ADR-045 — Ponteiro do mouse escolhido por quadradinhos, como no Windows
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável)
+
+**Context**
+Na tela Mouse e teclado, o ponteiro era escolhido numa lista de texto ("Preto, grande"). O
+responsável pediu o visual de Configurações › Acessibilidade › Ponteiro do mouse do Windows 11.
+
+**Decision**
+1. `ui/ponteiro.py` (`SeletorPonteiro`): três quadradinhos clicáveis, Branco, Preto e Invertido,
+   com a seta desenhada pelo próprio Bench (sem imagem do Windows), e a lista de tamanho ao lado.
+   Acompanha o tema claro ou escuro do Bench.
+2. O valor continua o do catálogo (`<cor>_<tamanho>` de `servicos/aparencia.py`). Escolher um
+   quadradinho ou um tamanho marca a linha "Ponteiro do mouse" e acerta a lista dela; mudar a
+   lista atualiza os quadradinhos. O serviço, o trecho e a regra de alvos não mudam.
+3. **Personalizado** (a cor escolhida, como o verde-limão do Windows) fica de fora: o Windows 11
+   gera arquivos de cursor coloridos na pasta da conta, e o Bench só grava registro nesse fluxo.
+
+**Alternatives considered**
+- Imagens dos cursores do Windows: dependeriam de arquivos do sistema e da versão.
+- Incluir Personalizado: exigiria escrever arquivos no perfil de cada conta; fica para um ADR
+  próprio, se pedido.
+
+**Consequences**
+- Testes em `test_aparencia_tela.py` (clique, tamanho, sincronia com a lista, desenho nos dois
+  modos). Roteiro 10.6 continua valendo.
+
+## ADR-046 — Ponteiro colorido gerado pelo Bench numa lista fechada de cores
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável; completa o ADR-045 com o quadradinho Personalizado)
+
+**Context**
+No Windows 11, o ponteiro Personalizado grava `CursorType`, `CursorColor` e `CursorSize` em
+`Software\Microsoft\Accessibility` e aponta `Control Panel\Cursors` para arquivos `*_eoa.cur` que
+o próprio Windows gera em `AppData\Local\Microsoft\Windows\Cursors` da conta. Só o registro não
+basta. O responsável escolheu, entre copiar os cursores da conta do técnico ou o Bench gerar os
+seus, a segunda: o Bench gera numa lista fechada de cores.
+
+**Decision**
+1. **Cores fixas** (`servicos/cursores.py`, `CORES`): verde-limão (a sugerida pelo Windows),
+   amarelo, ciano, rosa, laranja e roxo. Nada de cor digitada.
+2. **Geração:** `recolorir` lê os `aero_*.cur` de `<Windows>\Cursors` (pasta pela API, não pelo
+   ambiente), aceita só `.cur` com imagens BMP de 32 bits e troca cada pixel por
+   `cor x luminosidade`: branco vira a cor, preto e sombra ficam, transparência igual. Onze
+   funções (seta, mão, ajuda, indisponível, caneta, mover, quatro de redimensionar, para cima);
+   ocupado e trabalhando (`.ani`) continuam os do Windows.
+3. **Onde fica:** `%ProgramData%\ITC\Bench\cursores\<cor>\`, com a ACL da pasta do papel de
+   parede (`acl.SDDL`: Usuários leem, só Administradores e SYSTEM gravam), conferida depois de
+   aplicar, sem ponto de reparse. Gravação por arquivo temporário e troca.
+4. **Registro:** o ajuste `ponteiro` ganha `<cor>_<tamanho>` para as seis cores. Grava o esquema
+   branco com as onze funções apontando para os arquivos do Bench, `CursorBaseSize` e
+   `CursorSize` do tamanho e `CursorType = 0`. O Windows mostra "Branco" em Configurações, mas o
+   ponteiro aparece colorido.
+5. **Duas camadas:** antes de gravar, o Bench gera os cursores da cor; se falhar, nenhuma conta
+   é alterada. O `escrever.ps1` aceita em `Control Panel\Cursors` só `%SystemRoot%\cursors\…`
+   ou `…\ITC\Bench\cursores\<uma das seis cores>\aero_*.cur` existente.
+6. **Tela:** quadradinho Personalizado com a seta na cor escolhida e a fileira de cores, que só
+   aparece com ele marcado.
+
+**Riscos aceitos**
+- `CursorType = 0` não reproduz o "Personalizado" das Configurações: se o aluno abrir a página e
+  trocar algo, o Windows pode voltar ao esquema dele. É preferência, como o resto da tela.
+- Se a Microsoft mudar o formato dos `aero_*.cur`, `recolorir` recusa e a cor não é aplicada; as
+  opções do Windows continuam.
+
+**Alternatives considered**
+- Copiar os `*_eoa.cur` da conta do técnico: recusado pelo responsável.
+- Gravar só `CursorType`/`CursorColor` e esperar o Windows gerar: o Windows só gera pela página de
+  Configurações, não no logon.
+
+**Consequences**
+- Testes em `tests/test_cursores.py` e `test_aparencia_tela.py`. Roteiro de máquina real 10.15.
+
+## ADR-047 — Tamanho do ponteiro de 1 a 15, por controle deslizante
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável; muda o tamanho do ADR-022 e do ADR-045)
+
+**Context**
+O ponteiro tinha três tamanhos (normal, grande e extra grande, iguais aos níveis 1, 6 e 11 do
+Windows). Branco usava `CursorBaseSize`; preto e invertido usavam arquivos diferentes por tamanho
+(`*_r`, `*_rl`, `*_rm`) com `CursorBaseSize` fixo em 32. O responsável pediu o controle
+deslizante do Windows 11.
+
+**Decision**
+1. Ajuste `ponteiro` com valores `<cor>_<n>`, `n` de 1 a 15 (`aparencia.TAMANHOS`), padrão
+   `branco_1`. Os ids antigos (`_normal`, `_grande`, `_extra`) saem; nenhum perfil nem cadastro
+   os usava.
+2. Para todos os estilos: `CursorSize = n` e `CursorBaseSize = 32 + (n - 1) x 16`, o mesmo
+   cálculo do Windows. Preto e invertido passam a usar só os arquivos do tamanho base (`*_r`,
+   `*_i`, `aero_link`, `aero_link_i`): todos os cursores do Windows trazem imagens de até 128 px
+   e o Windows amplia.
+3. Tela: controle deslizante de 1 a 15 entre uma seta pequena e uma grande, com o número ao
+   lado, no lugar da lista de tamanhos.
+
+**Alternatives considered**
+- Manter três tamanhos: recusado pelo pedido.
+- Manter os arquivos `_rl`/`_rm` nos tamanhos médios: misturaria dois jeitos de aumentar e
+  dobraria o tamanho com o `CursorBaseSize`.
+
+**Consequences**
+- Contas que já tinham "preto, grande" do Bench aparecem como "diferente" até reaplicar.
+- Acima de 128 px o Windows amplia a imagem, como faz com o ponteiro branco.
+
+## ADR-048 — Unidade da máquina pelo código no começo do nome do computador
+
+**Status:** Accepted
+**Date:** 2026-11-13
+**Module:** Pós-16 (pedido do responsável; complementa o ADR-014)
+
+**Context**
+A unidade da máquina era só escolhida à mão em Configurações (ADR-014). O responsável pediu que o
+Bench a identifique pelo nome do computador: em `BSBIA01-EST94`, a unidade é `BSBIA01`, o
+código de `Unidades.Codigo` (ADR-018) antes do primeiro hífen.
+
+**Decision**
+1. `cadastros.codigo_do_nome`: o que vem antes do primeiro hífen, em maiúsculas, vale só se
+   casar com `^[A-Z]{1,6}[0-9]{2}$`. `ABC071-EST` não é `ABC07`; `QUALIFICA-EST` não é código.
+2. O nome lido é o que vale depois de reiniciar (`ComputerName\ComputerName` no HKLM), para
+   acompanhar uma troca feita na Identificação ainda sem reinício.
+3. O código só vale se existir no cadastro (`Cadastros.unidade_por_codigo`). Código sem unidade
+   cadastrada não escolhe nada.
+4. **Quando escolhe sozinho:** só sem unidade gravada e sem escolha do técnico na sessão. A
+   escolha segue o caminho de sempre (`escolher_unidade`: grava em HKLM com administrador e
+   ressincroniza), e Configurações mostra "Unidade identificada pelo nome do computador".
+5. **Escolha do técnico vale mais:** depois de escolher em Configurações (outra unidade ou
+   bancada), o nome não troca mais nada na sessão. Se a unidade gravada for diferente da do
+   nome, Configurações avisa, sem trocar.
+
+**Alternatives considered**
+- Só sugerir, com botão de confirmar: o responsável pediu a identificação automática; o aviso e
+  a troca manual em Configurações cobrem o erro.
+- Tag do GLPI ou redes Wi-Fi salvas: dependem de a máquina já ter sido preparada.
+
+**Consequences**
+- Máquina de bancada com nome no padrão de uma unidade passa a receber só o Wi-Fi daquela
+  unidade até alguém escolher bancada em Configurações (vale na sessão; na próxima, se o
+  registro estiver vazio, o nome volta a valer).
+- Testes em `test_configuracoes.py`; o `conftest.py` fixa o nome do computador nos testes.

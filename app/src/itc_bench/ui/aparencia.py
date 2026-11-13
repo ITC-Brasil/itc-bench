@@ -6,6 +6,7 @@ tela. O nome da conta aparece só na tela; os serviços trabalham por SID e não
 
 import threading
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -34,6 +36,7 @@ from itc_bench.servicos.cadastros import Cadastros, Instalador
 from itc_bench.ui import tarefa, tema
 from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
+from itc_bench.ui.ponteiro import SeletorPonteiro
 
 _ALVOS = (
     "Alvos\n"
@@ -66,8 +69,12 @@ AJUDA_TELA = (
     "Reaplique o papel de parede nas contas. O Bench apaga a imagem antiga quando ela sai do "
     "cadastro, e as contas que apontavam para ela ficam sem papel de parede até reaplicar.\n\n"
     "Resolução e escala\n"
-    "O Bench não muda: o Windows já usa a resolução recomendada do notebook. Para ajustar, use "
-    "Abrir configurações de vídeo, na conta do aluno.\n\n"
+    "Ficam na aba Monitores desta tela.\n\n"
+    "Modo do Windows\n"
+    "Escolha Claro ou Escuro em Modo do Windows antes de Aplicar: o Bench grava o modo nas "
+    "mesmas contas marcadas, junto com o papel de parede, e vale no próximo logon. É uma "
+    "preferência: o aluno pode trocar depois. Na conta que está rodando o Bench, o modo não muda; "
+    "mude pelo próprio Windows. Desfazer devolve só o papel de parede.\n\n"
     + _ALVOS.replace(
         "O Administrador nativo, a conta Suporte e a conta que está rodando o Bench são recusados.",
         "O Administrador nativo e a conta Suporte são recusados. A conta que está rodando o Bench "
@@ -81,8 +88,13 @@ AJUDA_MOUSE = (
     "1. Marque as contas e os ajustes, escolha o valor de cada um.\n"
     "2. Aplicar mostra o que muda e pede confirmação.\n"
     "3. Desfazer volta os ajustes marcados ao padrão do Windows.\n\n"
-    "Ponteiro: branco, preto ou invertido, em três tamanhos (arquivos do próprio Windows). O "
-    "aluno pode mudar depois; para travar o ponteiro, use a política em Segurança › Políticas. "
+    "Ponteiro: clique num dos quadradinhos, como nas Configurações do Windows. Branco, preto ou "
+    "invertido usam os arquivos do próprio Windows. Personalizado mostra as cores (verde-limão, "
+    "amarelo, ciano, rosa, laranja e roxo): o Bench gera o ponteiro colorido a partir dos "
+    "cursores do Windows e guarda numa pasta protegida do Bench; os ponteiros de ocupado e "
+    "trabalhando continuam os do Windows. O tamanho vai de 1 a 15, como no Windows, e vale "
+    "para todos os estilos. O aluno pode mudar depois; para travar o ponteiro, use a política "
+    "em Segurança › Políticas. "
     "Atalho Shift 5x: desliga a janela das Teclas de aderência na conta (na tela de login, use "
     "Proteção do login).\n\n" + _ALVOS
 )
@@ -345,7 +357,9 @@ class PreviaPapel(QWidget):
         self.original: tuple[int, int] | None = None
         self.estilo = "preencher"
         self.aviso = "Sem imagem para mostrar."
-        self.setMinimumSize(320, 200)
+        # Mínimo pequeno: com a tela baixa (aba dentro de abas), a prévia encolhe em vez de
+        # passar por cima da legenda; o desenho segue 16:9 no espaço que sobrar.
+        self.setMinimumSize(280, 170)
 
     def mostrar(self, imagem: QImage | None, original: tuple[int, int] | None, aviso: str) -> None:
         self.imagem, self.original, self.aviso = imagem, original, aviso
@@ -418,6 +432,11 @@ class PainelPapel(_PainelAlvos):
         lado = QVBoxLayout()
         self.imagem = QComboBox()
         self.imagem.currentIndexChanged.connect(lambda _: self._trocou_imagem())
+        # Modo do Windows (ADR-044): vai junto com o Aplicar do papel de parede.
+        self.modo = QComboBox()
+        self.modo.addItem("Não mudar", None)
+        for chave, rotulo in ap.MODO_WINDOWS.opcoes.items():
+            self.modo.addItem(rotulo, chave)
         self.estilo = QComboBox()
         for chave, rotulo in pp.ROTULO_ESTILO.items():
             self.estilo.addItem(rotulo, chave)
@@ -428,30 +447,38 @@ class PainelPapel(_PainelAlvos):
         self.detalhe = _rotulo("")
         self.b_escolher = QPushButton("Escolher arquivo…")
         self.b_escolher.clicked.connect(self._escolher)
-        self.b_video = QPushButton("Abrir configurações de vídeo")
-        self.b_video.clicked.connect(self._video)
         self.legenda = _rotulo("")
         self.legenda.setObjectName("dica")
+        # Sem isto, com pouca altura, o rótulo quebrado em duas linhas invade a prévia.
+        self.legenda.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.b_baixar = QPushButton("Baixar e ver a imagem")
         self.b_baixar.setToolTip("Baixa e confere a imagem do cadastro, sem aplicar em ninguém.")
         self.b_baixar.clicked.connect(self._baixar_previa)
         self.b_baixar.hide()
-        for w in (
-            _rotulo("Imagem (cadastro):"),
-            self.imagem,
-            _rotulo("Estilo:"),
-            self.estilo,
-            self.detalhe,
-            self.b_escolher,
+        lado.addWidget(_rotulo("Imagem (cadastro):"))
+        lado.addWidget(self.imagem)
+        # Estilo e modo lado a lado: sobra altura para a prévia.
+        opcoes = QHBoxLayout()
+        for titulo, campo in (
+            ("Estilo:", self.estilo),
+            ("Modo do Windows (claro ou escuro):", self.modo),
         ):
-            lado.addWidget(w)
+            coluna = QVBoxLayout()
+            coluna.addWidget(_rotulo(titulo))
+            coluna.addWidget(campo)
+            opcoes.addLayout(coluna, 1)
+        lado.addLayout(opcoes)
+        lado.addWidget(self.detalhe)
+        lado.addWidget(self.b_escolher)
         lado.addWidget(self.previa, 1)
         lado.addWidget(self.legenda)
         lado.addWidget(self.b_baixar, 0, Qt.AlignmentFlag.AlignLeft)
-        lado.addWidget(_rotulo("Resolução e escala ficam com o Windows."))
-        lado.addWidget(self.b_video)
+        # Resolução, escala e "Abrir configurações de vídeo" ficam na aba Monitores (ADR-041).
         self.meio.addLayout(lado, 1)
         self._fechar_layout()
+        # A prévia fica com a altura; o registro desta aba é curto (as mensagens são poucas).
+        self.registro.setMaximumHeight(90)
+        self.v.setStretchFactor(self.meio, 1)
 
     def _botoes(self) -> list[QPushButton]:
         return [*super()._botoes(), self.b_escolher, self.b_baixar]
@@ -575,6 +602,12 @@ class PainelPapel(_PainelAlvos):
             linhas.append(f"{a.rotulo}: {de} → {destino}")
         if acao == "aplicar":
             linhas += ["", f"Estilo: {self.estilo.currentText()}. Vale no próximo logon."]
+            if self.modo.currentData() is not None:
+                linhas.append(
+                    f"Modo do Windows: {self.modo.currentText()}, nas mesmas contas, no próximo "
+                    "logon. Na conta que está rodando o Bench, o modo não muda (mude pelo "
+                    "Windows)."
+                )
         if any(a.tipo == "padrao" for a in alvos_):
             linhas.append("Contas futuras: só contas criadas depois recebem.")
         if self.dono and any(a.chave == self.dono for a in alvos_):
@@ -594,6 +627,7 @@ class PainelPapel(_PainelAlvos):
         avisar: Callable[[str], None],
     ) -> Callable[[], list[hive.Feito]]:
         linha, origem, estilo = self.linha(), self.origem, str(self.estilo.currentData())
+        modo, dono = self.modo.currentData(), self.dono
 
         def rodar() -> list[hive.Feito]:
             if acao == "aplicar" and linha is not None:
@@ -602,7 +636,7 @@ class PainelPapel(_PainelAlvos):
                     pp.obter(linha, origem, cancelar=cancelar)
                 except pp.ErroPapel as erro:
                     return [hive.Feito(hive.PADRAO, False, str(erro))]
-            return pp.aplicar(
+            feitos = pp.aplicar(
                 acao,
                 alvos_,
                 linha=linha,
@@ -612,6 +646,24 @@ class PainelPapel(_PainelAlvos):
                 avisar=avisar,
                 permitir_dono=True,  # ADR-039: a conta que roda o Bench também recebe
             )
+            if acao == "aplicar" and modo is not None:
+                # ADR-044: mesmas contas, menos a que roda o Bench (o trecho recusaria).
+                alvos_modo = [a for a in alvos_ if a.chave != dono]
+                if alvos_modo:
+                    avisar(f"Modo do Windows: {ap.MODO_WINDOWS.opcoes[modo]}…")
+                    feitos += [
+                        replace(f, mensagem=f"modo do Windows: {f.mensagem}")
+                        for f in ap.aplicar(
+                            "aplicar",
+                            {ap.MODO_WINDOWS.id: modo},
+                            alvos_modo,
+                            protegidas_=prot,
+                            cancelar=cancelar,
+                            avisar=avisar,
+                            rotulo="Modo do Windows",
+                        )
+                    ]
+            return feitos
 
         return rodar
 
@@ -643,8 +695,24 @@ class PainelMouse(_PainelAlvos):
             combo.setCurrentIndex(combo.findData(a.padrao))
             self.arvore.setItemWidget(item, 1, combo)
             self.itens[a.id], self.valores[a.id] = item, combo
-        self.meio.addWidget(self.arvore, 1)
+        # ADR-045: quadradinhos do ponteiro como no Windows, ligados à linha "Ponteiro do mouse".
+        self.seletor = SeletorPonteiro()
+        self.seletor.mudou.connect(self._ponteiro_escolhido)
+        self.valores["ponteiro"].currentIndexChanged.connect(
+            lambda _: self.seletor.definir(str(self.valores["ponteiro"].currentData()))
+        )
+        coluna = QVBoxLayout()
+        coluna.addWidget(self.seletor)
+        coluna.addWidget(self.arvore, 1)
+        self.meio.addLayout(coluna, 1)
         self._fechar_layout()
+
+    def _ponteiro_escolhido(self, valor: str) -> None:
+        combo = self.valores["ponteiro"]
+        combo.blockSignals(True)
+        combo.setCurrentIndex(combo.findData(valor))
+        combo.blockSignals(False)
+        self.itens["ponteiro"].setCheckState(0, Qt.CheckState.Checked)
 
     def _ler(self, alvos_: list[hive.Alvo], fechados: bool) -> Any:
         return ap.ler(alvos_, descarregados=fechados)

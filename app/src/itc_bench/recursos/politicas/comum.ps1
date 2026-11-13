@@ -10,7 +10,8 @@ $EXATAS_MAQUINA = @('SYSTEM\CurrentControlSet\Services\SharedAccess')
 $PERFIL = if ($env:ITC_PERFIL) { $env:ITC_PERFIL } else { 'politicas' }
 $EXATAS_APARENCIA = @('Control Panel\Mouse', 'Control Panel\Cursors', 'Control Panel\Keyboard',
     'Control Panel\Accessibility\StickyKeys', 'Control Panel\Accessibility\Keyboard Response',
-    'Control Panel\Accessibility\ToggleKeys', 'Software\Microsoft\Accessibility')
+    'Control Panel\Accessibility\ToggleKeys', 'Software\Microsoft\Accessibility',
+    'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')  # modo do Windows (ADR-044)
 $CHAVE_PAPEL = 'Software\Microsoft\Windows\CurrentVersion\Policies\System'
 $VALORES_PAPEL = @('Wallpaper', 'WallpaperStyle')
 $SDDL_NOVA = 'O:BAG:SYD:PAI(A;CI;KA;;;SY)(A;CI;KA;;;BA)(A;CI;KR;;;BU)'
