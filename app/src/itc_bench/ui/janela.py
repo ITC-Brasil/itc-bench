@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QStackedWidget,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -66,6 +67,7 @@ from itc_bench.ui.identificacao import PainelIdentificacao
 from itc_bench.ui.inicio import PainelInicio
 from itc_bench.ui.limpeza import PainelLimpeza
 from itc_bench.ui.log_qt import HandlerTela
+from itc_bench.ui.monitores import AJUDA_MONITORES, PainelMonitores
 from itc_bench.ui.navegacao import GRUPOS, Item
 from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
 from itc_bench.ui.politicas import AJUDA_USB, PainelPoliticas
@@ -233,6 +235,8 @@ class Janela(QMainWindow):
         except OSError as erro:
             log.error("Unidade da máquina ilegível no registro: %s", erro)
             self.unidade = None
+        self.unidade_manual = False  # o técnico escolheu nesta sessão (ADR-048)
+        self.unidade_pelo_nome: str | None = None  # código identificado pelo nome
         self.setWindowTitle("ITC Bench")
         self.setWindowIcon(tema.icone_janela())
         self.resize(1180, 720)
@@ -323,7 +327,20 @@ class Janela(QMainWindow):
         self._atualizar_rodape()
         self.entrar.verificar_api()
 
+    def _identificar_unidade(self) -> None:
+        """ADR-048: sem unidade escolhida, usa a do código no começo do nome do computador."""
+        if self.unidade is not None or self.unidade_manual or self.cadastros is None:
+            return
+        nome = cadastros.nome_do_computador()
+        u = cadastros.unidade_pelo_nome(self.cadastros, nome)
+        if u is None:
+            return
+        log.info("Unidade identificada pelo nome do computador: %s.", u.codigo)
+        self.unidade_pelo_nome = u.codigo
+        self.escolher_unidade(u.codigo, manual=False)
+
     def _atualizar_rodape(self) -> None:
+        self._identificar_unidade()
         quem = self.entrada.rotulo_log if self.entrada else getpass.getuser()
         # Rich text por causa do <br>: login e hostname escapados.
         nome = html.escape(f"{socket.gethostname()} · {quem}")
@@ -345,6 +362,19 @@ class Janela(QMainWindow):
 
     def _avisos_cadastros(self) -> list[str]:
         avisos = []
+        nome = cadastros.nome_do_computador()
+        pelo_nome = cadastros.unidade_pelo_nome(self.cadastros, nome)
+        if self.unidade_pelo_nome and self.unidade == self.unidade_pelo_nome:
+            avisos.append(
+                f"Unidade identificada pelo nome do computador ({nome}). Para trocar, escolha "
+                "outra acima."
+            )
+        elif pelo_nome is not None and self.unidade and pelo_nome.codigo != self.unidade:
+            avisos.append(
+                f"O nome do computador ({nome}) indica a unidade {pelo_nome.codigo}, mas esta "
+                f"máquina está em {self.unidade}. Confira e, se for o caso, escolha "
+                f"{pelo_nome.codigo} acima."
+            )
         if self.cadastros is None:
             if self.armazem.aviso == "vencido":
                 avisos.append(
@@ -385,8 +415,12 @@ class Janela(QMainWindow):
             log.error("Aparência não gravada (%s)", type(erro).__name__)
             txt.aviso(self, "Aparência", f"O modo foi trocado só até fechar o Bench.\n\n{motivo}")
 
-    def escolher_unidade(self, codigo: str | None) -> None:
+    def escolher_unidade(self, codigo: str | None, *, manual: bool = True) -> None:
         """Grava em HKLM (com admin) e ressincroniza filtrado; sem rede, filtra o cache."""
+        if manual:
+            # Escolha do técnico vale mais que o nome do computador nesta sessão (ADR-048).
+            self.unidade_manual = True
+            self.unidade_pelo_nome = None
         if codigo == self.unidade:
             return
         self.unidade = codigo
@@ -445,6 +479,11 @@ class Janela(QMainWindow):
         # Proteção do login e Aparência (ADR-022): leem ao abrir; ação só admin.
         self.protecao = PainelProtecao(self.admin)
         self.papel = PainelPapel(self.admin, lambda: self.cadastros)
+        # Monitores (ADR-041): aba ao lado do papel de parede, na mesma tela.
+        self.monitores = PainelMonitores(self.admin, self.papel._video)
+        self.tela_video = QTabWidget()
+        self.tela_video.addTab(self.monitores, "Monitores")
+        self.tela_video.addTab(self.papel, "Papel de parede")
         self.mouse = PainelMouse(self.admin, lambda: self.cadastros)
         self.energia = PainelEnergia(self.admin)
         paineis: tuple[tuple[str, QWidget, str], ...] = (
@@ -456,7 +495,7 @@ class Janela(QMainWindow):
             ("gpo", self.politicas, AJUDA_POLITICAS),
             ("usb", self.usb, AJUDA_USB),
             ("protecao", self.protecao, AJUDA_PROTECAO),
-            ("aparencia", self.papel, AJUDA_TELA),
+            ("aparencia", self.tela_video, AJUDA_MONITORES + "\n\n" + AJUDA_TELA),
             ("mouse", self.mouse, AJUDA_MOUSE),
             ("energia", self.energia, AJUDA_ENERGIA),
         )
@@ -757,7 +796,7 @@ class Janela(QMainWindow):
         )
         self.inicio.abrir.connect(self._abrir_do_inicio)
         self.inicio.criticos.connect(self._selo_alertas)
-        self.limpeza = PainelLimpeza(self.admin)
+        self.limpeza = PainelLimpeza(self.admin, lambda: self.cadastros)
         self.ajuda_geral = PainelAjuda()
         self.ajuda_geral.abrir_tela.connect(self.abrir)
         for chave, painel in (

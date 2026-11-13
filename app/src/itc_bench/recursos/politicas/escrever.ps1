@@ -18,6 +18,14 @@ foreach ($o in $ops) {
             if (-not (Test-Path -LiteralPath ([string]$o.dado) -PathType Leaf)) { Falhar 'imagem' }
         }
     }
+    if ($PERFIL -ceq 'aparencia' -and $o.chave -eq 'Control Panel\Cursors' -and $o.tipo -eq 'expand_sz' -and [string]$o.dado) {
+        # Ponteiro (ADR-022, ADR-046): só cursores do Windows ou os recoloridos pelo Bench.
+        $cores = [Environment]::GetFolderPath('CommonApplicationData') + '\ITC\Bench\cursores\'
+        $windows = '^%SystemRoot%\\cursors\\[a-z0-9_]+\.(cur|ani)$'
+        $bench = '^' + [regex]::Escape($cores) + '(limao|amarelo|ciano|rosa|laranja|roxo)\\aero_[a-z]+\.cur$'
+        if ([string]$o.dado -notmatch $windows -and [string]$o.dado -notmatch $bench) { Falhar 'valor' }
+        if ([string]$o.dado -match $bench -and -not (Test-Path -LiteralPath ([string]$o.dado) -PathType Leaf)) { Falhar 'cursor' }
+    }
 }
 $base = Base $env:ITC_HIVE
 

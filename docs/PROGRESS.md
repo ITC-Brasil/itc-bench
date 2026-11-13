@@ -2,7 +2,27 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** nenhuma em andamento. `develop` e `main` iguais (12/11/2026), versão **0.19.0**,
+- **Branch:** nenhuma em andamento. **13/11/2026:** PR #80 (`feat/monitores-video`) mesclado
+  na `develop` pelo responsável (merge `20fd768`; commits `6c56082` e `20cf8a0`, este corrigindo
+  o teste que no runner roda como Administrador nativo). CI do PR verde (test, build, gitleaks).
+  `develop` à frente da `main`; versão **0.19.0**, sem bump e sem tag. Oito entregas:
+  - unidade da máquina pelo código no começo do nome do computador (ADR-048):
+    `docs/modules/unidade-pelo-nome.md`, auditoria `docs/security/2026-11-13-unidade-pelo-nome.md`;
+  - aparência (ADR-043 a ADR-047): janela maximizada, modo do Windows, ponteiro por
+    quadradinhos, colorido e de 1 a 15, aba Papel de parede: `docs/modules/aparencia-ponteiro-modo.md`,
+    auditorias `docs/security/2026-11-13-aparencia-ponteiro-modo.md` e
+    `docs/security/2026-11-13-ponteiro-colorido.md`;
+  - aba Monitores (ADR-041): `docs/modules/monitores.md`, auditoria
+    `docs/security/2026-11-13-monitores.md`;
+  - Limpeza de contas (ADR-042): `docs/modules/limpeza-contas.md`, auditoria
+    `docs/security/2026-11-13-limpeza-contas.md`.
+  **Próximo passo:** roteiro 10.11 a 10.15 (dois monitores, modo escuro, ponteiro colorido) e
+  11.6 a 11.9 (limpeza de contas numa conta de teste, unidade pelo nome) com o instalador do
+  CI; depois PR da `develop` para a `main`, bump de versão e tag (decisão do responsável).
+  **Pendências com o responsável:** visibilidade pública do repositório (os ADRs dizem privado);
+  proposta de perfis no NocoDB (fora do repositório; vira ADR-049 se aprovada); escopo da
+  "Preparação completa" nova citada abaixo.
+- **Antes (12/11/2026):** `develop` e `main` iguais, versão **0.19.0**,
   **sem bump e sem tag** (decisão do responsável: não versionar agora).
 - **Correção dos testes (#76 na `develop`, #77 na `main`):** o `app-ci` do push na `develop`
   depois do #74 deu código 1 duas vezes com `952 passed`, e a suíte tinha ido de ~3,5 para ~15
@@ -97,9 +117,6 @@
     `/ESPERAPID`; recusa versão menor.
   - CI: atualização N → N+1 por API falsa local no runner, recusas e mutex de usuário comum;
     build de tag exige as chaves públicas comitadas. Versão 0.16.0.
-- **Pela metade:** ok do chat de
-  planejamento para a defesa do mutex (implementada como proposta).
-- **Próximo passo:** responsável: revisar e fazer o merge do PR das chaves, tag `v0.16.0`, deploy da API (migração 0007), roteiro de máquina real (passos 0 a 13).
 - **Tarefas futuras:**
   - obrigatória bloqueando as telas de ação (hoje só impede adiar);
   - assinatura de código (OV ou Trusted Signing) antes de distribuir em larga escala;
@@ -120,6 +137,14 @@
 
 | Data | Módulo | Resumo |
 |---|---|---|
+| 2026-11-13 | pós-16 — Unidade pelo nome do computador (sem versão) | `cadastros.codigo_do_nome` (antes do primeiro hífen, formato `^[A-Z]{1,6}[0-9]{2}$`), `nome_do_computador` (nome pendente no HKLM) e `unidade_pelo_nome`. Sem unidade gravada e sem escolha do técnico, a janela escolhe a do nome pelo `escolher_unidade` de sempre; Configurações avisa a identificação e a divergência. 13 testes novos; app 1043 passando. ADR-048. Roteiro 11.9. |
+| 2026-11-13 | pós-16 — Tamanho do ponteiro de 1 a 15 (sem versão) | Ajuste `ponteiro` com `<cor>_<n>`, `n` de 1 a 15, `CursorSize = n` e `CursorBaseSize = 32 + (n - 1) x 16` para todos os estilos; preto e invertido só com os arquivos do tamanho base. Tela com controle deslizante entre uma seta pequena e uma grande, como no Windows 11. Testes ajustados aos novos ids e 1 novo; app 1030 passando. ADR-047. |
+| 2026-11-13 | pós-16 — Ponteiro colorido (sem versão) | `servicos/cursores.py`: recolore os `aero_*.cur` do Windows (BMP 32 bits; branco vira a cor, preto, sombra e transparência ficam) em seis cores fixas, gravados em `%ProgramData%\ITC\Bench\cursores\<cor>\` com a ACL do papel de parede. Ajuste `ponteiro` com `<cor>_<tamanho>`; os cursores são gerados antes de gravar o registro e, se falharem, nenhuma conta muda. `escrever.ps1` só aceita cursores do Windows ou os do Bench. Quadradinho Personalizado com a fileira de cores. 15 testes novos; app 1029 passando. ADR-046. Auditoria: 2 informativos. Roteiro 10.15. |
+| 2026-11-13 | pós-16 — Ponteiro por quadradinhos (sem versão) | Tela Mouse e teclado com `ui/ponteiro.py` (`SeletorPonteiro`): quadradinhos Branco, Preto e Invertido desenhados pelo Bench e lista de tamanho, sincronizados com a linha "Ponteiro do mouse"; serviço e trecho sem mudança. Personalizado (cor) fora. 3 testes novos; app 1014 passando. ADR-045. |
+| 2026-11-13 | pós-16 — Modo do Windows e ajustes da aba Papel de parede (sem versão) | Aba Papel de parede com "Modo do Windows" (Não mudar, Claro, Escuro): ajuste `modo_windows` em `servicos/aparencia.py` (`AppsUseLightTheme` e `SystemUsesLightTheme` em `Themes\Personalize`), chave na lista fechada do Python e do `comum.ps1`, aplicado nas mesmas contas do papel de parede, menos a que roda o Bench. Na mesma aba, saem a frase e o botão de vídeo repetidos (ficam na aba Monitores) e a prévia encolhe em vez de cobrir a legenda. Dica das colunas da Limpeza de contas por `texto.dica`. 5 testes novos; app 1011 passando. ADR-044. Roteiro 10.14. |
+| 2026-11-13 | pós-16 — Janela maximizada (sem versão) | `__main__.py` abre a janela com `showMaximized()`, mantendo a barra de título e a de tarefas; o tamanho de 1180x720 vale ao restaurar. Sem tela cheia. 1 teste novo (`test_abre_maximizada`). ADR-043. |
+| 2026-11-13 | pós-16 — Limpeza de contas (sem versão) | Seção "Limpeza de contas" na tela Limpeza (o "zerar aluno" do ADR-023): prévia por conta e por categoria (pastas pessoais; temporários e caches do Windows; cache do Edge, Chrome, Firefox e Teams; `AppData\Local\Programs`) e limpeza de vez com duas confirmações. Fica o registro da conta (papel de parede, políticas, preferências), o tipo de conta, favoritos e senhas, `Packages` e `desktop.ini`. Qualquer conta marcada, menos nativo, Suporte, Gestão, a que roda o Bench e conta com sessão, no Python e no trecho `recursos/limpeza/contas.ps1`. Sem reparse, só números na saída, log sem SID nem nome. 23 casos novos; app 1005 passando. ADR-042. Auditoria: 1 baixo corrigido, 2 informativos. Roteiro 11.6 a 11.8. |
+| 2026-11-13 | pós-16 — Monitores (sem versão) | Tela "Tela e papel de parede" com abas Monitores e Papel de parede. `nucleo/video.py` (ctypes do `user32`: `QueryDisplayConfig`, `EnumDisplaySettingsExW`, `ChangeDisplaySettingsExW` com `CDS_TEST` antes, escala pelos tipos não documentados `-3`/`-4`); `servicos/video.py` valida contra a lista do Windows, aplica monitor por monitor e desfaz; `ui/monitores.py` com o desenho dos monitores como no Windows (1 a N, clicável) e 15 s para Manter, senão volta sozinho. A escala vale para a conta que roda o Bench. Testes nunca mudam o monitor real. 30 casos novos; app 982 passando. ADR-041. Auditoria: 2 informativos. Roteiro 10.11 a 10.13. |
 | 2026-11-12 | pós-16 — Testes: janelas apagadas ao fim de cada teste | `app-ci` do push na `develop` saiu com código 1 duas vezes com `952 passed`, e a suíte foi de ~3,5 para ~15 min no CI. As janelas criadas nos testes ficavam vivas até o fim (5.020 widgets depois de `test_janela.py`); as trocas de tema do `test_modo_escuro.py` repintavam todas (30 a 50 s cada), e destruí-las no encerramento é a causa provável do código 1. `tests/conftest.py` ganha `_apaga_janelas_do_teste` (espera o `QThreadPool` até 60 s, fecha e apaga as janelas, processa `DeferredDelete`). Suíte local de ~21 min para 3 min 35 s; CI do #76 com teste em 3 min 23 s, sem código 1. Só testes; o app não muda. PRs #76 e #77. |
 | 2026-11-12 | pós-16 — Modo escuro, Ajuda em seções, papel de parede e topo (0.19.0, sem tag) | `ui/tema.py` com `Paleta` `CLARO` (design, sem mudança) e `ESCURO` (superfícies do design, `--cy5`, estados clareados), `Fusion` + `QPalette` + folha `qss(paleta)` em todos os controles, seis nomes sem regra estilizados, desativado legível. Configurações › "Aparência do Bench" (Claro/Escuro), em `%LOCALAPPDATA%\ITC\Bench\preferencias.json` (`servicos/preferencias.py`), aplicado antes da tela Entrar. Ajuda com índice por grupo e seções (`blocos`), passos numerados e "Abrir esta tela". Prévia do papel de parede (monitor 16:9 por estilo, conferência e decodificador fixo) e "Baixar e ver a imagem" sem aplicar. Papel de parede também na conta que roda o Bench, só pela tela (`So-Papel` no `comum.ps1`). Entrar quebra linha. 27 casos novos (6 com PowerShell real); app 951 passando. ADR-037 a ADR-040 (topo de 80 px e "?" à direita). Auditoria: 2 baixos corrigidos (caminho do perfil no log, decodificador pelo conteúdo), 3 informativos. Roteiro 10.9, 10.10, 11.3 e 11.5. |
 | 2026-11-11 | pós-16 — Contas: filtro e encerrar sessões (0.19.0) | Tela Contas com filtro "Contas modificáveis" (padrão: locais menos nativo, Suporte e Gestão) e "Contas não modificáveis" (o resto, consulta), contagem "N de M". "Encerrar sessões…": lista as contas com sessão aberta, marca e confirma; `contas.encerrar_sessao` pelo trecho fixo `encerrar.ps1` (sessões pelo dono do `explorer.exe`, `logoff.exe` por sessão, recusa a sessão do Bench). **Gestão restrita fixa** (`RESTRITAS`, no Python e no `comum.ps1`): toda ação recusada, nome reservado, fora do lote, não vale como Suporte, não deixa a Preparação pendente. 22 testes novos (4 com PowerShell real), 2 ajustados. ADR-036. Auditoria: 2 informativos. Roteiro 5.8. |

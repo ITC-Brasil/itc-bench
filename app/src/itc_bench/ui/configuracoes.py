@@ -41,6 +41,10 @@ AJUDA = (
     "dias. Depois disso, conecte e sincronize.\n"
     "• Unidade desta máquina: escolha a unidade para onde o notebook vai. A cópia passa a guardar "
     "só o Wi-Fi dela. Sem unidade (bancada), guarda o Wi-Fi de todas.\n"
+    "• Unidade pelo nome do computador: se a máquina ainda não tem unidade e o nome começa pelo "
+    "código de uma unidade do cadastro, antes do primeiro hífen (BSBIA01-EST94 → BSBIA01), o "
+    "Bench escolhe essa unidade sozinho e avisa aqui. Se você escolher outra (ou bancada), vale a "
+    "sua escolha. Se a unidade gravada for diferente da do nome, o Bench avisa, sem trocar.\n"
     "• Aparência do Bench: Claro ou Escuro. Muda só o Bench, não o Windows, e vale para o seu "
     "usuário nesta máquina."
 )

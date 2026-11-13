@@ -65,3 +65,14 @@ def test_log_aparece_na_tela_registro(qtbot):
     finally:
         log.removeHandler(handler)
     assert "linha de teste" in j.log.toPlainText()
+
+
+def test_abre_maximizada():
+    """ADR-043: a janela principal abre maximizada, não em tela cheia."""
+    from pathlib import Path
+
+    import itc_bench.__main__ as principal
+
+    fonte = Path(principal.__file__).read_text("utf-8")
+    assert "janela.showMaximized()" in fonte
+    assert "showFullScreen" not in fonte

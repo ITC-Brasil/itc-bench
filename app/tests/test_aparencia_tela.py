@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
 from itc_bench.servicos import aparencia as ap
 from itc_bench.servicos import energia, hive, protecao
@@ -224,3 +225,115 @@ def test_energia_sem_admin(qtbot, monkeypatch):
     qtbot.addWidget(p)
     p._recebeu(energia.Situacao("x", {}, None))
     assert not p.b_aplicar.isEnabled() and not p.b_hib_off.isEnabled()
+
+
+def test_papel_modo_do_windows_na_confirmacao(qtbot) -> None:
+    """ADR-044: o modo escolhido aparece na confirmação; "Não mudar" não acrescenta nada."""
+    from itc_bench.ui import aparencia as tela
+
+    p = tela.PainelPapel(True, lambda: None)
+    qtbot.addWidget(p)
+    assert [p.modo.itemText(i) for i in range(p.modo.count())] == ["Não mudar", "Claro", "Escuro"]
+    assert p.modo.currentData() is None
+    p.modo.setCurrentIndex(p.modo.findData("escuro"))
+    assert p.modo.currentData() == "escuro"
+
+
+def test_papel_aplica_modo_nas_contas_menos_a_do_bench(qtbot, monkeypatch) -> None:
+    import threading
+
+    from itc_bench.servicos import aparencia as ap
+    from itc_bench.servicos import hive
+    from itc_bench.servicos import papel_de_parede as pp
+    from itc_bench.ui import aparencia as tela
+
+    p = tela.PainelPapel(True, lambda: None)
+    qtbot.addWidget(p)
+    p.dono = "S-1-5-21-1-2-3-1001"
+    aluno = hive.Alvo("S-1-5-21-1-2-3-1002", "Aluno", True, False)
+    tecnico = hive.Alvo(p.dono, "Técnico", True, True)
+    p.modo.setCurrentIndex(p.modo.findData("escuro"))
+    monkeypatch.setattr(p, "linha", lambda: None)
+    monkeypatch.setattr(
+        pp, "aplicar", lambda acao, alvos_, **k: [hive.Feito(a, True, "aplicado") for a in alvos_]
+    )
+    chamadas = []
+
+    def modo(acao, escolhas, alvos_, **k):
+        chamadas.append((acao, escolhas, [a.chave for a in alvos_], k["rotulo"]))
+        return [hive.Feito(a, True, "aplicado") for a in alvos_]
+
+    monkeypatch.setattr(ap, "aplicar", modo)
+    feitos = p._tarefa("aplicar", [aluno, tecnico], frozenset(), threading.Event(), print)()
+    assert chamadas == [("aplicar", {"modo_windows": "escuro"}, [aluno.chave], "Modo do Windows")]
+    assert [f.mensagem for f in feitos] == ["aplicado", "aplicado", "modo do Windows: aplicado"]
+    p.modo.setCurrentIndex(0)
+    chamadas.clear()
+    p._tarefa("desfazer", [aluno], frozenset(), threading.Event(), print)()
+    assert chamadas == []
+
+
+# ---------------------------------------------------------------- seletor do ponteiro (ADR-045)
+
+
+def test_quadrado_do_ponteiro_marca_a_linha_e_o_valor(qtbot) -> None:
+    from PySide6.QtCore import Qt
+
+    from itc_bench.ui import aparencia as tela
+
+    p = tela.PainelMouse(True, lambda: None)
+    qtbot.addWidget(p)
+    assert list(p.seletor.quadros) == ["branco", "preto", "invertido", "personalizado"]
+    assert p.seletor.quadros["branco"].marcado
+    qtbot.mouseClick(p.seletor.quadros["invertido"], Qt.MouseButton.LeftButton)
+    assert p.valores["ponteiro"].currentData() == "invertido_1"
+    assert p.itens["ponteiro"].checkState(0) == Qt.CheckState.Checked
+    p.seletor.tamanho.setValue(11)
+    assert p.valores["ponteiro"].currentData() == "invertido_11"
+    assert p.escolhas() == {"ponteiro": "invertido_11"}
+
+
+def test_lista_do_ponteiro_atualiza_os_quadrados(qtbot) -> None:
+    from itc_bench.ui import aparencia as tela
+
+    p = tela.PainelMouse(True, lambda: None)
+    qtbot.addWidget(p)
+    combo = p.valores["ponteiro"]
+    combo.setCurrentIndex(combo.findData("preto_6"))
+    assert p.seletor.quadros["preto"].marcado and not p.seletor.quadros["branco"].marcado
+    assert p.seletor.tamanho.value() == 6 and p.seletor.numero.text() == "6"
+    p.seletor.definir("verde_1")  # fora do catálogo: ignorado
+    assert p.seletor.estilo == "preto"
+
+
+def test_quadrados_desenham_nos_dois_modos(qtbot) -> None:
+    from itc_bench.ui import ponteiro, tema
+
+    for modo in ("claro", "escuro"):
+        tema.trocar(QApplication.instance(), modo)
+        s = ponteiro.SeletorPonteiro()
+        qtbot.addWidget(s)
+        for q in s.quadros.values():
+            assert not q.grab().isNull()
+    tema.trocar(QApplication.instance(), "claro")
+
+
+def test_personalizado_com_cor_e_tamanho(qtbot) -> None:
+    from itc_bench.ui import aparencia as tela
+
+    p = tela.PainelMouse(True, lambda: None)
+    qtbot.addWidget(p)
+    p.show()
+    assert not p.seletor.faixa_cores.isVisible()
+    qtbot.mouseClick(p.seletor.quadros["personalizado"], Qt.MouseButton.LeftButton)
+    assert p.seletor.faixa_cores.isVisible()
+    assert p.valores["ponteiro"].currentData() == "limao_1"
+    qtbot.mouseClick(p.seletor.amostras["rosa"], Qt.MouseButton.LeftButton)
+    p.seletor.tamanho.setValue(6)
+    assert p.escolhas() == {"ponteiro": "rosa_6"}
+    assert p.seletor.nome_cor.text() == "Rosa"
+    combo = p.valores["ponteiro"]
+    combo.setCurrentIndex(combo.findData("ciano_15"))
+    assert p.seletor.estilo == "personalizado" and p.seletor.cor_personalizada == "ciano"
+    combo.setCurrentIndex(combo.findData("branco_1"))
+    assert not p.seletor.faixa_cores.isVisible()

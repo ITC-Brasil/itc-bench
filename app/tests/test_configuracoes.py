@@ -1,5 +1,6 @@
 """Tela Configurações (ADR-014): só leitura, segredos mascarados, unidade da máquina."""
 
+import pytest
 from PySide6.QtWidgets import QApplication, QLabel, QTableWidget
 from test_cadastros import CHAVE, OBS, SENHA_WIFI, corpo
 
@@ -135,3 +136,80 @@ def test_servidor_sem_acesso_aos_cadastros_avisa(qtbot, monkeypatch, tmp_path):
     assert "Servidor sem acesso aos cadastros; usando a cópia de " in textos_visiveis(j)
     j._sincronizou(cadastros.Sincronizacao("igual", armazem.carregar()))
     assert "Servidor sem acesso" not in textos_visiveis(j)
+
+
+# ---------------------------------------------------------------- unidade pelo nome (ADR-048)
+
+
+@pytest.mark.parametrize(
+    ("nome", "codigo"),
+    [
+        ("BSBIA01-EST94", "BSBIA01"),
+        ("bsbia01-est94", "BSBIA01"),
+        ("ABC07", "ABC07"),
+        ("ABC07-", "ABC07"),
+        ("ABC071-EST", None),  # depois do código vem dígito: não é código
+        ("QUALIFICA-EST", None),
+        ("RESERVA-06", None),
+        ("DESKTOP-K2FI5PV", None),
+        ("ABCDEFG01-X", None),  # sigla com mais de 6 letras
+        ("", None),
+    ],
+)
+def test_codigo_do_nome(nome, codigo):
+    assert cadastros.codigo_do_nome(nome) == codigo
+
+
+def _corpo_com(codigo):
+    c = corpo()
+    c["unidades"].append(
+        {
+            "id": 3,
+            "codigo": codigo,
+            "nome": "Unidade Três",
+            "cidade": "",
+            "uf": "",
+            "tag_glpi": "",
+            "perfil_padrao": "",
+        }
+    )
+    return c
+
+
+def montar_com_nome(qtbot, monkeypatch, tmp_path, nome, codigo="BSBIA01"):
+    monkeypatch.setattr(cadastros, "nome_do_computador", lambda: nome)
+    monkeypatch.setattr(api, "saude", lambda base: True)
+    monkeypatch.setattr(api, "cadastros", lambda *a: _corpo_com(codigo))
+    armazem = Armazem(tmp_path / "c.dpapi")
+    cadastros.sincronizar("b", Sensivel("t"), armazem, "ana", None)
+    tema.aplicar(QApplication.instance())
+    j = Janela(HandlerTela(), "https://api.exemplo.invalid", None, "NB", armazem=armazem)
+    qtbot.addWidget(j)
+    j._atualizar_rodape()
+    return j
+
+
+def test_sem_unidade_usa_a_do_nome(qtbot, monkeypatch, tmp_path):
+    j = montar_com_nome(qtbot, monkeypatch, tmp_path, "BSBIA01-EST94")
+    assert j.unidade == "BSBIA01"
+    assert j.configuracoes.unidade.currentData() == "BSBIA01"
+    assert "identificada pelo nome do computador (BSBIA01-EST94)" in j.configuracoes.aviso.text()
+
+
+def test_nome_sem_codigo_ou_codigo_fora_do_cadastro_nao_escolhe(qtbot, monkeypatch, tmp_path):
+    assert montar_com_nome(qtbot, monkeypatch, tmp_path, "QUALIFICA-EST").unidade is None
+    j = montar_com_nome(qtbot, monkeypatch, tmp_path, "XYZ09-NB01")
+    assert j.unidade is None
+
+
+def test_escolha_manual_vale_mais_que_o_nome(qtbot, monkeypatch, tmp_path):
+    j = montar_com_nome(qtbot, monkeypatch, tmp_path, "BSBIA01-EST94")
+    j.escolher_unidade(None)  # técnico escolhe bancada
+    j._atualizar_rodape()
+    assert j.unidade is None
+    j.escolher_unidade("UM-01")
+    j._atualizar_rodape()
+    assert j.unidade == "UM-01"
+    assert "indica a unidade BSBIA01, mas esta máquina está em UM-01" in (
+        j.configuracoes.aviso.text()
+    )
