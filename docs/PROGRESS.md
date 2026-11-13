@@ -2,7 +2,10 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** `feat/monitores-video` (de `develop`), **sem commit**, com oito entregas:
+- **Branch:** nenhuma em andamento. **13/11/2026:** PR #80 (`feat/monitores-video`) mesclado
+  na `develop` pelo responsável (merge `20fd768`; commits `6c56082` e `20cf8a0`, este corrigindo
+  o teste que no runner roda como Administrador nativo). CI do PR verde (test, build, gitleaks).
+  `develop` à frente da `main`; versão **0.19.0**, sem bump e sem tag. Oito entregas:
   - unidade da máquina pelo código no começo do nome do computador (ADR-048):
     `docs/modules/unidade-pelo-nome.md`, auditoria `docs/security/2026-11-13-unidade-pelo-nome.md`;
   - aparência (ADR-043 a ADR-047): janela maximizada, modo do Windows, ponteiro por
@@ -14,10 +17,12 @@
   - Limpeza de contas (ADR-042): `docs/modules/limpeza-contas.md`, auditoria
     `docs/security/2026-11-13-limpeza-contas.md`.
   **Próximo passo:** roteiro 10.11 a 10.15 (dois monitores, modo escuro, ponteiro colorido) e
-  11.6 a 11.9 (limpeza de contas numa conta de teste, unidade pelo nome); depois commit e PR
-  para a `develop` (a conta usada nesta máquina ainda não tem acesso de escrita à organização). Versão sem mudança. Proposta de perfis no NocoDB
-  (fora do repositório) vira ADR-049 se aprovada.
-- **Branch:** nenhuma em andamento. `develop` e `main` iguais (12/11/2026), versão **0.19.0**,
+  11.6 a 11.9 (limpeza de contas numa conta de teste, unidade pelo nome) com o instalador do
+  CI; depois PR da `develop` para a `main`, bump de versão e tag (decisão do responsável).
+  **Pendências com o responsável:** visibilidade pública do repositório (os ADRs dizem privado);
+  proposta de perfis no NocoDB (fora do repositório; vira ADR-049 se aprovada); escopo da
+  "Preparação completa" nova citada abaixo.
+- **Antes (12/11/2026):** `develop` e `main` iguais, versão **0.19.0**,
   **sem bump e sem tag** (decisão do responsável: não versionar agora).
 - **Correção dos testes (#76 na `develop`, #77 na `main`):** o `app-ci` do push na `develop`
   depois do #74 deu código 1 duas vezes com `952 passed`, e a suíte tinha ido de ~3,5 para ~15
