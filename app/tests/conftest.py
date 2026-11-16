@@ -73,6 +73,28 @@ def _sem_mudar_monitor(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _sem_encerrar_sessao(monkeypatch):
+    """Encerrar sessões (ADR-049): nenhum teste encerra uma sessão real do Windows."""
+    from itc_bench.nucleo import sessoes
+
+    def proibido(*_args: object) -> int:
+        raise AssertionError("teste tentou encerrar uma sessão de verdade")
+
+    monkeypatch.setattr(sessoes, "encerrar", proibido)
+
+
+@pytest.fixture(autouse=True)
+def _sem_criar_perfil(monkeypatch):
+    """Perfil sem entrar (ADR-050): nenhum teste cria perfil de verdade no Windows."""
+    from itc_bench.nucleo import perfil_conta
+
+    def proibido(*_args: object) -> int:
+        raise AssertionError("teste tentou criar um perfil de verdade")
+
+    monkeypatch.setattr(perfil_conta, "criar", proibido)
+
+
+@pytest.fixture(autouse=True)
 def _telas13_sem_leitura_real(request, monkeypatch):
     """Telas do Módulo 13 leem o Windows ao aparecer; nos testes da janela, não leem."""
     if request.module.__name__ == "test_modulo13_tela":

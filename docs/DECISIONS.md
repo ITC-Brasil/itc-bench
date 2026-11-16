@@ -2759,3 +2759,240 @@ código de `Unidades.Codigo` (ADR-018) antes do primeiro hífen.
   unidade até alguém escolher bancada em Configurações (vale na sessão; na próxima, se o
   registro estiver vazio, o nome volta a valer).
 - Testes em `test_configuracoes.py`; o `conftest.py` fixa o nome do computador nos testes.
+
+## ADR-049 — Encerrar sessões pela API do Windows, compatível com o Windows Home
+
+**Status:** Accepted
+**Date:** 2026-11-14 (discovery: surgiu ao rodar o Bench num Windows Home Single Language)
+**Module:** Pós-16 (emenda ao ADR-036)
+
+**Context**
+"Encerrar sessões…" (ADR-036) dava "Falha do PowerShell (código 1)" num Windows 11 Home Single
+Language 25H2 (`EditionID` = `CoreSingleLanguage`, máquina virtual VirtualBox) e funcionava no
+Pro. O `recursos/contas/encerrar.ps1` chamava `logoff.exe` em `[Environment]::SystemDirectory`.
+Esse utilitário faz parte das ferramentas de Área de Trabalho Remota e não existe no Home: nessa
+máquina, `C:\Windows\System32\logoff.exe`, `quser.exe` e `query.exe` não existem.
+
+A primeira correção declarava `WTSLogoffSession` por `Add-Type` dentro do trecho. Funcionava,
+mas `Add-Type` é forma proibida nos trechos (`test_invariantes.py`; compila C# com `csc.exe` e
+grava fontes em `%TEMP%`, como já recusado no ADR-018 e no ADR-035), e o CI reprovaria.
+
+**Decision**
+1. **O trecho só acha as sessões.** `encerrar.ps1` continua achando as sessões da conta pelo dono
+   do `explorer.exe`, recusando a sessão do Bench (`propria`) e a conta sem sessão
+   (`sem_sessao`); agora só escreve `SESSAO|n` por sessão e `OK`. Não encerra nada.
+2. **O logoff é por ctypes, em `nucleo/sessoes.py`** (novo, na lista fechada de ctypes do
+   `test_invariantes.py`): `WTSLogoffSession(WTS_CURRENT_SERVER_HANDLE, sessão, bWait = TRUE)` da
+   `wtsapi32.dll`, presente em todas as edições. O módulo recusa por conta própria a sessão 0 e a
+   sessão em que o Bench roda (`ProcessIdToSessionId`), devolvendo `ERROR_ACCESS_DENIED` sem
+   chamar o Windows; erro sai só com o código Win32.
+3. **`servicos/contas.py`, `encerrar_sessao`:** roda o trecho, aceita só linhas `SESSAO|<1 a 5
+   dígitos>` e encerra uma a uma; na primeira falha para e mostra "O Windows não encerrou a
+   sessão: sessão N, código C" (a mesma mensagem de antes). A função de logoff entra por
+   parâmetro (`encerrar=`) nos testes; sem parâmetro, usa o núcleo.
+4. **Testes nunca encerram sessão real:** o `conftest.py` troca `sessoes.encerrar` por uma função
+   que falha (`_sem_encerrar_sessao`), como já faz com os monitores.
+
+**Alternatives considered**
+- `Add-Type` no trecho: proibido nos trechos (ver Context).
+- Achar as sessões também por ctypes (`WTSEnumerateSessions` e o usuário de cada uma): troca um
+  trecho que já funciona e é testado por mais código ctypes; o dono do `explorer.exe` segue o
+  mesmo critério de `Sids-Logados`.
+- Levar o `logoff.exe` de uma instalação Pro no instalador: binário da Microsoft redistribuído,
+  sem garantia de funcionar no Home.
+- `shutdown.exe /l`: só encerra a sessão de quem o chama, não a de outra conta.
+- `Win32_OperatingSystem.Win32Shutdown`: não escolhe a sessão a encerrar.
+
+**Consequences**
+- O `test_contas.py` exige que o trecho não chame `logoff` nem use `Add-Type`, que recusas do
+  trecho não cheguem à API, que a falha da API pare na primeira sessão com o código e que saída
+  malformada não vire número de sessão. Conferido em 14/11/2026 na VM, só leitura: o trecho
+  devolveu `propria` para a conta que roda o Bench e `sem_sessao` para as demais. O encerramento
+  de uma sessão real no Home ainda não foi conferido (roteiro, 12.3).
+- Varredura de 14/11/2026 dos `.exe` citados em `app/src`: o `logoff.exe` era o único utilitário
+  do Windows ausente no Home. Os demais (`powercfg`, `icacls`, `takeown`, `reg`, `msiexec`,
+  `winget`) e os cmdlets usados (`*-LocalUser`, `Rename-Computer`, `Get-PhysicalDisk`,
+  `Get-NetAdapter`, `*-AppxProvisionedPackage`, `Get-WinEvent`) existem no Home.
+- **Fora desta decisão:** a tela Início mostra o `EditionID` cru para edições fora de `Core` e
+  `Professional` (por exemplo, "Windows CoreSingleLanguage"); a correção desse mapa ficou de
+  fora a pedido do responsável.
+- **Fora desta decisão, pendente com o responsável:** quatro políticas do `CATALOGO` não têm efeito
+  confirmado no Home (`usb`, `compartilhamento`, `wifidirect`) ou não funcionam no Home nem no
+  Pro (`store`, documentado pela Microsoft só no Enterprise e no Education). Uma alternativa por
+  edição (por exemplo, o serviço `USBSTOR` para o USB ou desinstalar a Store) muda o
+  comportamento do produto e precisa de ADR próprio, depois do teste num Home (roteiro, 12.1).
+
+## ADR-050 — Perfil da conta nova preparado sem entrar nela
+
+**Status:** Accepted
+**Date:** 2026-11-14 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-017 e ao ADR-029)
+
+**Context**
+Conta criada pelo Bench não tem perfil (pasta em `C:\Users`, `NTUSER.DAT`, entrada em
+`ProfileList`) até alguém entrar nela uma vez. Sem perfil, Políticas, Aparência e Limpeza
+recusam a conta ("A conta ainda não tem perfil (nunca entrou): entre nela uma vez."), e o
+técnico precisava entrar em cada conta nova, inclusive nas contas por turno, só para isso.
+
+**Decision**
+1. **Onde:** só na criação de conta: Contas › Criar conta e as contas por turno da tela
+   Identificação (marcadas ou com sufixo). As duas passam por `servicos/contas.py`, `criar`, que
+   não tem outro chamador.
+2. **Como:** `CreateProfile` da `userenv.dll`, por ctypes, em `nucleo/perfil_conta.py` (novo, na
+   lista fechada de ctypes do `test_invariantes.py`). Cria o perfil como o primeiro logon faria
+   (cópia do perfil padrão e registro em `ProfileList`), sem a senha da conta, só com
+   administrador. `JA_EXISTE` (`0x800700B7`) conta como preparado.
+3. **SID pelo trecho:** `recursos/contas/criar.ps1` passa a escrever `SID|<SID>` da conta nova
+   antes do `OK`; o Python aceita só `SID|S-1-5-21-…`. O núcleo confere de novo o SID (só
+   `S-1-5-21-…`) e o nome (1 a 20 caracteres, sem controle nem `"/\[]:;|=,+*?<>@`, sem ponto ou
+   espaço no fim) antes de chamar o Windows.
+4. **Falha não desfaz a conta:** a conta continua criada; a tela mostra o aviso "Perfil não
+   preparado: entre na conta uma vez antes de aplicar políticas (código 0x…)" e as contas por
+   turno mostram "criado; perfil não preparado (entre nela uma vez)". Sucesso: "Conta X criada.
+   Perfil preparado: já dá para aplicar políticas e aparência sem entrar nela."
+5. **Log:** nome da conta e código; nunca o caminho do perfil.
+6. **Testes nunca criam perfil real:** o `conftest.py` troca `perfil_conta.criar` por uma função
+   que falha (`_sem_criar_perfil`); o teste das recusas do núcleo também impede a chamada ao
+   Windows.
+
+**Alternatives considered**
+- Entrar na conta uma vez (como antes): é o trabalho que o pedido quer tirar.
+- `LoadUserProfile` com `LogonUser`: exige a senha da conta, e as contas por turno não têm senha.
+- Preparar o perfil também em contas antigas sem perfil (botão na tela Contas, ou sozinho nas
+  Políticas/Aparência): fora do pedido; fica para depois, se o responsável quiser.
+
+**Consequences**
+- Contas criadas pelo Bench já saem com `C:\Users\<nome>`; o primeiro logon de verdade continua
+  rodando o que é do Windows (apps da Store, Active Setup), mais rápido e já com o que o Bench
+  aplicou.
+- A pasta do perfil leva o nome da conta. Se já existir uma pasta com esse nome (perfil órfão), o
+  Windows usa outro nome (`<nome>.<computador>`), como no primeiro logon.
+- Roteiro de máquina real 12.5 (criar conta e contas por turno; aplicar Aparência sem entrar).
+  Ainda não conferido com uma conta real: o teste exige o Bench elevado.
+
+## ADR-051 — Contas novas sem a animação do primeiro logon
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-050)
+
+**Context**
+No primeiro logon de uma conta, o Windows mostra a animação "Olá" / "Estamos preparando tudo
+para você" antes da área de trabalho. O responsável quer o primeiro logon simplificado, direto
+para a área de trabalho, nas contas que o Bench cria.
+
+**Decision**
+1. **Quando:** sempre que o Bench cria uma conta (Contas › Criar conta e contas por turno da
+   Identificação), sem opção na tela. As duas passam pelo `criar.ps1`.
+2. **Como:** o `criar.ps1`, depois de criar a conta e antes da linha `SID|`, grava
+   `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\EnableFirstLogonAnimation`
+   = 0 (DWORD), o mesmo valor da GPO "Mostrar animação de primeiro logon".
+3. **Falha não desfaz a conta:** vira `AVISO|animacao|...`, mostrado na tela como os outros avisos.
+4. **Sem Desfazer:** não entra no catálogo de Políticas; o valor fica gravado.
+
+**Alternatives considered**
+- Política no catálogo (marcável, com Desfazer): o responsável preferiu automático na criação.
+- Valor por conta: a animação é controlada só pelo valor da máquina.
+
+**Consequences**
+- O valor é da máquina: vale para todas as contas que fizerem o primeiro logon depois, inclusive
+  as criadas fora do Bench.
+- Roteiro de máquina real 12.6 (criar conta e entrar nela pela primeira vez).
+
+## ADR-052 — Proteção do login: cmd e PowerShell na detecção, "Restaurar originais" e tela nova
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-022)
+
+**Context**
+O ataque clássico da tela de login copia o `cmd.exe` (ou o PowerShell) por cima do Utilman ou do
+Sethc. O próprio `cmd.exe`/`powershell.exe` também pode ser trocado ou ganhar depurador (IFEO), e a
+tela só olhava os 7 programas de acessibilidade. "Restaurar original" exigia selecionar uma linha e
+restaurava um arquivo por vez. A tela misturava ações do dia a dia e de incidente, sem resumo.
+
+**Decision**
+1. **Detecção:** `cmd.exe` e `powershell.exe` (`System32\WindowsPowerShell\v1.0`) entram em
+   `BINARIOS` (assinatura do Windows, nome original, IFEO), nos dois trechos (`ler.ps1`,
+   `escrever.ps1`). Não entram em `PROTEGIVEIS`: negar execução deles quebraria o próprio Bench e
+   o Windows. "Remover depurador" passa a cobrir os 9.
+2. **Restaurar originais:** um botão, sem seleção: `sfc /scanfile` em cada binário trocado ou
+   ausente na leitura de agora, um por vez (`restaurar_trocados`); o resultado de cada um vem da
+   nova detecção, como antes.
+3. **`sfc /scannow` não:** confere o Windows inteiro (15 a 40 min); fora do foco da tela.
+4. **Tela:** resumo no topo (verde "Login protegido" ou pontos de atenção, inclusive o atalho
+   Shift 5x ligado); tabela com
+   cor e ícone por situação e altura das linhas; um botão Proteger (azul, `#proteger`)/Desproteger (vermelho, `#desproteger`), na altura dos outros botões, e um de atalho, com o
+   texto conforme a situação; "Em caso de ataque" separado, com os botões ativos só quando há
+   arquivo trocado/ausente ou depurador; registro escondido até a primeira ação.
+
+**Consequences**
+- O Início e a Preparação passam a alertar também cmd/PowerShell trocado ou com depurador.
+- Roteiro de máquina real 12.7.
+
+## ADR-053 — Tela Energia como "Editar configurações do plano", com "Nunca" por padrão
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-022)
+
+**Context**
+A tela Energia era uma lista de 8 linhas ("ajuste — fonte") com caixa de marcar, valor atual,
+padrão do plano e uma lista de tempos. O responsável quer a tela parecida com a do Windows e com
+"Nunca" já escolhido.
+
+**Decision**
+1. **Grade como no Windows:** uma linha por ajuste, com a frase do Windows ("Desligar a tela
+   após", "Suspender o computador após", "Hibernar após", "Desligar o disco rígido após"), e as
+   colunas "Na bateria" e "Na tomada". Embaixo de cada campo: "Agora: X · padrão do plano: Y".
+2. **"Nunca" por padrão** em todos os campos, a cada abertura.
+3. **Sem caixas de marcar:** Aplicar grava só os campos diferentes do valor atual (`alterados`)
+   e mostra quantos são; nada diferente, nada gravado.
+4. **"Desfazer" vira "Restaurar padrão do plano":** volta ao padrão do próprio plano tudo o que
+   estiver diferente dele. Continua sem `-restoredefaultschemes`.
+5. **Hibernação num botão só:** "Desligar hibernação" ou "Ligar hibernação", conforme a leitura.
+6. O serviço (`servicos/energia.py`), a lista fechada de tempos e o uso pela Preparação não mudam.
+
+**Consequences**
+- Abrir a tela e clicar Aplicar deixa tudo em "Nunca" (com confirmação listando cada mudança).
+- Roteiro de máquina real 12.8.
+
+## ADR-054 — Contas novas sem a tela de privacidade do primeiro logon, com as respostas já dadas
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável, depois do roteiro 12.6)
+**Module:** Pós-16 (emenda ao ADR-051)
+
+**Context**
+Com a animação desligada (ADR-051), o primeiro logon de uma conta nova ainda para na tela
+"Escolha as configurações de privacidade do seu dispositivo" (localização, Localizar meu
+dispositivo, dados de diagnóstico, escrita à tinta e digitação, experiências personalizadas, ID de
+anúncio). O responsável quer essa tela fora, com localização em "sim" e o resto em "não".
+
+**Decision**
+O `criar.ps1`, logo depois da animação (ADR-051) e antes da linha `SID|`, grava valores fixos da
+máquina:
+
+| Pergunta da tela | Resposta | Valor |
+|---|---|---|
+| (a própria tela) | não aparece | `HKLM\SOFTWARE\Policies\Microsoft\Windows\OOBE\DisablePrivacyExperience` = 1 |
+| Localização | sim | `HKLM\…\CapabilityAccessManager\ConsentStore\location\Value` = `Allow` |
+| Dados de diagnóstico opcionais | não (só os obrigatórios; o Home não aceita menos) | `HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection\AllowTelemetry` = 1 |
+| Escrita à tinta e digitação | não | `HKLM\SOFTWARE\Policies\Microsoft\InputPersonalization\AllowInputPersonalization` = 0 |
+| ID de anúncio | não | `HKLM\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo\DisabledByGroupPolicy` = 1 |
+| Localizar meu dispositivo | não | `HKLM\SOFTWARE\Policies\Microsoft\FindMyDevice\AllowFindMyDevice` = 0 |
+
+Falha em qualquer valor não desfaz a conta: vira `AVISO|privacidade|…` com os nomes que faltaram.
+Sem Desfazer, como o ADR-051.
+
+**Alternatives considered**
+- "Experiências personalizadas" por política: existe só por usuário (HKCU); com o diagnóstico só
+  no obrigatório, elas não têm dado opcional para usar. Não gravado.
+- Gravar por conta no perfil recém-criado (ADR-050): mais pontos de falha; a tela só some pela
+  política da máquina.
+
+**Consequences**
+- Valores da máquina: valem para todas as contas que fizerem o primeiro logon depois. As
+  políticas também travam as opções em Configurações › Privacidade (aparece "gerenciado pela
+  organização").
+- Roteiro 12.6 passa a incluir: primeiro logon sem a tela de privacidade.

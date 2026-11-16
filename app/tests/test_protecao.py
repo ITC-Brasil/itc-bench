@@ -94,7 +94,7 @@ def test_proteger_recusa_arquivo_trocado_ou_nao_lido() -> None:
         sistema32=s32,
     )
     assert not any(f.ok for f in feitos) and not n.chamadas
-    assert "Restaurar original" in feitos[0].mensagem
+    assert "Restaurar originais" in feitos[0].mensagem
 
 
 def test_cancelar_entre_arquivos() -> None:
@@ -155,6 +155,58 @@ def test_restaurar_decide_pela_deteccao() -> None:
     )
     assert n.chamadas == [[SYS + "sfc.exe", "/scanfile=" + SYS + "osk.exe"]]
     assert not ok_ and "chamado" in msg
+
+
+def test_restaurar_powershell_pelo_caminho_dele() -> None:
+    n = Nativo()
+    protecao.restaurar("powershell.exe", rodar=n, rodar_ps=ps(leitura()), sistema32=s32)
+    assert n.chamadas == [
+        [SYS + "sfc.exe", "/scanfile=" + SYS + "WindowsPowerShell\\v1.0\\powershell.exe"]
+    ]
+
+
+def test_restaurar_trocados_so_os_trocados_ou_ausentes() -> None:
+    n = Nativo()
+    feitos = protecao.restaurar_trocados(
+        rodar=n,
+        rodar_ps=ps(leitura(cmd={"arquivo": "trocado"}, osk={"arquivo": "ausente"})),
+        sistema32=s32,
+    )
+    assert [f.exe for f in feitos] == ["osk.exe", "cmd.exe"]
+    assert [c[1] for c in n.chamadas] == [
+        "/scanfile=" + SYS + "osk.exe",
+        "/scanfile=" + SYS + "cmd.exe",
+    ]
+
+
+def test_restaurar_trocados_sem_nada_trocado_nao_chama_sfc() -> None:
+    n = Nativo()
+    assert protecao.restaurar_trocados(rodar=n, rodar_ps=ps(leitura()), sistema32=s32) == []
+    assert not n.chamadas
+
+
+def test_cmd_e_powershell_so_na_deteccao() -> None:
+    assert set(protecao.FERRAMENTAS) <= set(protecao.BINARIOS)
+    assert not set(protecao.FERRAMENTAS) & set(protecao.PROTEGIVEIS)
+    with pytest.raises(ValueError):
+        protecao.alterar(
+            True, ["powershell.exe"], rodar_ps=ps(leitura()), rodar=Nativo(), sistema32=s32
+        )
+
+
+def test_trechos_tem_a_mesma_lista_de_binarios() -> None:
+    pasta = Path(protecao.__file__).parent.parent / "recursos" / "protecao"
+    ler = (pasta / "ler.ps1").read_text("utf-8")
+    escrever = (pasta / "escrever.ps1").read_text("utf-8")
+    for exe in protecao.BINARIOS:
+        assert f"'{exe}'" in ler and f"'{exe}'" in escrever
+    assert "'WindowsPowerShell\\v1.0\\powershell.exe'" in ler
+
+
+def test_alerta_de_cmd_trocado() -> None:
+    s = protecao.situacao(rodar=ps(leitura(cmd={"arquivo": "trocado"})))
+    assert "Prompt de Comando (cmd): arquivo trocado" in s.alertas()
+    assert s.a_restaurar() == ["cmd.exe"]
 
 
 def test_trechos_fixos() -> None:

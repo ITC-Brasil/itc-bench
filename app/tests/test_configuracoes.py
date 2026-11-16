@@ -62,7 +62,9 @@ def test_so_leitura_e_ajuda(qtbot, monkeypatch, tmp_path):
     j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
     for tabela in j.configuracoes.findChildren(QTableWidget):
         assert tabela.editTriggers() == tabela.EditTrigger.NoEditTriggers
-    assert j.telas["config"].ajuda.texto.text() == AJUDA
+    # Configurações também traz a ajuda da faixa de atualização, que não tem tela própria.
+    assert j.telas["config"].ajuda.texto.text().startswith(AJUDA)
+    assert "Atualização do ITC Bench" in j.telas["config"].ajuda.texto.text()
     assert j.telas["config"].botao_ajuda.isVisible() or j.telas["config"].botao_ajuda is not None
 
 

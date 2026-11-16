@@ -219,6 +219,17 @@ Repetir 3.1, 5.1, 6.2, 9.1, 10.5 e 11.4.
 |---|---|---|
 | 12.1 | Home: políticas com aviso de edição; Store só no Pro | 11/V9, 12/V8, 13/V10 |
 | 12.2 | Inglês: grupos por SID, mesmas situações | 07/V6, 08/V7, 09/V9, 10/V8, 11/V10, 12/V9, 13/V10 |
+| 12.3 | Home: Contas › Encerrar sessões… numa conta aberta pela troca rápida de usuário encerra a sessão, sem "Falha do PowerShell" | ADR-049 |
+| 12.5 | Contas › Criar conta e contas por turno (Identificação): a conta nova já aparece com perfil em `C:\Users`; Aparência e Políticas aceitam a conta sem ninguém ter entrado nela | ADR-050 |
+| 12.6 | Contas › Criar conta e entrar nela pela primeira vez: vai direto para a área de trabalho, sem a animação "Olá" e sem a tela de privacidade | ADR-051, ADR-054 |
+| 12.7 | Proteção do login: tabela com cmd e PowerShell "original"; Proteger (azul) protege e vira Desproteger (vermelho); resumo fica verde; botões de ataque desativados | ADR-052 |
+| 12.8 | Energia: tudo em "Nunca" ao abrir, "Agora" e padrão embaixo de cada campo; Aplicar grava só o diferente e o Windows mostra "Nunca" em Configurações › Energia | ADR-053 |
+
+**Registro parcial, 14/11/2026 (Windows 11 Home Single Language 25H2, VirtualBox, `uv run`, não
+o instalador do CI):** antes do ADR-049, 12.3 falhava com "Falha do PowerShell (código 1)"
+porque o `logoff.exe` não existe no Home. Depois da correção, o trecho que acha as sessões
+respondeu `propria` para a conta que roda o Bench e `sem_sessao` para as demais (só leitura).
+O encerramento de uma sessão real e o 12.1 ainda estão pendentes.
 
 ## Resultados registrados
 
@@ -255,3 +266,21 @@ Antes das correções, na mesma máquina: o arquivo não era aceito como meio da
 "a senha não foi cifrada; linha removida"); o MSI 1.5.1 instalava sem criar o serviço
 (eventos 7045, 7009 e 7000 do Service Control Manager); o download do AnyDesk dava 403 ao
 User-Agent padrão do urllib.
+
+**Registro, 16/11/2026 (Windows 11 Home Single Language, Inspiron 5423, `uv run` elevado pelo
+UAC, branch `feat/windows-home-contas`, não o instalador do CI):** `test_papel_de_parede` 22
+passaram elevado. 12.5 em parte: Contas › Criar conta (`TesteBench01`) saiu com perfil
+(`ProfileList` e `NTUSER.DAT`) sem entrar; conta e perfil excluídos depois. 12.6 em parte:
+`EnableFirstLogonAnimation` = 0 no HKLM (fica gravado). 12.7: os 9 programas "original";
+Proteger e Desproteger conferidos pela leitura; voltou a "não protegido". 12.8: os 8 valores em
+"Nunca" conferidos pela leitura do Windows; valores de antes restaurados. Pendentes: 12.3, 12.5
+com contas por turno e o primeiro logon visual do 12.6.
+Depois, no mesmo dia, pelo responsável: 12.5 com conta por turno (sufixo) na Identificação:
+"criado", sem aviso de perfil; pasta em `C:\Users` e entrada em `ProfileList` conferidas.
+12.3: `DESKTOP-104LH4L-jjh` aberta pela troca rápida (sessão 8) e encerrada pelo Bench às 14:46
+("encerrar sessão …: ok (1 sessão(ões))"); conferência elevada depois: a sessão não existe mais.
+Antes, no mesmo dia, mais três contas encerradas com "ok". Sem "Falha do PowerShell".
+12.6, depois do primeiro logon da `DESKTOP-104LH4L-jjh`: sem animação, mas a tela de
+privacidade apareceu; corrigido pelo ADR-054. Conta `TesteBench02` criada elevada: os 6 valores
+de privacidade e a animação gravados; conta excluída. Falta repetir o primeiro logon visual.
+12.6 completo (responsável, 16/11/2026): conta nova entrou direto na área de trabalho, sem animação e sem a tela de privacidade.

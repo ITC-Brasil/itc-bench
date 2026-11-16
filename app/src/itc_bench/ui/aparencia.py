@@ -15,7 +15,10 @@ from PySide6.QtGui import QColor, QImage, QImageReader, QPainter, QPaintEvent, Q
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -50,10 +53,13 @@ _ALVOS = (
 )
 
 AJUDA_TELA = (
+    "Papel de parede\n"
     "Põe o papel de parede do Grupo nas contas e impede o aluno de trocar.\n\n"
     "Aplicar\n"
     "1. Escolha a imagem (vem do cadastro em Instaladores, tipo papel) e o estilo.\n"
-    "2. Marque as contas. Aplicar baixa a imagem (ou use Escolher arquivo… sem rede: o Bench "
+    "2. Marque as contas (a sua aparece como “(você)”; Ler perfis fechados mostra também a "
+    "situação das contas que não estão abertas). Aplicar baixa a imagem (ou use Escolher "
+    "arquivo… sem rede: o Bench "
     "copia e confere o SHA-256 com o cadastro, quando houver) e grava a política de papel de "
     "parede.\n"
     "3. Desfazer apaga a política; a conta volta ao papel de parede dela.\n\n"
@@ -85,29 +91,41 @@ AJUDA_TELA = (
 
 AJUDA_MOUSE = (
     "Ajusta mouse e teclado por conta, com valores fixos do Bench.\n\n"
-    "1. Marque as contas e os ajustes, escolha o valor de cada um.\n"
+    "1. Marque as contas e os ajustes, e escolha o valor de cada um. O valor do Windows aparece "
+    "com “(padrão)”; a coluna Situação mostra como cada conta está.\n"
     "2. Aplicar mostra o que muda e pede confirmação.\n"
     "3. Desfazer volta os ajustes marcados ao padrão do Windows.\n\n"
-    "Ponteiro: clique num dos quadradinhos, como nas Configurações do Windows. Branco, preto ou "
+    "Ajustes\n"
+    "Ponteiro do mouse, velocidade do ponteiro, velocidade do duplo clique, botões do mouse "
+    "(normais ou invertidos, para canhoto), atraso e velocidade da repetição do teclado, e o "
+    "atalho Shift 5x.\n\n"
+    "Ponteiro\n"
+    "Clique num dos quadradinhos, como nas Configurações do Windows; o ajuste fica marcado. "
+    "Branco, preto ou "
     "invertido usam os arquivos do próprio Windows. Personalizado mostra as cores (verde-limão, "
     "amarelo, ciano, rosa, laranja e roxo): o Bench gera o ponteiro colorido a partir dos "
     "cursores do Windows e guarda numa pasta protegida do Bench; os ponteiros de ocupado e "
     "trabalhando continuam os do Windows. O tamanho vai de 1 a 15, como no Windows, e vale "
     "para todos os estilos. O aluno pode mudar depois; para travar o ponteiro, use a política "
-    "em Segurança › Políticas. "
-    "Atalho Shift 5x: desliga a janela das Teclas de aderência na conta (na tela de login, use "
-    "Proteção do login).\n\n" + _ALVOS
+    "em Segurança › Políticas.\n\n"
+    "Atalho Shift 5x\n"
+    "Desligado tira a janela das Teclas de aderência na conta. Na tela de login, use Proteção "
+    "do login.\n\n" + _ALVOS
 )
 
 AJUDA_ENERGIA = (
     "Ajusta quando a tela desliga, quando o notebook suspende ou hiberna e quando o disco "
     "desliga, na tomada e na bateria, no plano de energia ativo (o Bench não troca o plano).\n\n"
-    "1. Escolha os tempos e marque os que quer gravar.\n"
-    "2. Aplicar grava e reativa o plano; vale na hora.\n"
-    "3. Desfazer volta os marcados ao padrão do próprio plano.\n\n"
+    "A tela segue “Editar configurações do plano” do Windows: uma coluna para a bateria e outra "
+    "para a tomada. Todo campo começa em “Nunca”; embaixo de cada um aparece o valor de agora e "
+    "o padrão do plano.\n\n"
+    "1. Ajuste os tempos, se não quiser “Nunca”.\n"
+    "2. Aplicar grava só o que é diferente de agora e reativa o plano; vale na hora.\n"
+    "3. Restaurar padrão do plano volta ao padrão do próprio plano tudo o que estiver diferente "
+    "dele.\n\n"
     "Hibernação\n"
-    "Desligar hibernação apaga o arquivo de hibernação e desliga a Inicialização rápida. Desfazer "
-    "volta para ligada.\n\n"
+    "Desligar hibernação apaga o arquivo de hibernação e desliga a Inicialização rápida. O mesmo "
+    "botão vira Ligar hibernação para voltar.\n\n"
     "O Bench não usa “restaurar planos padrão”: isso apaga os planos do fabricante.\n\n"
     "Sem administrador (modo de teste), a tela só mostra a situação."
 )
@@ -783,7 +801,20 @@ class PainelMouse(_PainelAlvos):
 # ---------------------------------------------------------------- Energia
 
 
+# Energia (ADR-053): ordem e frases como em "Editar configurações do plano" do Windows.
+_ORDEM_FONTES: tuple[energia.Fonte, ...] = ("dc", "ac")
+_PERGUNTA = {
+    "tela": "Desligar a tela após",
+    "suspensao": "Suspender o computador após",
+    "hibernar_apos": "Hibernar após",
+    "disco": "Desligar o disco rígido após",
+}
+
+
 class PainelEnergia(QWidget):
+    """Grade como "Editar configurações do plano" do Windows (ADR-053): bateria e tomada lado a
+    lado, todo campo começa em "Nunca"; Aplicar grava só o que difere do valor atual."""
+
     titulo = "Energia"
 
     def __init__(self, admin: bool) -> None:
@@ -794,6 +825,7 @@ class PainelEnergia(QWidget):
         self.cancelar_evento: threading.Event | None = None
 
         v = QVBoxLayout(self)
+        v.setSpacing(12)
         topo = QHBoxLayout()
         self.estado = _rotulo("")
         self.atualizar = QPushButton("Atualizar")
@@ -803,53 +835,75 @@ class PainelEnergia(QWidget):
         v.addLayout(topo)
         if not admin:
             v.addWidget(_rotulo("Sem administrador: só leitura."))
-        self.arvore = QTreeWidget()
-        self.arvore.setHeaderLabels(["Ajuste", "Atual", "Padrão do plano", "Novo valor"])
-        self.arvore.setColumnWidth(0, 260)
-        self.arvore.setRootIsDecorated(False)
-        self.itens: dict[tuple[str, energia.Fonte], QTreeWidgetItem] = {}
+
+        cartao = QFrame()
+        cartao.setObjectName("cartao")
+        grade = QGridLayout(cartao)
+        grade.setHorizontalSpacing(16)
+        grade.setVerticalSpacing(4)
+        grade.setColumnStretch(0, 1)
+        for col, f in enumerate(_ORDEM_FONTES, start=1):
+            cab = QLabel(energia.ROTULO_FONTE[f])
+            cab.setObjectName("cartaoTitulo")
+            grade.addWidget(cab, 0, col)
+            grade.setColumnMinimumWidth(col, 200)
         self.valores: dict[tuple[str, energia.Fonte], QComboBox] = {}
+        self.dicas: dict[tuple[str, energia.Fonte], QLabel] = {}
+        linha = 1
         for aid, (nome, _, _) in energia.AJUSTES.items():
-            for f in energia.FONTES:
-                item = QTreeWidgetItem([f"{nome} — {energia.ROTULO_FONTE[f].lower()}", "", "", ""])
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(0, Qt.CheckState.Unchecked)
-                self.arvore.addTopLevelItem(item)
+            rotulo = QLabel(_PERGUNTA.get(aid, nome))
+            grade.addWidget(rotulo, linha, 0)
+            for col, f in enumerate(_ORDEM_FONTES, start=1):
                 combo = QComboBox()
-                for seg, rotulo in energia.TEMPOS.items():
-                    combo.addItem(rotulo, seg)
-                self.arvore.setItemWidget(item, 3, combo)
-                self.itens[(aid, f)], self.valores[(aid, f)] = item, combo
-        v.addWidget(self.arvore, 2)
+                for seg, texto in energia.TEMPOS.items():
+                    combo.addItem(texto, seg)
+                combo.setCurrentIndex(combo.findData(0))  # "Nunca" por padrão
+                combo.currentIndexChanged.connect(self._marcar_mudancas)
+                dica = QLabel("")
+                dica.setObjectName("dica")
+                dica.setTextFormat(Qt.TextFormat.PlainText)
+                grade.addWidget(combo, linha, col)
+                grade.addWidget(dica, linha + 1, col)
+                self.valores[(aid, f)], self.dicas[(aid, f)] = combo, dica
+            linha += 2
+        v.addWidget(cartao)
 
         hib = QHBoxLayout()
         self.hibernacao = _rotulo("")
-        self.b_hib_off = QPushButton("Desligar hibernação")
-        self.b_hib_off.clicked.connect(lambda: self._hibernacao(False))
-        self.b_hib_on = QPushButton("Ligar hibernação")
-        self.b_hib_on.clicked.connect(lambda: self._hibernacao(True))
+        self.b_hib = QPushButton("Desligar hibernação")
+        self.b_hib.clicked.connect(self._alternar_hibernacao)
         hib.addWidget(self.hibernacao, 1)
-        hib.addWidget(self.b_hib_off)
-        hib.addWidget(self.b_hib_on)
+        hib.addWidget(self.b_hib)
         v.addLayout(hib)
 
         acoes = QHBoxLayout()
         self.b_aplicar = QPushButton("Aplicar")
         self.b_aplicar.setObjectName("primario")
         self.b_aplicar.clicked.connect(lambda: self._executar("aplicar"))
-        self.b_desfazer = QPushButton("Desfazer")
+        self.b_desfazer = QPushButton("Restaurar padrão do plano")
         self.b_desfazer.clicked.connect(lambda: self._executar("desfazer"))
         self.b_cancelar = QPushButton("Cancelar")
         self.b_cancelar.clicked.connect(self._cancelar)
         self.b_cancelar.hide()
+        self.mudancas = _rotulo("")
+        self.mudancas.setObjectName("dica")
         for b in (self.b_aplicar, self.b_desfazer, self.b_cancelar):
             acoes.addWidget(b)
-        acoes.addStretch()
+        acoes.addWidget(self.mudancas, 1)
         v.addLayout(acoes)
+
+        self.registro_titulo = QLabel("Últimas ações")
+        self.registro_titulo.setObjectName("rotulo")
         self.registro = QPlainTextEdit()
+        self.registro.setObjectName("log")
         self.registro.setReadOnly(True)
         self.registro.setMaximumBlockCount(500)
-        v.addWidget(self.registro, 1)
+        self.registro.setFixedHeight(110)
+        self.registro_titulo.hide()
+        self.registro.hide()
+        v.addWidget(self.registro_titulo)
+        v.addWidget(self.registro)
+        v.addStretch()
         self._ocupar(False)
 
     def showEvent(self, evento: QShowEvent) -> None:
@@ -864,13 +918,16 @@ class PainelEnergia(QWidget):
 
     def _recebeu(self, s: energia.Situacao) -> None:
         self.situacao, self.lido = s, True
-        for k, item in self.itens.items():
+        for k, dica in self.dicas.items():
             valor = s.valores.get(k)
-            item.setText(1, energia.rotulo_tempo(valor.atual if valor else None))
-            item.setText(2, energia.rotulo_tempo(valor.padrao if valor else None))
+            atual = energia.rotulo_tempo(valor.atual if valor else None)
+            padrao = energia.rotulo_tempo(valor.padrao if valor else None)
+            dica.setText(f"Agora: {atual} · padrão do plano: {padrao}")
         hib = {True: "ligada", False: "desligada", None: "não lida"}[s.hibernacao]
         self.hibernacao.setText(f"Hibernação: {hib}.")
+        self.b_hib.setText("Ligar hibernação" if s.hibernacao is False else "Desligar hibernação")
         self.estado.setText("Plano de energia ativo. Vale na hora.")
+        self._marcar_mudancas()
         self._ocupar(False)
 
     def _falhou(self, motivo: str) -> None:
@@ -881,7 +938,7 @@ class PainelEnergia(QWidget):
     def _ocupar(self, ocupado: bool) -> None:
         self.ocupado = ocupado
         pode = self.admin and not ocupado and self.situacao is not None
-        for b in (self.b_aplicar, self.b_desfazer, self.b_hib_off, self.b_hib_on):
+        for b in (self.b_aplicar, self.b_desfazer, self.b_hib):
             b.setEnabled(pode)
             if not self.admin:
                 b.setToolTip("Precisa de administrador.")
@@ -897,44 +954,89 @@ class PainelEnergia(QWidget):
         self.b_cancelar.hide()
         self.b_cancelar.setText("Cancelar")
 
-    def marcados(self) -> list[tuple[str, energia.Fonte]]:
-        return [k for k, i in self.itens.items() if i.checkState(0) == Qt.CheckState.Checked]
+    @staticmethod
+    def nome(k: tuple[str, energia.Fonte]) -> str:
+        return f"{energia.AJUSTES[k[0]][0]} — {energia.ROTULO_FONTE[k[1]].lower()}"
+
+    def alterados(self) -> dict[tuple[str, energia.Fonte], int]:
+        """Escolhas diferentes do valor atual (sem leitura, todas)."""
+        saida = {}
+        for k, combo in self.valores.items():
+            seg = int(combo.currentData())
+            v = self.situacao.valores.get(k) if self.situacao else None
+            if v is None or v.atual != seg:
+                saida[k] = seg
+        return saida
+
+    def fora_do_padrao(self) -> list[tuple[str, energia.Fonte]]:
+        if self.situacao is None:
+            return []
+        return [
+            k
+            for k, v in self.situacao.valores.items()
+            if v.padrao is not None and v.atual != v.padrao
+        ]
+
+    def _marcar_mudancas(self) -> None:
+        n = len(self.alterados()) if self.situacao else 0
+        self.mudancas.setText(
+            "Nada a gravar: já está como escolhido."
+            if self.situacao and not n
+            else f"{n} ajuste(s) a gravar."
+            if n
+            else ""
+        )
 
     def confirmacao(self, acao: str) -> str:
         linhas = []
-        for k in self.marcados():
-            item = self.itens[k]
-            if acao == "aplicar":
-                para = self.valores[k].currentText()
-            else:
+        if acao == "aplicar":
+            for k, seg in self.alterados().items():
                 v = self.situacao.valores.get(k) if self.situacao else None
-                para = energia.rotulo_tempo(v.padrao if v else None) + " (padrão do plano)"
-            linhas.append(f"{item.text(0)}: {item.text(1)} → {para}")
+                de = energia.rotulo_tempo(v.atual if v else None)
+                linhas.append(f"{self.nome(k)}: {de} → {energia.TEMPOS[seg]}")
+        else:
+            for k in self.fora_do_padrao():
+                v = self.situacao.valores[k] if self.situacao else None
+                de = energia.rotulo_tempo(v.atual if v else None)
+                para = energia.rotulo_tempo(v.padrao if v else None)
+                linhas.append(f"{self.nome(k)}: {de} → {para} (padrão do plano)")
         return "\n".join(linhas)
 
     def _executar(self, acao: str) -> None:
-        marcados = self.marcados()
-        if not marcados:
-            _aviso(self, self.titulo, "Marque pelo menos um ajuste.")
-            return
+        if acao == "aplicar":
+            escolhas = self.alterados()
+            if not escolhas:
+                _aviso(self, self.titulo, "Nada a gravar: já está como escolhido.", erro=False)
+                return
+        else:
+            itens = self.fora_do_padrao()
+            if not itens:
+                _aviso(self, self.titulo, "Tudo já está no padrão do plano.", erro=False)
+                return
         if not confirmar(self, f"{self.titulo} — {acao}", self.confirmacao(acao)):
             return
         self.cancelar_evento = evento = threading.Event()
         self.b_cancelar.show()
         self._ocupar(True)
         if acao == "aplicar":
-            escolhas = {k: int(self.valores[k].currentData()) for k in marcados}
             tarefa.iniciar(
                 lambda: energia.tempos(escolhas, cancelar=evento), self._feito, self._falhou
             )
         else:
             tarefa.iniciar(
-                lambda: energia.desfazer(marcados, cancelar=evento), self._feito, self._falhou
+                lambda: energia.desfazer(itens, cancelar=evento), self._feito, self._falhou
             )
 
     def _feito(self, feitos: list[energia.Feito]) -> None:
         self._fim()
-        texto = "\n".join(f"{f.item}: {f.mensagem}" for f in feitos) or "Nada a fazer."
+        nomes = {f"{a}_{f}": self.nome((a, f)) for a in energia.AJUSTES for f in energia.FONTES}
+        nomes["hibernacao"] = "Hibernação"
+        texto = (
+            "\n".join(f"{nomes.get(f.item, f.item)}: {f.mensagem}" for f in feitos)
+            or "Nada a fazer."
+        )
+        self.registro_titulo.show()
+        self.registro.show()
         self.registro.appendPlainText(texto)
         _aviso(self, self.titulo, texto, erro=not all(f.ok for f in feitos))
         self.carregar()
@@ -949,6 +1051,9 @@ class PainelEnergia(QWidget):
             f"Hibernação agora: {atual}. Desligar? Apaga o arquivo de hibernação e desliga a "
             "Inicialização rápida. Para voltar, use Ligar hibernação."
         )
+
+    def _alternar_hibernacao(self) -> None:
+        self._hibernacao(self.situacao is not None and self.situacao.hibernacao is False)
 
     def _hibernacao(self, ligar: bool) -> None:
         if not confirmar(self, self.titulo, self.confirmacao_hibernacao(ligar)):

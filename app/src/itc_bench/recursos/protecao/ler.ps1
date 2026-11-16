@@ -1,4 +1,5 @@
-# Proteção do login (ADR-022): só leitura. Para os 7 binários de acessibilidade da tela de login:
+# Proteção do login (ADR-022): só leitura. Para os 7 binários de acessibilidade da tela de login
+# e o cmd e o PowerShell (ADR-052):
 # arquivo (assinatura do Windows + nome original), ACL (negar execução ao SYSTEM, dono) e IFEO;
 # e as flags do Shift 5x em HKU\.DEFAULT. Saída: JSON. Nunca "trocado" sem a verificação ter rodado.
 $Vista = [Microsoft.Win32.RegistryView]::Registry64
@@ -9,7 +10,10 @@ $EXES = [ordered]@{
     'utilman.exe' = @('utilman.exe', 'utilman2.exe'); 'sethc.exe' = @('sethc.exe'); 'osk.exe' = @('osk.exe')
     'Magnify.exe' = @('magnify.exe', 'screenmagnifier.exe'); 'Narrator.exe' = @('narrator.exe', 'sr.exe')
     'DisplaySwitch.exe' = @('displayswitch.exe'); 'AtBroker.exe' = @('atbroker.exe')
+    'cmd.exe' = @('cmd.exe'); 'powershell.exe' = @('powershell.exe')
 }
+# Caminho relativo à pasta de sistema, quando não fica direto nela (o IFEO usa só o nome).
+$REL = @{ 'powershell.exe' = 'WindowsPowerShell\v1.0\powershell.exe' }
 $IFEO = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options'
 $SPE = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit'
 $FLAGS = @('StickyKeys', 'Keyboard Response', 'ToggleKeys')
@@ -50,7 +54,7 @@ $maq = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', $Vista)
 $bins = @()
 foreach ($exe in $EXES.Keys) {
     $r = [ordered]@{ exe = $exe; arquivo = 'nao_lido'; acl = 'nao_lida'; ifeo = 'nao_lido' }
-    $p = Join-Path $sys $exe
+    $p = Join-Path $sys $(if ($REL.ContainsKey($exe)) { $REL[$exe] } else { $exe })
     if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
         $r.arquivo = 'ausente'; $r.acl = 'ausente'
     } else {

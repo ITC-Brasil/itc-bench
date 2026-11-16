@@ -2,7 +2,49 @@
 
 ## ESTADO ATUAL
 
-- **Branch:** nenhuma em andamento. **13/11/2026:** PR #80 (`feat/monitores-video`) mesclado
+- **16/11/2026, branch `feat/windows-home-contas` saindo da `develop` (`8317224`), clone em
+  `itc-bench-git`, sem commit (commit e PR quando o responsável decidir).** Oito entregas numa
+  feature: as três de 14/11 abaixo (ADR-049, ADR-050, rolagem das telas) e cinco de 16/11:
+  - contas criadas pelo Bench sem a animação do primeiro logon (ADR-051; `criar.ps1` grava
+    `EnableFirstLogonAnimation` = 0 no HKLM, falha vira aviso);
+  - Proteção do login (ADR-052): cmd e PowerShell na detecção, "Restaurar originais" para todos
+    os trocados, tela nova (resumo, Proteger azul / Desproteger vermelho, "Em caso de ataque");
+  - tela Energia como "Editar configurações do plano" do Windows, "Nunca" por padrão (ADR-053);
+  - aba Ajuda revisada contra o código de todas as telas (estava desatualizada; inclui Monitores
+    e Atualização);
+  - contas novas sem a tela de privacidade do primeiro logon: localização sim, o resto não
+    (ADR-054; valores fixos da máquina no `criar.ps1`).
+  Ruff, format e mypy limpos; `pytest` 1076 passando, 10 pulados, 1 falha de ambiente conhecida
+  (que passa elevado). Doc: `docs/modules/windows-home-contas.md`. Auditoria:
+  `docs/security/2026-11-16-windows-home-contas.md` (nada crítico ou alto).
+  Máquina real (Inspiron 5423, Home, 16/11): 12.3, 12.5, 12.7 e 12.8 passaram; 12.6 com os
+  valores gravados (animação e privacidade). A máquina voltou ao estado de antes, menos esses
+  valores do primeiro logon, que ficam.
+  12.6 visual também passou (responsável): direto para a área de trabalho, sem animação e sem a
+  tela de privacidade. **Falta:** commit e PR para a `develop`.
+- **14/11/2026:** três mudanças.
+  3. **Perfil da conta nova sem entrar nela (ADR-050):** Contas › Criar conta e contas por turno
+     (Identificação) chamam `CreateProfile` (`nucleo/perfil_conta.py`, ctypes, lista fechada)
+     com o SID que o `criar.ps1` agora escreve (`SID|`). Falha não desfaz a conta, vira aviso.
+     `servicos/contas.py` (`criar`, `preparar_perfil`), `servicos/contas_turno.py`,
+     `conftest.py` (`_sem_criar_perfil`), testes em `test_contas.py` e `test_contas_turno.py`.
+     Testado pelo responsável em 14/11/2026 (conta "Ola"): perfil, papel de parede e políticas
+     valeram sem entrar.
+  1. **Encerrar sessões no Windows Home (ADR-049):** o `logoff.exe` não existe no Home. O
+     `recursos/contas/encerrar.ps1` agora só acha as sessões (`SESSAO|n`); o logoff é por
+     `WTSLogoffSession` em `nucleo/sessoes.py` (ctypes, lista fechada do `test_invariantes.py`),
+     que recusa a sessão 0 e a do Bench. `servicos/contas.py` (`encerrar_sessao`), `conftest.py`
+     (`_sem_encerrar_sessao`), testes em `test_contas.py`. Sem `Add-Type` (proibido nos trechos).
+  2. **Telas espremidas em resolução baixa:** `ui/janela.py`, `Tela`: o conteúdo de toda tela
+     fica numa `QScrollArea` (`rolagemTela`); sem espaço, rola em vez de sobrepor controles
+     (visto em 1536x764 numa VM). `ui/tema.py` (fundo transparente), teste em `test_janela.py`.
+  Verificado na VM (Windows 11 Home Single Language 25H2): ruff, format e mypy limpos; `pytest`
+  1064 passaram, 10 pulados, 1 falha de ambiente (`test_papel_de_parede`, exige elevação);
+  `test_invariantes` passa. **Próximo passo:** encerrar uma sessão real no Home
+  (roteiro 12.3); branch saindo da `develop` e PR. **Pendente com o responsável:** alternativa
+  por edição para as políticas `usb`, `compartilhamento`, `wifidirect` e `store` (roteiro
+  12.1; ADR próprio); mapa de edições da tela Início (ficou de fora a pedido).
+- **Branch (13/11/2026):** nenhuma em andamento. **13/11/2026:** PR #80 (`feat/monitores-video`) mesclado
   na `develop` pelo responsável (merge `20fd768`; commits `6c56082` e `20cf8a0`, este corrigindo
   o teste que no runner roda como Administrador nativo). CI do PR verde (test, build, gitleaks).
   `develop` à frente da `main`; versão **0.19.0**, sem bump e sem tag. Oito entregas:
