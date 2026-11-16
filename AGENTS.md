@@ -28,6 +28,8 @@ Usuário ou agente novo: `PROMPT_ANALISE.md` tem o prompt de entrada (análise a
 - Reescreva o bloco **ESTADO ATUAL** de `docs/PROGRESS.md`: branch, último commit, o que está
   pela metade, próximo passo concreto.
 - Marque os checkboxes do módulo em `docs/IMPLEMENTATION-PLAN.md`.
+- Confira se a ajuda das telas e a documentação refletem o que mudou (seção **Ajuda e
+  documentação andam junto com o código**).
 - Se o chat de planejamento precisar saber, escreva em `.conversa/para-cowork.md`. Estado durável
   nunca fica só em `.conversa/`.
 - `.conversa/` tem um sentido por arquivo: o agente escreve só em `para-cowork.md` (entrada nova
@@ -95,8 +97,30 @@ Dois projetos separados, sem workspace.
   PR para `develop`. Merge só pelo responsável. `main` recebe releases.
 - Pare e pergunte quando a decisão tiver consequência de produto; registre como ADR.
 
+## Ajuda e documentação andam junto com o código (obrigatório)
+
+Toda mudança de comportamento, tela, texto, fluxo ou API só está pronta quando a ajuda e a
+documentação afetadas foram atualizadas no mesmo PR. Não deixe para "depois", nem para outro PR.
+
+- **Ajuda do app (ADR-007, ADR-023)**: mudou o que uma tela faz, mostra ou pede → atualize a
+  constante `AJUDA*` do módulo da tela em `app/src/itc_bench/ui/`. Tela nova → constante `AJUDA`,
+  botão "?" e registro em `app/src/itc_bench/ui/ajuda.py`, na ordem do menu. Tela removida ou
+  renomeada → tire ou ajuste a entrada em `ajuda.py`. A ajuda descreve o comportamento atual,
+  com os mesmos nomes de botões e campos da tela.
+- **Documentação**: confira e atualize o que a mudança tocar:
+  - `docs/PROGRESS.md` (ESTADO ATUAL) e `docs/IMPLEMENTATION-PLAN.md` (checkboxes);
+  - `docs/DECISIONS.md` (ADR novo ou revisado) e `docs/modules/` do módulo;
+  - `docs/APP-FLOW.md`, `docs/UI-UX-BRIEF.md`, `docs/PRD.md`, `docs/TRD.md`,
+    `docs/BACKEND-SCHEMA.md` quando o fluxo, a tela, o requisito ou o dado mudar;
+  - `docs/testes/maquina-real.md` quando o roteiro de teste na máquina real mudar;
+  - `docs/api/` (API, TOKENS, SCHEMA, DEPLOY) e `docs/api/DECISIONS-TA.md` em mudanças em `api/`;
+  - `README.md`, `docs/BUILD.md` e este `AGENTS.md` quando comandos, build ou regras mudarem.
+- Antes de abrir o PR, liste na descrição quais ajudas e documentos foram atualizados, ou diga
+  por que nenhum precisou mudar.
+
 ## Fechamento de módulo (gate)
 
+0. Ajuda e documentação atualizadas conforme a seção acima
 1. `docs/modules/NN-nome.md` com verificação em tabela de cenários e resultados reais
 2. Entrada no topo de `docs/PROGRESS.md`; ADRs novos em `docs/DECISIONS.md`
 3. Auditoria de segurança com `docs/security/AUDIT-PROMPT.md`, salva em
