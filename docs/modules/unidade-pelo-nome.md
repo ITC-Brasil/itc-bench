@@ -33,9 +33,12 @@ desta máquina (`QUALIFICA-EST`): nenhum código, nada muda.
 | U2 | Sem unidade, escolhe a do nome e avisa em Configurações | `test_sem_unidade_usa_a_do_nome` | Passa |
 | U3 | Nome sem código ou com código fora do cadastro não escolhe | `test_nome_sem_codigo_ou_codigo_fora_do_cadastro_nao_escolhe` | Passa |
 | U4 | Escolha manual (bancada ou outra unidade) vale mais; divergência avisada | `test_escolha_manual_vale_mais_que_o_nome` | Passa |
+| U5 | Unidade sem número (ADR-055): `MOBILITY-EST01` → `MOBILITY`, `INESQ-EST03` → `INESQ` | `test_codigo_do_nome`, `test_unidade_sem_numero_pelo_nome` | Passa |
 | V1 | Máquina renomeada para `<código>-EST01`, login online | máquina real | Pendente (11.9) |
 
 ## Limites conhecidos
 
 - Sem unidade gravada, a escolha "bancada" vale só na sessão; na próxima, o nome volta a valer.
 - Nome fora do padrão continua com a escolha manual de sempre.
+- Desde 16/11/2026 (ADR-055) o código também pode ser só a sigla, de 2 a 8 letras, para as
+  unidades sem número (MOBILITY, INESQ).
