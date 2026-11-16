@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from itc_bench.nucleo import perfil_conta
 from itc_bench.nucleo.elevacao import eh_admin
 from itc_bench.servicos import contas, executor
 from itc_bench.servicos.cadastros import Cadastros, Servidor
@@ -443,13 +444,22 @@ def test_com_sessao() -> None:
     assert [c.nome for c in contas.com_sessao(lido)] == ["Tecnico-Teste", "Aberta"]
 
 
-def test_encerrar_sessao_pelo_sid_e_trecho_fixo() -> None:
-    falso = Falso(TECNICO, ALUNO)
-    feito = contas.encerrar_sessao(ALUNO.sid, rodar=falso)
+def test_encerrar_sessao_pelo_sid_trecho_so_le_e_logoff_pela_api() -> None:
+    falso = Falso(TECNICO, ALUNO, saida="SESSAO|2\nSESSAO|3\nOK")
+    pedidas: list[int] = []
+    feito = contas.encerrar_sessao(
+        ALUNO.sid, rodar=falso, encerrar=lambda n: pedidas.append(n) or 0
+    )
     assert feito.ok and "Aluno-Teste" in feito.mensagem
+    assert pedidas == [2, 3]
     script, kw = falso.chamadas[0]
     assert kw == {"timeout": contas.TIMEOUT_ACAO, "sid": ALUNO.sid}
-    assert "logoff.exe" in script and "GetCurrentProcess().SessionId" in script
+    assert "GetCurrentProcess().SessionId" in script and "SESSAO|" in script
+    # O logoff.exe não existe no Windows Home, e Add-Type é proibido nos trechos (ADR-049).
+    sem_comentarios = "\n".join(
+        linha for linha in script.splitlines() if not linha.lstrip().startswith("#")
+    )
+    assert "logoff" not in sem_comentarios.lower() and "Add-Type" not in script
 
 
 @pytest.mark.parametrize(
@@ -457,18 +467,64 @@ def test_encerrar_sessao_pelo_sid_e_trecho_fixo() -> None:
     [
         ("ERRO|propria|", "o Bench está rodando"),
         ("ERRO|sem_sessao|", "não tem sessão aberta"),
-        ("ERRO|encerrar|sessão 2, código 1", "não encerrou a sessão: sessão 2"),
+        ("ERRO|nao_encontrada|", "não existe mais"),
     ],
 )
-def test_encerrar_sessao_recusas_e_falha(saida: str, trecho: str) -> None:
-    feito = contas.encerrar_sessao(ALUNO.sid, rodar=Falso(TECNICO, ALUNO, saida=saida, codigo=1))
-    assert not feito.ok and trecho in feito.mensagem
+def test_encerrar_sessao_recusas_do_trecho_nao_chamam_a_api(saida: str, trecho: str) -> None:
+    pedidas: list[int] = []
+    feito = contas.encerrar_sessao(
+        ALUNO.sid,
+        rodar=Falso(TECNICO, ALUNO, saida=saida, codigo=1),
+        encerrar=lambda n: pedidas.append(n) or 0,
+    )
+    assert not feito.ok and trecho in feito.mensagem and pedidas == []
+
+
+def test_encerrar_sessao_falha_da_api_para_e_mostra_o_codigo() -> None:
+    pedidas: list[int] = []
+    feito = contas.encerrar_sessao(
+        ALUNO.sid,
+        rodar=Falso(TECNICO, ALUNO, saida="SESSAO|2\nSESSAO|3\nOK"),
+        encerrar=lambda n: pedidas.append(n) or 1314,
+    )
+    assert not feito.ok
+    assert feito.mensagem == "O Windows não encerrou a sessão: sessão 2, código 1314"
+    assert pedidas == [2]
+
+
+def test_encerrar_sessao_saida_sem_sessao_valida_nao_chama_a_api() -> None:
+    pedidas: list[int] = []
+    feito = contas.encerrar_sessao(
+        ALUNO.sid,
+        rodar=Falso(TECNICO, ALUNO, saida="SESSAO|abc\nSESSAO|1;2\nOK"),
+        encerrar=lambda n: pedidas.append(n) or 0,
+    )
+    assert not feito.ok and "não tem sessão aberta" in feito.mensagem and pedidas == []
 
 
 def test_encerrar_sessao_conta_que_sumiu() -> None:
     falso = Falso(TECNICO)
     feito = contas.encerrar_sessao(ALUNO.sid, rodar=falso)
     assert not feito.ok and "não existe mais" in feito.mensagem and falso.chamadas == []
+
+
+def test_encerrar_sessao_sem_injecao_usa_o_nucleo_que_os_testes_bloqueiam() -> None:
+    with pytest.raises(AssertionError, match="sessão de verdade"):
+        contas.encerrar_sessao(ALUNO.sid, rodar=Falso(TECNICO, ALUNO, saida="SESSAO|2\nOK"))
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows")
+def test_nucleo_sessoes_recusa_a_propria_e_a_zero_sem_chamar_o_windows() -> None:
+    import importlib
+
+    import itc_bench.nucleo.sessoes as modulo
+
+    real = importlib.reload(modulo)  # sem o bloqueio do conftest, só para estas recusas
+    try:
+        assert real.encerrar(0) == real.ERRO_RECUSADA
+        assert real.encerrar(real.sessao_atual()) == real.ERRO_RECUSADA
+    finally:
+        importlib.reload(modulo)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows")
@@ -524,3 +580,134 @@ def test_recusa_real_da_gestao_no_powershell(nome: str) -> None:
     )
     r = executor.powershell(teste, nome=nome)
     assert "MOTIVO|restrita" in r.saida
+
+
+# ---------------------------------------------------- perfil sem entrar (ADR-050)
+
+SID_NOVO = "S-1-5-21-1-2-3-1050"
+
+
+def test_criar_prepara_o_perfil_com_o_sid_do_trecho() -> None:
+    falso = Falso(TECNICO, ALUNO, saida=f"SID|{SID_NOVO}\nOK")
+    pedidos: list[tuple[str, str]] = []
+    feito = contas.criar(
+        "Teste01",
+        None,
+        "padrao",
+        rodar=falso,
+        criar_perfil=lambda s, n: pedidos.append((s, n)) or 0,
+    )
+    assert feito.ok and "Perfil preparado" in feito.mensagem and feito.avisos == ()
+    assert pedidos == [(SID_NOVO, "Teste01")]
+    assert "SID|" in falso.chamadas[0][0]  # o trecho informa o SID da conta nova
+
+
+def test_perfil_que_ja_existe_conta_como_preparado() -> None:
+    falso = Falso(TECNICO, saida=f"SID|{SID_NOVO}\nOK")
+    feito = contas.criar(
+        "Teste01", None, "padrao", rodar=falso, criar_perfil=lambda _s, _n: perfil_conta.JA_EXISTE
+    )
+    assert feito.ok and "Perfil preparado" in feito.mensagem
+
+
+def test_falha_do_perfil_nao_desfaz_a_conta(caplog) -> None:
+    falso = Falso(TECNICO, saida=f"SID|{SID_NOVO}\nOK")
+    feito = contas.criar(
+        "Teste01", None, "padrao", rodar=falso, criar_perfil=lambda _s, _n: -2147024891
+    )
+    assert feito.ok and feito.mensagem == "Conta Teste01 criada."
+    assert feito.avisos == (f"{contas.PERFIL_NAO_PREPARADO} (código 0x80070005)",)
+    assert "0x80070005" in caplog.text and "Users" not in caplog.text
+
+
+def test_sem_sid_do_trecho_nao_chama_o_windows() -> None:
+    pedidos: list[str] = []
+    feito = contas.criar(
+        "Teste01",
+        None,
+        "padrao",
+        rodar=Falso(TECNICO, saida="SID|nao-e-sid\nOK"),
+        criar_perfil=lambda s, _n: pedidos.append(s) or 0,
+    )
+    assert feito.ok and feito.avisos == (contas.PERFIL_NAO_PREPARADO,) and pedidos == []
+
+
+def test_conta_que_falhou_nao_prepara_perfil() -> None:
+    pedidos: list[str] = []
+    feito = contas.criar(
+        "Teste01",
+        None,
+        "padrao",
+        rodar=Falso(TECNICO, saida="ERRO|criar|recusado", codigo=1),
+        criar_perfil=lambda s, _n: pedidos.append(s) or 0,
+    )
+    assert not feito.ok and pedidos == []
+
+
+# ---------------------------------------------------- sem animação do primeiro logon (ADR-051)
+
+
+def test_trecho_criar_desliga_a_animacao_do_primeiro_logon() -> None:
+    trecho = contas.script("criar")
+    assert "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" in trecho
+    assert "-Name 'EnableFirstLogonAnimation' -PropertyType DWord -Value 0" in trecho
+    # depois de criar a conta e antes do SID: falha vira aviso, não desfaz a conta
+    assert trecho.index("New-LocalUser") < trecho.index("EnableFirstLogonAnimation")
+    assert trecho.index("EnableFirstLogonAnimation") < trecho.index("'SID|'")
+    assert "AVISO|animacao|" in trecho
+
+
+def test_trecho_criar_pula_a_tela_de_privacidade_com_as_respostas() -> None:
+    """ADR-054: localização sim; o resto não; tudo antes do SID, falha vira aviso."""
+    trecho = contas.script("criar")
+    esperado = {
+        "'DisablePrivacyExperience', 1",
+        "'AllowTelemetry', 1",
+        "'AllowInputPersonalization', 0",
+        "'DisabledByGroupPolicy', 1",
+        "'AllowFindMyDevice', 0",
+    }
+    for valor in esperado:
+        assert valor in trecho
+    assert "ConsentStore\\location" in trecho and "-Value 'Allow'" in trecho
+    assert trecho.index("New-LocalUser") < trecho.index("DisablePrivacyExperience")
+    assert trecho.index("DisablePrivacyExperience") < trecho.index("'SID|'")
+    assert "AVISO|privacidade|" in trecho
+    # só chaves da máquina, nada de HKCU
+    assert "HKCU:" not in trecho
+
+
+def test_falha_da_animacao_vira_aviso_e_a_conta_fica() -> None:
+    aviso = "animacao|Animação do primeiro logon não desligada: negado"
+    falso = Falso(TECNICO, saida=f"AVISO|{aviso}\nSID|{SID_NOVO}\nOK")
+    feito = contas.criar("Teste01", None, "padrao", rodar=falso, criar_perfil=lambda _s, _n: 0)
+    assert feito.ok and aviso in feito.avisos
+
+
+def test_criar_sem_injecao_usa_o_nucleo_que_os_testes_bloqueiam() -> None:
+    with pytest.raises(AssertionError, match="perfil de verdade"):
+        contas.criar("Teste01", None, "padrao", rodar=Falso(TECNICO, saida=f"SID|{SID_NOVO}\nOK"))
+
+
+@pytest.mark.parametrize(
+    ("sid", "nome"),
+    [
+        ("S-1-5-18", "Teste01"),  # SYSTEM, não é conta local
+        (SID_NOVO, ""),
+        (SID_NOVO, "a" + chr(92) + "b"),  # barra invertida
+        (SID_NOVO, "a" + chr(8) + "b"),  # caractere de controle
+        (SID_NOVO, "a/b"),
+        (SID_NOVO, "nome-com-mais-de-vinte"),
+        (SID_NOVO, "termina."),
+        (SID_NOVO, "termina "),
+    ],
+)
+def test_nucleo_perfil_recusa_formato_sem_chamar_o_windows(monkeypatch, sid, nome) -> None:
+    import importlib
+
+    import itc_bench.nucleo.perfil_conta as modulo
+
+    real = importlib.reload(modulo)  # tira o bloqueio do conftest, só para as recusas
+    # E garante que, mesmo assim, o Windows nunca é chamado neste teste.
+    monkeypatch.setattr(real, "_userenv", lambda: (_ for _ in ()).throw(AssertionError("chamou")))
+    assert real.criar(sid, nome) == real.RECUSADO

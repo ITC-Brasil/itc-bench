@@ -76,3 +76,19 @@ def test_abre_maximizada():
     fonte = Path(principal.__file__).read_text("utf-8")
     assert "janela.showMaximized()" in fonte
     assert "showFullScreen" not in fonte
+
+
+def test_telas_rolam_quando_nao_cabem(qtbot):
+    """Em 768p ou VM o conteúdo rola, em vez de espremer os controles um sobre o outro."""
+    j, _ = janela(qtbot)
+    j.raiz.setCurrentWidget(j.conteudo)
+    j.resize(1000, 420)
+    j.show()
+    for chave in ("aparencia", "prep", "contas", "mouse"):
+        j.abrir(chave)
+        QApplication.processEvents()
+        tela = j.telas[chave]
+        dentro = tela.rolagem.widget()
+        assert tela.rolagem.widgetResizable()
+        # Nunca menor que o mínimo do conteúdo: o que sobra vira rolagem.
+        assert dentro.height() >= dentro.minimumSizeHint().height()

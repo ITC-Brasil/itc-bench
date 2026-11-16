@@ -32,6 +32,8 @@ WINREG_CTYPES = {
     "nucleo/dpapi.py": "DPAPI: segredo nunca passa por processo (ADR-013/018)",
     "nucleo/elevacao.py": "IsUserAnAdmin e ShellExecuteW runas (Módulo 01)",
     "nucleo/instalacao.py": "DLL fora do PATH, mutex do instalador; ACL por acl.py (ADR-025)",
+    "nucleo/perfil_conta.py": "CreateProfile: perfil da conta nova sem entrar nela (ADR-050)",
+    "nucleo/sessoes.py": "WTSLogoffSession: logoff no Home, sem logoff.exe nem Add-Type (ADR-049)",
     "nucleo/video.py": "monitores pelo user32: modos e escala sem processo (ADR-041)",
     "nucleo/wlan.py": "Wi-Fi pela wlanapi: senha fora de processo (ADR-018)",
     "servicos/api.py": "lê ApiUrl em HKLM (ADR-008)",

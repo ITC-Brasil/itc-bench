@@ -1,7 +1,7 @@
 # Proteção do login (ADR-022): escritas fixas no registro, sem dado de fora.
 # $env:ITC_ACAO = atalho_desligar | atalho_padrao | remover_depurador. Saída: OK ou ERRO|codigo.
 $Vista = [Microsoft.Win32.RegistryView]::Registry64
-$EXES = @('utilman.exe', 'sethc.exe', 'osk.exe', 'Magnify.exe', 'Narrator.exe', 'DisplaySwitch.exe', 'AtBroker.exe')
+$EXES = @('utilman.exe', 'sethc.exe', 'osk.exe', 'Magnify.exe', 'Narrator.exe', 'DisplaySwitch.exe', 'AtBroker.exe', 'cmd.exe', 'powershell.exe')
 $IFEO = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options'
 $SPE = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit'
 # (chave, desligado, padrão do Windows) das flags do Shift 5x na tela de login.
@@ -24,7 +24,7 @@ switch ($env:ITC_ACAO) {
         Write-Output 'OK'
     }
     'remover_depurador' {
-        # Só Debugger (chave do exe e subchaves) e MonitorProcess, só dos 7 exes fixos.
+        # Só Debugger (chave do exe e subchaves) e MonitorProcess, só dos exes fixos acima.
         try {
             $maq = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', $Vista)
             foreach ($exe in $EXES) {

@@ -267,6 +267,7 @@ def qss(p: Paleta) -> str:
 #ajudaBotao:checked {{ background: {CY9}; border-color: {CY9}; color: #FFFFFF; }}
 #ajudaTitulo {{ font: 700 14px "{DISPLAY}"; color: {p.texto}; }}
 #ajudaConteudo {{ background: transparent; }}
+#rolagemTela, #conteudoTela {{ background: transparent; }}
 #ajudaNome {{ font: 800 18px "{DISPLAY}"; color: {p.texto}; }}
 #ajudaTexto {{ font: 400 12.5px "{CORPO}"; color: {p.texto}; }}
 #ajudaAbertura {{ background: {p.selecao}; border-radius: 8px; }}
@@ -314,6 +315,12 @@ QPushButton:disabled {{ color: {p.borda_controle}; font-weight: 500; background:
 #primario:hover {{ background: {CY}; border-color: {CY}; }}
 #primario:disabled {{ background: {p.borda_controle}; border-color: {p.borda_controle};
                       color: #FFFFFF; }}
+#proteger {{ border: 1px solid {CY9}; background: {CY9}; color: #FFFFFF; }}
+#proteger:hover {{ background: {CY}; border-color: {CY}; }}
+#desproteger {{ border: 1px solid #A8322A; background: #A8322A; color: #FFFFFF; }}
+#desproteger:hover {{ background: #C2443B; border-color: #C2443B; }}
+#proteger:disabled, #desproteger:disabled {{ background: {p.borda_controle};
+                                             border-color: {p.borda_controle}; color: #FFFFFF; }}
 #perigo {{ color: {p.err}; }}
 #perigo:hover {{ border-color: {p.err}; }}
 #perigo:disabled {{ color: {p.borda_controle}; border-color: {p.linha2}; }}

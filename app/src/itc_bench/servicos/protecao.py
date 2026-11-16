@@ -2,7 +2,8 @@
 
 Proteger = uma ACE que nega só execução ao SYSTEM no `utilman.exe`/`sethc.exe`, com o dono
 devolvido ao TrustedInstaller no mesmo passo. Detecção dos 7 binários de acessibilidade da tela de
-login (assinatura do Windows, nome original, IFEO), sempre lida do Windows. Tudo pelo executor:
+login e do cmd e do PowerShell (ADR-052) (assinatura do Windows, nome original, IFEO), sempre lida
+do Windows. Tudo pelo executor:
 `takeown`/`icacls`/`sfc` por caminho absoluto e argumentos fixos; trechos de `recursos/protecao/`.
 """
 
@@ -23,7 +24,7 @@ SID_SYSTEM = "S-1-5-18"
 SID_TRUSTEDINSTALLER = "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
 
 PROTEGIVEIS = ("utilman.exe", "sethc.exe")
-BINARIOS = (
+ACESSIBILIDADE = (
     "utilman.exe",
     "sethc.exe",
     "osk.exe",
@@ -32,6 +33,11 @@ BINARIOS = (
     "DisplaySwitch.exe",
     "AtBroker.exe",
 )
+# Alvos comuns da troca: só detecção, depurador e restaurar; nunca a negação de execução (ADR-052).
+FERRAMENTAS = ("cmd.exe", "powershell.exe")
+BINARIOS = ACESSIBILIDADE + FERRAMENTAS
+# Caminho relativo à pasta de sistema; os outros ficam direto nela.
+CAMINHOS = {"powershell.exe": "WindowsPowerShell\\v1.0\\powershell.exe"}
 NOMES = {
     "utilman.exe": "Utilman (Acessibilidade)",
     "sethc.exe": "Sethc (Shift 5x)",
@@ -40,7 +46,16 @@ NOMES = {
     "Narrator.exe": "Narrador",
     "DisplaySwitch.exe": "Alternar vídeo",
     "AtBroker.exe": "AtBroker",
+    "cmd.exe": "Prompt de Comando (cmd)",
+    "powershell.exe": "PowerShell",
 }
+
+
+def caminho(exe: str) -> str:
+    """Caminho do binário relativo à pasta de sistema."""
+    return CAMINHOS.get(exe, exe)
+
+
 # (chave em .DEFAULT\Control Panel\Accessibility, desligado, padrão do Windows)
 FLAGS = (
     ("StickyKeys", "506", "510"),
@@ -89,13 +104,25 @@ class Situacao:
     binarios: dict[str, Binario]
     atalho: Atalho
 
+    def protegido(self) -> bool:
+        return all(self.binarios[e].acl == "protegido" for e in PROTEGIVEIS)
+
+    def a_restaurar(self) -> list[str]:
+        """Binários trocados ou ausentes, na ordem da detecção."""
+        return [e for e in BINARIOS if self.binarios[e].arquivo in ("trocado", "ausente")]
+
+    def com_depurador(self) -> bool:
+        return any(b.ifeo == "depurador" for b in self.binarios.values())
+
     def alertas(self) -> list[str]:
         """Para a tela e para o Início (13). Vazio = tudo certo."""
         saida = []
         for b in self.binarios.values():
             nome = NOMES[b.exe]
-            if b.arquivo == "trocado":
-                saida.append(f"{nome}: arquivo trocado")
+            if b.arquivo in ("trocado", "ausente"):
+                saida.append(
+                    f"{nome}: arquivo {'trocado' if b.arquivo == 'trocado' else 'ausente'}"
+                )
             if b.ifeo == "depurador":
                 saida.append(f"{nome}: depurador (IFEO) configurado")
         for exe in PROTEGIVEIS:
@@ -227,7 +254,7 @@ def _alterar_arquivos(
         b = antes.binarios[exe]
         if proteger and b.arquivo != "original":
             motivo = (
-                "Arquivo não conferido como original: use “Restaurar original” antes."
+                "Arquivo não conferido como original: use “Restaurar originais” antes."
                 if b.arquivo == "trocado"
                 else "Não foi possível conferir o arquivo: tente de novo."
             )
@@ -272,7 +299,7 @@ def atalho_login(desligar: bool, *, rodar: Rodar = executor.powershell) -> tuple
 
 
 def remover_depurador(*, rodar: Rodar = executor.powershell) -> tuple[bool, str]:
-    """Apaga só `Debugger`/`MonitorProcess` das chaves IFEO dos 7 binários fixos."""
+    """Apaga só `Debugger`/`MonitorProcess` das chaves IFEO dos binários fixos (`BINARIOS`)."""
     return _escrever("remover_depurador", rodar)
 
 
@@ -287,7 +314,7 @@ def restaurar(
     if exe not in BINARIOS:
         raise ValueError(f"Arquivo fora da detecção: {exe!r}")
     r = rodar(
-        [sistema32("sfc.exe"), f"/scanfile={sistema32(exe)}"],
+        [sistema32("sfc.exe"), f"/scanfile={sistema32(caminho(exe))}"],
         timeout=TIMEOUT_SFC,
         descricao="sfc /scanfile",
     )
@@ -300,5 +327,26 @@ def restaurar(
         "0" if ok else f"sfc_{r.codigo}/{depois}",
     )
     if ok:
-        return True, "Arquivo original restaurado. Proteja de novo."
+        return True, "Arquivo original restaurado."
     return False, f"O arquivo continua {ROTULO_ARQUIVO[depois]}: abra chamado."
+
+
+def restaurar_trocados(
+    *,
+    rodar: Rodar = executor.executar,
+    rodar_ps: Rodar = executor.powershell,
+    sistema32: Callable[[str], str] = executor.sistema32,
+    cancelar: threading.Event | None = None,
+) -> list[Feito]:
+    """`sfc /scanfile` em cada binário trocado ou ausente na leitura de agora (ADR-052).
+
+    Um por vez; cancelamento entre arquivos. Nada trocado = lista vazia, sem `sfc`.
+    """
+    feitos = []
+    for exe in situacao(rodar=rodar_ps).a_restaurar():
+        if cancelar is not None and cancelar.is_set():
+            feitos.append(Feito(exe, False, "Cancelado pelo técnico (antes deste arquivo)."))
+            continue
+        ok, msg = restaurar(exe, rodar=rodar, rodar_ps=rodar_ps, sistema32=sistema32)
+        feitos.append(Feito(exe, ok, msg))
+    return feitos
