@@ -168,7 +168,13 @@ def criar(
         except contas.ErroContas as erro:
             feito = contas.Feito(False, f"Não foi possível ler as contas: {erro}")
         if feito.ok:
-            itens.append(Item(p.nome, "criado", "criado"))
+            # ADR-050: o perfil é preparado junto; se falhar, a conta fica, e o perfil sai no
+            # primeiro logon, como antes.
+            sem_perfil = any(a.startswith(contas.PERFIL_NAO_PREPARADO) for a in feito.avisos)
+            detalhe = (
+                "criado; perfil não preparado (entre nela uma vez)" if sem_perfil else "criado"
+            )
+            itens.append(Item(p.nome, "criado", detalhe))
         elif feito.mensagem.startswith(contas.MENSAGENS["nome_existe"]):
             itens.append(Item(p.nome, "existia", "já existia"))
         else:

@@ -56,8 +56,39 @@ def test_protecao_mostra_nao_protegido(qtbot, monkeypatch):
     assert p.b_proteger.isEnabled()
     assert "Sethc (Shift 5x): não protegido" in p.alertas.text()
     assert "Utilman" not in p.alertas.text()
-    assert p.arvore.topLevelItem(0).text(2) == "protegido"
+    assert p.arvore.topLevelItem(0).text(2) == "✔ protegido"
+    assert p.arvore.topLevelItem(2).text(2) == "não se aplica"
+    assert p.arvore.topLevelItemCount() == len(protecao.BINARIOS)
     assert "Win+U" in p.confirmacao(True)
+    # sem ataque: os botões de incidente ficam desligados; proteção ainda pendente
+    assert not p.b_restaurar.isEnabled() and not p.b_depurador.isEnabled()
+    assert p.b_proteger.text() == "Proteger" and p.b_proteger.objectName() == "proteger"
+    assert "Atalho Shift 5x ligado" in p.alertas.text()
+
+
+def test_protecao_tudo_certo_desproteger_em_vermelho(qtbot, monkeypatch):
+    _sem_tarefa(monkeypatch, tela_protecao)
+    p = tela_protecao.PainelProtecao(True)
+    qtbot.addWidget(p)
+    bins = situacao_protecao(utilman="protegido", sethc="protegido").binarios
+    p._recebeu(protecao.Situacao(bins, "desligado"))
+    assert p.estado.text() == "✔ Login protegido" and p.alertas.isHidden()
+    assert p.b_proteger.text() == "Desproteger"
+    assert p.b_proteger.objectName() == "desproteger"
+    assert p.b_atalho.text() == "Ligar atalho Shift 5x"
+
+
+def test_protecao_ataque_liga_os_botoes_de_incidente(qtbot, monkeypatch):
+    _sem_tarefa(monkeypatch, tela_protecao)
+    p = tela_protecao.PainelProtecao(True)
+    qtbot.addWidget(p)
+    bins = dict(situacao_protecao().binarios)
+    bins["cmd.exe"] = protecao.Binario("cmd.exe", "trocado", "livre", "limpo")
+    bins["osk.exe"] = protecao.Binario("osk.exe", "original", "livre", "depurador")
+    p._recebeu(protecao.Situacao(bins, "padrao"))
+    assert p.b_restaurar.isEnabled() and p.b_depurador.isEnabled()
+    assert "Prompt de Comando" in p.incidente_texto.text()
+    assert p.registro.isHidden()
 
 
 # ---------------------------------------------------------------- Mouse e teclado
@@ -208,15 +239,33 @@ def test_energia_confirmacoes(qtbot, monkeypatch):
     _sem_tarefa(monkeypatch, tela)
     p = tela.PainelEnergia(True)
     qtbot.addWidget(p)
+    # todos em "Nunca" por padrão; a tela da tomada já está em Nunca, então não entra
     valores = {(a, f): energia.Valor(600, 900) for a in energia.AJUSTES for f in energia.FONTES}
+    valores[("tela", "ac")] = energia.Valor(0, 900)
     p._recebeu(energia.Situacao("x", valores, True))
-    p.itens[("tela", "ac")].setCheckState(0, Qt.CheckState.Checked)
-    p.valores[("tela", "ac")].setCurrentIndex(0)
-    assert p.confirmacao("aplicar") == "Desligar a tela — na tomada: 10 min → Nunca"
+    assert all(c.currentText() == "Nunca" for c in p.valores.values())
+    assert ("tela", "ac") not in p.alterados() and len(p.alterados()) == 7
+    p.valores[("disco", "dc")].setCurrentIndex(p.valores[("disco", "dc")].findData(600))
+    assert ("disco", "dc") not in p.alterados()  # 10 min, igual ao atual
+    assert "Desligar a tela — na bateria: 10 min → Nunca" in p.confirmacao("aplicar")
+    assert p.mudancas.text() == "6 ajuste(s) a gravar."
     assert "15 min (padrão do plano)" in p.confirmacao("desfazer")
+    assert p.dicas[("tela", "dc")].text() == "Agora: 10 min · padrão do plano: 15 min"
+    assert p.b_hib.text() == "Desligar hibernação"
     assert "ligada" in p.confirmacao_hibernacao(
         False
     ) and "Inicialização rápida" in p.confirmacao_hibernacao(False)
+
+
+def test_energia_nada_a_gravar_e_hibernacao_desligada(qtbot, monkeypatch):
+    _sem_tarefa(monkeypatch, tela)
+    p = tela.PainelEnergia(True)
+    qtbot.addWidget(p)
+    valores = {(a, f): energia.Valor(0, 0) for a in energia.AJUSTES for f in energia.FONTES}
+    p._recebeu(energia.Situacao("x", valores, False))
+    assert p.alterados() == {} and p.fora_do_padrao() == []
+    assert p.mudancas.text().startswith("Nada a gravar")
+    assert p.b_hib.text() == "Ligar hibernação"
 
 
 def test_energia_sem_admin(qtbot, monkeypatch):
@@ -224,7 +273,7 @@ def test_energia_sem_admin(qtbot, monkeypatch):
     p = tela.PainelEnergia(False)
     qtbot.addWidget(p)
     p._recebeu(energia.Situacao("x", {}, None))
-    assert not p.b_aplicar.isEnabled() and not p.b_hib_off.isEnabled()
+    assert not p.b_aplicar.isEnabled() and not p.b_hib.isEnabled()
 
 
 def test_papel_modo_do_windows_na_confirmacao(qtbot) -> None:

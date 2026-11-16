@@ -33,9 +33,11 @@ MODOS = (("Claro", "claro"), ("Escuro", "escuro"))
 
 AJUDA = (
     "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores e "
-    "unidades. Eles vêm do cadastro central (NocoDB) pela API, depois do login online.\n\n"
+    "unidades (uma aba para cada). Eles vêm do cadastro central (NocoDB) pela API, depois do "
+    "login online.\n\n"
     "• Para mudar um cadastro, edite no NocoDB; aqui é só leitura. A mudança chega na próxima "
-    "sincronização (a cada 30 min ou em Sincronizar agora).\n"
+    "sincronização (a cada 30 min ou em Sincronizar agora, que só funciona depois do login "
+    "online).\n"
     "• Senhas e chaves aparecem como ••••••••, sempre.\n"
     "• Sem internet, o Bench usa a última cópia, guardada protegida nesta máquina, por até 7 "
     "dias. Depois disso, conecte e sincronize.\n"

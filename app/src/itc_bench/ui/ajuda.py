@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from itc_bench.ui import tema
 from itc_bench.ui.aparencia import AJUDA_ENERGIA, AJUDA_MOUSE, AJUDA_TELA
+from itc_bench.ui.atualizacao import AJUDA as AJUDA_ATUALIZACAO
 from itc_bench.ui.configuracoes import AJUDA as AJUDA_CONFIGURACOES
 from itc_bench.ui.contas import AJUDA as AJUDA_CONTAS
 from itc_bench.ui.contas import _rotulo
@@ -34,6 +35,7 @@ from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO
 from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
 from itc_bench.ui.inicio import AJUDA as AJUDA_INICIO
 from itc_bench.ui.limpeza import AJUDA as AJUDA_LIMPEZA
+from itc_bench.ui.monitores import AJUDA_MONITORES
 from itc_bench.ui.navegacao import GRUPOS
 from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
 from itc_bench.ui.politicas import AJUDA_USB
@@ -71,7 +73,7 @@ TEXTOS: dict[str, str] = {
     "gpo": AJUDA_POLITICAS,
     "protecao": AJUDA_PROTECAO,
     "usb": AJUDA_USB,
-    "aparencia": AJUDA_TELA,
+    "aparencia": AJUDA_MONITORES + "\n\n" + AJUDA_TELA,  # as duas abas, como o "?" da tela
     "mouse": AJUDA_MOUSE,
     "energia": AJUDA_ENERGIA,
     "diag": AJUDA_COLETA,
@@ -79,7 +81,8 @@ TEXTOS: dict[str, str] = {
     "limpeza": AJUDA_LIMPEZA,
     "registro": AJUDA_REGISTRO,
     "ajuda": AJUDA,
-    "config": AJUDA_CONFIGURACOES,
+    # A faixa de atualização não tem item no menu: a ajuda dela fica junto de Configurações.
+    "config": AJUDA_CONFIGURACOES + "\n\n" + AJUDA_ATUALIZACAO,
 }
 
 PASSO = re.compile(r"^(\d+)\.\s+(.*)$", re.DOTALL)

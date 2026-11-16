@@ -16,6 +16,7 @@ from datetime import datetime
 from importlib import resources
 from typing import Any, Literal
 
+from itc_bench.nucleo import perfil_conta, sessoes
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import executor
 from itc_bench.servicos.cadastros import Cadastros
@@ -62,6 +63,8 @@ MENSAGENS = {
     "propria": "É a sessão em que o Bench está rodando: saia pelo próprio Windows.",
     "encerrar": "O Windows não encerrou a sessão",
 }
+# ADR-050: a conta foi criada, mas o perfil fica para o primeiro logon, como antes.
+PERFIL_NAO_PREPARADO = "Perfil não preparado: entre na conta uma vez antes de aplicar políticas"
 
 
 @dataclass(frozen=True)
@@ -360,7 +363,9 @@ def criar(
     protegidas_: frozenset[str] = frozenset({SUPORTE_PADRAO.lower()}),
     permitir_nome_computador: bool = False,
     rodar: Rodar = executor.powershell,
+    criar_perfil: Callable[[str, str], int] | None = None,
 ) -> Feito:
+    """Cria a conta e já prepara o perfil dela, sem entrar (ADR-050)."""
     nome = nome.strip()
     problema = validar_nome(
         nome,
@@ -391,7 +396,44 @@ def criar(
     grupos = [linha.split("|", 1)[1] for linha in _linhas(r) if linha.startswith("GRUPO|")]
     if grupos:
         log.info("Contas: grupos copiados para %s: %s", nome, ", ".join(grupos))
-    return feito
+    if not feito.ok:
+        return feito
+    sids = [x.split("|", 1)[1] for x in _linhas(r) if re.fullmatch(r"SID\|S-1-5-21-[\d-]+", x)]
+    aviso = preparar_perfil(nome, sids[0] if sids else None, criar_perfil=criar_perfil)
+    if aviso:
+        return Feito(True, feito.mensagem, feito.alteradas, (*feito.avisos, aviso))
+    return Feito(
+        True,
+        f"{feito.mensagem} Perfil preparado: já dá para aplicar políticas e aparência sem "
+        "entrar nela.",
+        feito.alteradas,
+        feito.avisos,
+    )
+
+
+def preparar_perfil(
+    nome: str,
+    sid: str | None,
+    *,
+    criar_perfil: Callable[[str, str], int] | None = None,
+) -> str | None:
+    """Cria o perfil da conta recém-criada sem entrar nela (ADR-050); devolve o aviso ou None.
+
+    `sid` vem da linha `SID|` do `criar.ps1`. Falha aqui não desfaz a conta: ela existe e
+    funciona; o perfil sai no primeiro logon, como antes. O log leva só o nome da conta e o
+    código, nunca o caminho do perfil.
+    """
+    if not sid:
+        log.warning("Contas: perfil de %s não preparado: SID não informado", nome)
+        return PERFIL_NAO_PREPARADO
+    if criar_perfil is None:
+        criar_perfil = perfil_conta.criar  # lido aqui: o conftest troca nos testes
+    codigo = criar_perfil(sid, nome)
+    if codigo not in (0, perfil_conta.JA_EXISTE):
+        log.warning("Contas: perfil de %s não preparado: código 0x%08X", nome, codigo & 0xFFFFFFFF)
+        return f"{PERFIL_NAO_PREPARADO} (código 0x{codigo & 0xFFFFFFFF:08X})"
+    log.info("Contas: perfil de %s preparado sem entrar", nome)
+    return None
 
 
 def definir_tipo(
@@ -487,13 +529,39 @@ def com_sessao(lista: Lista) -> list[Conta]:
     return [c for c in lista.contas if c.carregado or c.logada]
 
 
-def encerrar_sessao(sid: str, *, rodar: Rodar = executor.powershell) -> Feito:
-    """Encerra as sessões do Windows da conta (ADR-036). O trecho recusa a sessão do Bench."""
+def encerrar_sessao(
+    sid: str,
+    *,
+    rodar: Rodar = executor.powershell,
+    encerrar: Callable[[int], int] | None = None,
+) -> Feito:
+    """Encerra as sessões do Windows da conta (ADR-036, ADR-049).
+
+    O trecho só acha as sessões (e recusa a do Bench); o logoff é por `WTSLogoffSession` em
+    `nucleo/sessoes.py`, que também recusa a sessão do Bench e a sessão 0.
+    """
     conta = listar(rodar=rodar).por_sid(sid)
     if conta is None:
         return Feito(False, MENSAGENS["nao_encontrada"])
     r = rodar(script("encerrar"), timeout=TIMEOUT_ACAO, sid=sid)
-    return _feito("encerrar sessão", conta.nome, r, f"Sessão de {conta.nome} encerrada.")
+    linhas = _linhas(r)
+    if not (r.ok and "OK" in linhas):
+        return _feito("encerrar sessão", conta.nome, r, "")
+    numeros = [int(x.split("|", 1)[1]) for x in linhas if re.fullmatch(r"SESSAO\|\d{1,5}", x)]
+    if not numeros:
+        log.error("Contas: encerrar sessão %s: falhou: sem_sessao", conta.nome)
+        return Feito(False, MENSAGENS["sem_sessao"])
+    if encerrar is None:
+        encerrar = sessoes.encerrar  # lido aqui: o conftest troca nos testes
+    for n in numeros:
+        codigo = encerrar(n)
+        if codigo:
+            log.error(
+                "Contas: encerrar sessão %s: falhou: sessão %d, código %d", conta.nome, n, codigo
+            )
+            return Feito(False, f"{MENSAGENS['encerrar']}: sessão {n}, código {codigo}")
+    log.info("Contas: encerrar sessão %s: ok (%d sessão(ões))", conta.nome, len(numeros))
+    return Feito(True, f"Sessão de {conta.nome} encerrada.", (), _avisos(r))
 
 
 def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:

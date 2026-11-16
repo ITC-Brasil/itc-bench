@@ -7,13 +7,19 @@ from itc_bench.servicos.atualizacao import Oferta
 from itc_bench.ui import texto as txt
 
 AJUDA = (
-    "Atualização do ITC Bench.\n\n"
-    "A versão nova foi baixada da API e conferida pela assinatura do responsável. Ela é "
-    "instalada quando você fecha o Bench, depois de confirmar aqui. Com Preparação em andamento "
-    "ou retomada pendente, o Bench fecha sem atualizar e tenta de novo na próxima vez.\n\n"
-    "Obrigatória: a versão em uso está abaixo da mínima; feche o Bench para atualizar.\n"
-    "Se a atualização não entrar, o log fica em %ProgramData%\\ITC\\Bench\\protegido\\atualizacao "
-    "e o instalador do CI pode ser rodado de novo por um administrador."
+    "Atualização do ITC Bench\n"
+    "Quando há versão nova, aparece uma faixa no alto da janela. A versão foi baixada da API e "
+    "conferida pela assinatura do responsável.\n\n"
+    "1. Instalar ao fechar: a versão entra quando você fecha o Bench.\n"
+    "2. Fechar e atualizar agora: fecha o Bench e instala.\n"
+    "3. Agora não: esconde a faixa até a próxima vez.\n\n"
+    "Obrigatória: a versão em uso está abaixo da mínima; a instalação já fica marcada e entra "
+    "ao fechar o Bench.\n\n"
+    "Com Preparação em andamento ou retomada pendente, o Bench fecha sem atualizar e tenta de "
+    "novo na próxima vez.\n\n"
+    "Se a atualização não entrar, o Bench avisa ao abrir. O log fica em "
+    "%ProgramData%\\ITC\\Bench\\protegido\\atualizacao; um administrador pode reinstalar pelo "
+    "instalador."
 )
 
 

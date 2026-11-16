@@ -31,7 +31,9 @@ _COMUM = (
     "Alvos\n"
     "Máquina: vale para todas as contas. Contas futuras: o perfil padrão do Windows, copiado "
     "para contas criadas depois (as que já existem não mudam). Contas: só a conta marcada. O "
-    "Administrador nativo e a conta Suporte são recusados. A conta que está rodando o Bench "
+    "Administrador nativo e a conta Suporte são recusados. Conta que nunca entrou (sem perfil) "
+    "também é recusada; as contas criadas pelo Bench já saem com perfil. A conta que está "
+    "rodando o Bench "
     "(você) é aceita, com aviso: a restrição vale para ela no próximo logon. Conta "
     "administradora é aceita, com aviso: um administrador consegue desfazer.\n\n"
     "Situação\n"
@@ -69,9 +71,10 @@ AJUDA = (
 
 AJUDA_USB = (
     "Bloqueia ou libera pendrive, HD externo, cartão de memória, CD/DVD e celular como disco.\n\n"
-    "Desabilitar bloqueia leitura e gravação; Habilitar volta ao padrão do Windows. Por conta, "
-    "o bloqueio vale só para ela (a Suporte e o técnico continuam usando pendrive); na Máquina, "
-    "vale para todos, inclusive o técnico.\n\n"
+    "Desabilitar USB bloqueia leitura e gravação; Habilitar USB volta ao padrão do Windows. Por "
+    "conta, o bloqueio vale só para as contas marcadas (a Suporte nunca é bloqueada; a sua conta "
+    "só se você a marcar). Na Máquina, vale para todos, inclusive o técnico. O Desativar todas "
+    "da tela Políticas não libera o USB: use Habilitar USB aqui.\n\n"
     "Mouse, teclado e impressora USB continuam funcionando. Um pendrive já espetado pode "
     "continuar aberto até ser removido.\n\n" + _COMUM
 )

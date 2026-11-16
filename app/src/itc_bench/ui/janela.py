@@ -183,10 +183,20 @@ class Tela(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(topo)
-        area = QVBoxLayout()
+        # O conteúdo rola quando não cabe (768p, VM, escala alta): sem isso o Qt espreme os
+        # controles abaixo do mínimo e eles se sobrepõem. Com espaço, ocupa a área toda, como antes.
+        conteudo = QWidget()
+        conteudo.setObjectName("conteudoTela")
+        area = QVBoxLayout(conteudo)
         area.setContentsMargins(24, 20, 24, 20)
         area.addWidget(painel)
-        layout.addLayout(area, 1)
+        self.rolagem = QScrollArea()
+        self.rolagem.setObjectName("rolagemTela")
+        self.rolagem.setWidget(conteudo)
+        self.rolagem.setWidgetResizable(True)
+        self.rolagem.setFrameShape(QFrame.Shape.NoFrame)
+        self.rolagem.viewport().setAutoFillBackground(False)
+        layout.addWidget(self.rolagem, 1)
 
         self.ajuda = PopupAjuda(self, item.titulo)
         self.ajuda.installEventFilter(self)

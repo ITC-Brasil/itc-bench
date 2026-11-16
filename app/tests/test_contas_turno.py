@@ -377,3 +377,23 @@ def test_reiniciar_agora_pede_segunda_confirmacao(qtbot, monkeypatch):
     monkeypatch.setattr(identificacao, "reiniciar", lambda **_: reinicios.append(True))
     p._perguntar_reinicio()
     assert titulos == ["Configuração concluída", "Reiniciar"] and reinicios == []
+
+
+def test_turno_mostra_quando_o_perfil_nao_foi_preparado(monkeypatch):
+    from itc_bench.nucleo import perfil_conta
+
+    monkeypatch.setattr(perfil_conta, "criar", lambda _s, _n: -2147024891)
+    falso = Falso(TECNICO, saida="SID|S-1-5-21-1-2-3-1060\nOK")
+    resumo = contas_turno.criar(BASE, ("Manha",), "", rodar=falso)
+    assert [i.situacao for i in resumo.itens] == ["criado"]
+    assert "perfil não preparado" in resumo.itens[0].mensagem
+
+
+def test_turno_com_perfil_preparado_fica_so_criado(monkeypatch):
+    from itc_bench.nucleo import perfil_conta
+
+    pedidos: list[str] = []
+    monkeypatch.setattr(perfil_conta, "criar", lambda s, _n: pedidos.append(s) or 0)
+    falso = Falso(TECNICO, saida="SID|S-1-5-21-1-2-3-1060\nOK")
+    resumo = contas_turno.criar(BASE, ("Manha",), "", rodar=falso)
+    assert [i.mensagem for i in resumo.itens] == ["criado"] and pedidos == ["S-1-5-21-1-2-3-1060"]
