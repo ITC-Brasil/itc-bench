@@ -2,9 +2,15 @@
 
 ## ESTADO ATUAL
 
-- **16/11/2026, branch `feat/windows-home-contas` saindo da `develop` (`8317224`), clone em
-  `itc-bench-git`, sem commit (commit e PR quando o responsável decidir).** Oito entregas numa
-  feature: as três de 14/11 abaixo (ADR-049, ADR-050, rolagem das telas) e cinco de 16/11:
+- **16/11/2026: nenhuma branch em andamento.** `develop` e `main` iguais, versão **0.19.0**,
+  sem bump e sem tag (decisão do responsável). A `feat/windows-home-contas` (commit `253978b`)
+  entrou na `develop` pelo PR #83 (merge `648a9f8`) e foi levada à `main` pelo PR #84 (merge
+  `c29dad1`), com o CI verde (test, build, gitleaks); a branch foi apagada.
+  **Próximo passo:** testar com o instalador do CI; bump de versão e tag quando o responsável
+  decidir. **Pendente com o responsável:** alternativa por edição para as políticas `usb`,
+  `compartilhamento`, `wifidirect` e `store` (roteiro 12.1; ADR próprio).
+  Oito entregas na feature: as três de 14/11 abaixo (ADR-049, ADR-050, rolagem das telas) e
+  cinco de 16/11:
   - contas criadas pelo Bench sem a animação do primeiro logon (ADR-051; `criar.ps1` grava
     `EnableFirstLogonAnimation` = 0 no HKLM, falha vira aviso);
   - Proteção do login (ADR-052): cmd e PowerShell na detecção, "Restaurar originais" para todos
@@ -21,7 +27,7 @@
   valores gravados (animação e privacidade). A máquina voltou ao estado de antes, menos esses
   valores do primeiro logon, que ficam.
   12.6 visual também passou (responsável): direto para a área de trabalho, sem animação e sem a
-  tela de privacidade. **Falta:** commit e PR para a `develop`.
+  tela de privacidade.
 - **14/11/2026:** três mudanças.
   3. **Perfil da conta nova sem entrar nela (ADR-050):** Contas › Criar conta e contas por turno
      (Identificação) chamam `CreateProfile` (`nucleo/perfil_conta.py`, ctypes, lista fechada)
