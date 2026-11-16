@@ -2996,3 +2996,35 @@ Sem Desfazer, como o ADR-051.
   políticas também travam as opções em Configurações › Privacidade (aparece "gerenciado pela
   organização").
 - Roteiro 12.6 passa a incluir: primeiro logon sem a tela de privacidade.
+
+## ADR-055 — Unidades sem número no código (MOBILITY, INESQ)
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-018 e ao ADR-048)
+
+**Context**
+O responsável pediu as unidades MOBILITY e INESQ, sem numeração. O ADR-018 define
+`Unidades.Codigo` como sigla + número da UM com dois dígitos (`^[A-Z]{1,6}[0-9]{2}$`). A API e
+o resto do Bench não conferem o formato (só se o código é de uma Unidade ativa); quem o confere é
+a identificação pelo nome do computador (ADR-048), que deixaria `INESQ-EST03` sem unidade.
+
+**Decision**
+1. `Unidades.Codigo` aceita também só a sigla, de 2 a 8 letras, para unidade sem número:
+   `^(?:[A-Z]{1,6}[0-9]{2}|[A-Z]{2,8})$`. O limite de 8 do ADR-018 continua.
+2. `cadastros.CODIGO_UNIDADE` passa a ser essa expressão: `MOBILITY-EST01` → `MOBILITY`,
+   `INESQ-EST03` → `INESQ`.
+3. As unidades em si entram como linhas na tabela Unidades do NocoDB (`Codigo` = `MOBILITY` e
+   `INESQ`, `Ativo` marcado), fora do repositório. O Wi-Fi delas usa o mesmo código em
+   `WiFi.Unidade`.
+
+**Alternatives considered**
+- Número fictício (`MOBILITY00`): o responsável pediu sem numeração, e `MOBILITY` já tem 8 letras.
+- Tirar o filtro de formato e só procurar o prefixo no cadastro: mudaria o ADR-048 além do
+  pedido; o filtro continua barrando nomes como `QUALIFICA-EST` (9 letras).
+
+**Consequences**
+- Prefixos só de letras com até 8 (como `RESERVA` em `RESERVA-06` ou `DESKTOP` em
+  `DESKTOP-K2FI5PV`) passam a ter formato de código, mas só escolhem unidade se existirem no
+  cadastro (ADR-048, item 3). Nada muda para essas máquinas enquanto não houver tal unidade.
+- A API não muda. Roteiro de máquina real 11.9 vale também para `INESQ-EST01`.

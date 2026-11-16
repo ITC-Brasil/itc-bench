@@ -151,9 +151,13 @@ def test_servidor_sem_acesso_aos_cadastros_avisa(qtbot, monkeypatch, tmp_path):
         ("ABC07", "ABC07"),
         ("ABC07-", "ABC07"),
         ("ABC071-EST", None),  # depois do código vem dígito: não é código
-        ("QUALIFICA-EST", None),
-        ("RESERVA-06", None),
-        ("DESKTOP-K2FI5PV", None),
+        ("QUALIFICA-EST", None),  # sigla sem número com mais de 8 letras
+        ("MOBILITY-EST01", "MOBILITY"),  # unidade sem número (ADR-055)
+        ("inesq-est03", "INESQ"),
+        ("INESQ", "INESQ"),
+        ("RESERVA-06", "RESERVA"),  # formato de código; só vale se estiver no cadastro
+        ("A-EST", None),  # sigla sem número com menos de 2 letras
+        ("INESQ1-EST", None),  # um dígito só não é número de UM
         ("ABCDEFG01-X", None),  # sigla com mais de 6 letras
         ("", None),
     ],
@@ -202,6 +206,16 @@ def test_nome_sem_codigo_ou_codigo_fora_do_cadastro_nao_escolhe(qtbot, monkeypat
     assert montar_com_nome(qtbot, monkeypatch, tmp_path, "QUALIFICA-EST").unidade is None
     j = montar_com_nome(qtbot, monkeypatch, tmp_path, "XYZ09-NB01")
     assert j.unidade is None
+    assert montar_com_nome(qtbot, monkeypatch, tmp_path, "DESKTOP-K2FI5PV").unidade is None
+
+
+@pytest.mark.parametrize(
+    ("nome", "codigo"), [("MOBILITY-EST01", "MOBILITY"), ("INESQ-EST03", "INESQ")]
+)
+def test_unidade_sem_numero_pelo_nome(qtbot, monkeypatch, tmp_path, nome, codigo):
+    j = montar_com_nome(qtbot, monkeypatch, tmp_path, nome, codigo)
+    assert j.unidade == codigo
+    assert f"identificada pelo nome do computador ({nome})" in j.configuracoes.aviso.text()
 
 
 def test_escolha_manual_vale_mais_que_o_nome(qtbot, monkeypatch, tmp_path):
