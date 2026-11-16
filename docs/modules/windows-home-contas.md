@@ -1,6 +1,6 @@
 # Windows Home, contas novas, Proteção do login e Energia
 
-**Branch:** `feat/windows-home-contas` (saindo da `develop`, `8317224`) · **Datas:** 2026-11-14 e
+**Branch:** `feat/windows-home-contas` (saindo da `develop`, `8317224`; mesclada pelo PR #83 e levada à `main` pelo #84) · **Datas:** 2026-11-14 e
 2026-11-16 · **ADR:** ADR-049 a ADR-054
 
 Só `app/`; a API não muda. Oito entregas:
