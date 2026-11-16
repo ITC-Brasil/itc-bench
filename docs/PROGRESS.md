@@ -2,6 +2,15 @@
 
 ## ESTADO ATUAL
 
+- **16/11/2026 (tarde): branch `feat/unidades-sem-numero`, saindo da `develop`.** Unidades sem
+  número no código, MOBILITY e INESQ (ADR-055): `cadastros.CODIGO_UNIDADE` aceita também só a
+  sigla, de 2 a 8 letras, para a identificação pelo nome do computador (`INESQ-EST03` → `INESQ`).
+  Ajuda de Configurações e Identificação, `BACKEND-SCHEMA.md`, `modules/unidade-pelo-nome.md` e
+  roteiro 11.9 atualizados. Ruff, format e mypy limpos; `pytest` 1076 passando, 10 pulados; as
+  falhas da rodada completa são de ambiente (caminho longo do temp em `test_instaladores`, que
+  passa com temp curto; `test_papel_de_parede`, que exige elevação).
+  **Pendente com o responsável:** cadastrar as linhas `MOBILITY` e `INESQ` (Ativo) na tabela
+  Unidades do NocoDB, e o Wi-Fi delas em `WiFi.Unidade`; a API e o Bench não mudam para isso.
 - **16/11/2026: nenhuma branch em andamento.** `develop` e `main` iguais, versão **0.19.0**,
   sem bump e sem tag (decisão do responsável). A `feat/windows-home-contas` (commit `253978b`)
   entrou na `develop` pelo PR #83 (merge `648a9f8`) e foi levada à `main` pelo PR #84 (merge

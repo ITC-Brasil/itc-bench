@@ -345,13 +345,15 @@ def rotulo(cadastros: Cadastros | None, offline: bool, agora: datetime | None = 
 
 # ---------------------------------------------------------------- unidade pelo nome (ADR-048)
 
-# Mesmo formato de `Unidades.Codigo` (ADR-018): sigla de 1 a 6 letras e o número da UM.
-CODIGO_UNIDADE = re.compile(r"^[A-Z]{1,6}[0-9]{2}$")
+# Mesmo formato de `Unidades.Codigo` (ADR-018, ADR-055): sigla de 1 a 6 letras e o número da
+# UM, ou só a sigla, de 2 a 8 letras, sem número (MOBILITY, INESQ).
+CODIGO_UNIDADE = re.compile(r"^(?:[A-Z]{1,6}[0-9]{2}|[A-Z]{2,8})$")
 CHAVE_NOME_PC = r"SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName"
 
 
 def codigo_do_nome(nome: str) -> str | None:
-    """`BSBIA01-EST94` → `BSBIA01`: o que vem antes do primeiro hífen, se for um código."""
+    """`BSBIA01-EST94` → `BSBIA01`, `INESQ-EST03` → `INESQ`: o que vem antes do primeiro hífen,
+    se tiver o formato de código (se existe no cadastro, quem confere é `unidade_pelo_nome`)."""
     prefixo = nome.strip().split("-", 1)[0].upper()
     return prefixo if CODIGO_UNIDADE.fullmatch(prefixo) else None
 
