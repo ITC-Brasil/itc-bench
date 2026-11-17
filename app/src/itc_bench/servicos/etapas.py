@@ -364,14 +364,17 @@ class Preinstalados:
         return Leitura("feito")
 
     def _presentes(self) -> list[str]:
-        """Appx da lista fechada e, se instalado, o PowerShell ISE (ADR-061)."""
+        """Appx da lista fechada, o PowerShell ISE (ADR-061) e o Office de fábrica (ADR-063)."""
         nomes = desinstalar.appx_presentes()
-        return [*nomes, desinstalar.NOME_ISE] if desinstalar.ise_instalado() else nomes
+        if desinstalar.ise_instalado():
+            nomes = [*nomes, desinstalar.NOME_ISE]
+        return nomes + [desinstalar.NOME_OFFICE[p] for p in desinstalar.office_presentes()]
 
     def aplicar(self, cancelar: threading.Event) -> Resultado:
         fs = desinstalar.remover_appx(desinstalar.appx_presentes(), cancelar=cancelar)
         if desinstalar.ise_instalado():
             fs.append(desinstalar.remover_ise(cancelar=cancelar))
+        fs += desinstalar.remover_office(desinstalar.office_presentes(), cancelar=cancelar)
         return _falhas(fs, lambda f: f.estado in ("ok", "pulado"), lambda f: f.mensagem)
 
     def mudancas(self) -> str:

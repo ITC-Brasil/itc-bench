@@ -323,6 +323,53 @@ def test_ise_ausente_falha_e_cancelado() -> None:
     assert d.remover_ise(rodar=lambda s, **k: res(0, "OK"), cancelar=evento).estado == "cancelado"
 
 
+# ---------------------------------------------------------------- Office de fábrica (ADR-063)
+
+
+def test_office_lista_fechada_so_de_fabrica() -> None:
+    assert d.OFFICE_PRE_INSTALADO == ("O365HomePremRetail", "OneNoteFreeRetail")
+    for corporativo in ("O365ProPlusRetail", "O365BusinessRetail", "ProPlus2021Volume"):
+        assert corporativo not in d.OFFICE_PRE_INSTALADO
+    script = d.script_office()
+    assert script.startswith("$PRODUTOS = @('O365HomePremRetail', 'OneNoteFreeRetail')")
+    assert "OfficeClickToRun.exe" in script and "GetFolderPath('ProgramFiles')" in script
+    assert "DisplayLevel=False" in script and "$PRODUTOS -notcontains" in script
+
+
+def test_office_le_e_remove_um_produto_por_vez() -> None:
+    chamadas = []
+
+    def rodar(script, **k):
+        chamadas.append(k)
+        if k["acao"] == "ver":
+            saida = '[{"produto":"OneNoteFreeRetail","cultura":"pt-br"},'
+            saida += '{"produto":"O365HomePremRetail","cultura":"pt-br"},'
+            saida += '{"produto":"O365HomePremRetail","cultura":"en-us"}]'
+            return res(0, saida)
+        return res(0, f"OK|{k['nomes']}\nOK|{k['nomes']}")
+
+    assert d.office_presentes(rodar=rodar) == ["O365HomePremRetail", "OneNoteFreeRetail"]
+    feitos = d.remover_office(["O365HomePremRetail", "O365ProPlusRetail"], rodar=rodar)
+    assert [f.estado for f in feitos] == ["ok", "pulado"]
+    assert feitos[0].entrada.nome == "Microsoft 365 pré-instalado"
+    assert [k["nomes"] for k in chamadas if k["acao"] == "remover"] == ["O365HomePremRetail"]
+
+
+def test_office_falha_e_cancelado() -> None:
+    falhou = d.remover_office(
+        ["OneNoteFreeRetail"], rodar=lambda s, **k: res(0, "ERRO|codigo_17002|OneNoteFreeRetail")
+    )
+    assert falhou[0].estado == "falha" and "codigo_17002" in falhou[0].mensagem
+    with pytest.raises(RuntimeError):
+        d.office_presentes(rodar=lambda s, **k: res(1, ""))
+    evento = threading.Event()
+    evento.set()
+    cancelado = d.remover_office(
+        ["OneNoteFreeRetail"], rodar=lambda s, **k: res(0, ""), cancelar=evento
+    )
+    assert cancelado[0].estado == "cancelado"
+
+
 # ---------------------------------------------------------------- locais por origem (revisão)
 
 HKU_PF = rf"{PF}\X\Uninstall.exe"

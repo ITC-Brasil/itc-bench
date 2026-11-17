@@ -3124,3 +3124,39 @@ tela Remover programas, e o PowerShell ISE não saía. O responsável pediu os d
   clássico quando precisa.
 - `Remove-WindowsCapability` pode pedir reinício; a etapa avisa ("Vale depois de reiniciar").
 - Roteiro de máquina real 10.18.
+
+## ADR-063 — Office que vem de fábrica em Remover pré-instalados
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; sem o McAfee)
+**Module:** Pós-16 (emenda ao ADR-061)
+
+**Context**
+Notebooks novos vêm com o Microsoft 365 (Click-to-Run) pré-instalado. O responsável quer
+removê-lo em Remover pré-instalados. A etapa Programas pode instalar Office: remover
+"qualquer Office" desfaria a Programas numa segunda passada.
+
+**Decision**
+1. Lista fechada no código (`desinstalar.OFFICE_PRE_INSTALADO`): `O365HomePremRetail` (o
+   "Microsoft 365" de fábrica) e `OneNoteFreeRetail`. Office corporativo (ProPlus, Business,
+   Volume) e qualquer outro produto ficam fora.
+2. Trecho `recursos/programas/office.ps1`: lê as entradas de desinstalação (HKLM, 64 e 32 bits)
+   cujo executável é o `OfficeClickToRun.exe` de Program Files (`GetFolderPath('ProgramFiles')`)
+   e cujo produto está na lista; refaz os argumentos só com chave=valor conhecidas (`scenario`,
+   `scenariosubtype`, `sourceplatform`, `productstoremove`, `culture`, `version.16`) e acrescenta
+   `DisplayLevel=False forceappshutdown=True`. Nada é baixado.
+3. Uma chamada por produto (todas as línguas dele); recusa fora da lista no Python e no trecho;
+   cancela entre produtos. A etapa Remover pré-instalados lista "Microsoft 365 pré-instalado" e "OneNote
+   pré-instalado" na leitura e na confirmação.
+4. McAfee fica para depois: depende da ferramenta oficial de remoção cadastrada em Instaladores
+   pelo responsável.
+
+**Alternatives considered**
+- Office Deployment Tool com `Remove All`: exige baixar o `setup.exe` e remove todo Office,
+  inclusive o corporativo.
+- Remover todo produto Click-to-Run: desfaria a etapa Programas.
+
+**Consequences**
+- `forceappshutdown=True` fecha Word/Excel abertos durante a etapa (máquina nova, sem uso).
+- Produto de fábrica com outro nome (outra edição OEM) não sai até entrar na lista.
+- Roteiro de máquina real 10.21.

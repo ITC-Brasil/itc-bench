@@ -491,3 +491,68 @@ def remover_ise(
         return Feito(e, "ok", f"{NOME_ISE} removido.{extra}")
     log.error("Remover: PowerShell ISE: código %s", r.codigo)
     return Feito(e, "falha", f"Não foi possível remover o {NOME_ISE}.")
+
+
+# ---------------------------------------------------------------- Office pré-instalado (ADR-063)
+
+# Produtos Click-to-Run que vêm de fábrica. Lista fechada: Office corporativo (ProPlus, Business)
+# e o que a etapa Programas instala não entram, para Remover pré-instalados nunca desfazer
+# Programas.
+OFFICE_PRE_INSTALADO: tuple[str, ...] = ("O365HomePremRetail", "OneNoteFreeRetail")
+NOME_OFFICE = {
+    "O365HomePremRetail": "Microsoft 365 pré-instalado",
+    "OneNoteFreeRetail": "OneNote pré-instalado",
+}
+PRODUTO_OFFICE = re.compile(r"^[A-Za-z0-9]{3,64}$")
+
+
+def script_office() -> str:
+    for nome in OFFICE_PRE_INSTALADO:
+        if not PRODUTO_OFFICE.fullmatch(nome):
+            raise ValueError(f"Produto do Office inválido na lista: {nome!r}")
+    lista = ", ".join(f"'{n}'" for n in OFFICE_PRE_INSTALADO)
+    return f"$PRODUTOS = @({lista})\n" + programas.script("office")
+
+
+def office_presentes(*, rodar: Rodar = executor.powershell) -> list[str]:
+    """Produtos da lista fechada instalados (Click-to-Run), em ordem e sem repetir."""
+    r = rodar(script_office(), timeout=programas.TIMEOUT_LEITURA, acao="ver")
+    if not r.ok:
+        raise RuntimeError(f"Leitura do Office falhou (código {r.codigo}).")
+    try:
+        lido = json.loads(r.saida or "[]")
+    except json.JSONDecodeError:
+        raise RuntimeError("Saída inválida da leitura do Office.") from None
+    achados = {str(i.get("produto")) for i in lido if isinstance(i, dict)}
+    return [p for p in OFFICE_PRE_INSTALADO if p in achados]
+
+
+def remover_office(
+    produtos: list[str],
+    *,
+    rodar: Rodar = executor.powershell,
+    cancelar: threading.Event | None = None,
+) -> list[Feito]:
+    """Remove pelo OfficeClickToRun.exe, em silêncio. Produto fora da lista é recusado aqui e
+    no trecho. Uma chamada por produto; cancela entre eles."""
+    feitos = []
+    for produto in produtos:
+        e = Entrada(NOME_OFFICE.get(produto, produto), "programa", "silencioso")
+        if produto not in OFFICE_PRE_INSTALADO:
+            log.warning("Remover: Office recusado: fora_da_lista")
+            feitos.append(Feito(e, "pulado", f"{produto}: fora da lista fechada."))
+            continue
+        if cancelar is not None and cancelar.is_set():
+            feitos.append(Feito(e, "cancelado", "Cancelado antes de começar."))
+            continue
+        r = rodar(script_office(), timeout=TIMEOUT, acao="remover", nomes=produto)
+        linhas = [x for x in r.saida.splitlines() if x.endswith("|" + produto)]
+        if r.ok and linhas and all(x.startswith("OK|") for x in linhas):
+            log.info("Remover: Office %s removido", produto)
+            feitos.append(Feito(e, "ok", f"{e.nome} removido."))
+            continue
+        erros = [x.split("|")[1] for x in linhas if x.startswith("ERRO|")]
+        codigo = erros[0] if erros else f"powershell_{r.codigo}"
+        log.error("Remover: Office %s: %s", produto, codigo)
+        feitos.append(Feito(e, "falha", f"{e.nome}: não removido ({codigo})."))
+    return feitos
