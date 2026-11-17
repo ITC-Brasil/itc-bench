@@ -358,17 +358,24 @@ class Preinstalados:
     def ler(self) -> Leitura:
         if motivo := _sem(self.ctx):
             return _bloq(motivo)
-        presentes = desinstalar.appx_presentes()
-        if presentes:
-            return Leitura("pendente", f"{len(presentes)} app(s) da Microsoft a remover")
+        n = len(self._presentes())
+        if n:
+            return Leitura("pendente", f"{n} app(s) da Microsoft a remover")
         return Leitura("feito")
+
+    def _presentes(self) -> list[str]:
+        """Appx da lista fechada e, se instalado, o PowerShell ISE (ADR-061)."""
+        nomes = desinstalar.appx_presentes()
+        return [*nomes, desinstalar.NOME_ISE] if desinstalar.ise_instalado() else nomes
 
     def aplicar(self, cancelar: threading.Event) -> Resultado:
         fs = desinstalar.remover_appx(desinstalar.appx_presentes(), cancelar=cancelar)
+        if desinstalar.ise_instalado():
+            fs.append(desinstalar.remover_ise(cancelar=cancelar))
         return _falhas(fs, lambda f: f.estado in ("ok", "pulado"), lambda f: f.mensagem)
 
     def mudancas(self) -> str:
-        return "remover para todas as contas: " + ", ".join(desinstalar.appx_presentes())
+        return "remover para todas as contas: " + ", ".join(self._presentes())
 
 
 # ---------------------------------------------------------------- 7 Políticas e 8 USB

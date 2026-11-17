@@ -3084,3 +3084,36 @@ lista (drivers e runtimes).
 
 **Consequences**
 - Roteiro de máquina real 8.8a.
+
+## ADR-061 — Windows Terminal e PowerShell ISE na etapa 6 (Remover pré-instalados)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-023, item 3, e ao ADR-020)
+
+**Context**
+A etapa 6 remove uma lista fechada de apps Appx da Microsoft. O Windows Terminal só saía pela
+tela Remover programas, e o PowerShell ISE não saía. O responsável pediu os dois na etapa 6.
+
+**Decision**
+1. `Microsoft.WindowsTerminal` entra em `desinstalar.APPX_PREINSTALADOS`: sai pelo mesmo trecho
+   dos outros Appx (todas as contas e o provisionado, com as mesmas recusas). A tela Remover
+   programas continua oferecendo o Terminal à parte.
+2. PowerShell ISE: é recurso opcional do Windows (Capability), não Appx. Trecho próprio
+   `recursos/programas/ise.ps1`, com o nome fixo `Microsoft.Windows.PowerShell.ISE~~~~0.0.1.0`
+   e `Remove-WindowsCapability -Online`; `desinstalar.ise_instalado` e `desinstalar.remover_ise`.
+   A etapa 6 o inclui na leitura ("N apps a remover"), na confirmação e no aplicar.
+3. **Só o ISE.** O `powershell.exe` (Windows PowerShell 5.1) continua: o próprio Bench roda os
+   trechos por ele. Microsoft Store, App Installer (winget, etapa 5), Edge, Calculadora e Bloco
+   de Notas continuam fora da lista (teste que trava isso).
+
+**Alternatives considered**
+- Remover o PowerShell inteiro: quebraria o Bench e ferramentas de suporte.
+- ISE pela política de bloqueio de programas (DisallowRun): esconde, mas deixa instalado; o
+  pedido é remover.
+
+**Consequences**
+- Na conta do aluno, o atalho "Terminal" some do menu; o Windows volta a abrir o console
+  clássico quando precisa.
+- `Remove-WindowsCapability` pode pedir reinício; a etapa avisa ("Vale depois de reiniciar").
+- Roteiro de máquina real 10.18.

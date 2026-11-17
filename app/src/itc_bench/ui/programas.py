@@ -81,7 +81,8 @@ AJUDA_REMOVER = (
     "Desinstalador ausente: a entrada sobrou sem o programa; o Bench não apaga.\n\n"
     "O Bench não apaga pastas nem chaves que sobram depois da desinstalação.\n"
     "Programas instalados só para um usuário aparecem quando o perfil dele está carregado.\n"
-    "Windows Terminal: removido para todos os usuários e para contas novas.\n\n"
+    "Windows Terminal: removido para todos os usuários e para contas novas. A etapa 6 da "
+    "Preparação (Remover pré-instalados) também o remove, junto com o PowerShell ISE.\n\n"
     "Sem administrador (modo de teste), a tela só mostra a lista."
 )
 

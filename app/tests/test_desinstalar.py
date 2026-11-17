@@ -285,6 +285,44 @@ def test_terminal_por_script_fixo() -> None:
     assert "Remove-AppxProvisionedPackage" in script
 
 
+# ---------------------------------------------------------------- etapa 6 (ADR-061)
+
+
+def test_terminal_na_lista_dos_pre_instalados() -> None:
+    assert "Microsoft.WindowsTerminal" in d.APPX_PREINSTALADOS
+    assert "'Microsoft.WindowsTerminal'" in d.script_appx()
+
+
+def test_ise_le_e_remove_por_nome_fixo() -> None:
+    chamadas = []
+
+    def rodar(script, **k):
+        chamadas.append((script, k))
+        return res(0, '{"instalado":true}' if k["acao"] == "ver" else "OK|reinicio")
+
+    assert d.ise_instalado(rodar=rodar) is True
+    feito = d.remover_ise(rodar=rodar)
+    assert feito.estado == "ok" and "reiniciar" in feito.mensagem
+    script = chamadas[1][0]
+    assert "Microsoft.Windows.PowerShell.ISE~~~~0.0.1.0" in script
+    assert (
+        "Remove-WindowsCapability" in script
+        and "*" not in script.split("$nome =")[1].splitlines()[0]
+    )
+    # Só o ISE: o PowerShell em si não é removido.
+    assert "Microsoft.PowerShell" not in script.replace("Microsoft.Windows.PowerShell.ISE", "")
+
+
+def test_ise_ausente_falha_e_cancelado() -> None:
+    assert d.ise_instalado(rodar=lambda s, **k: res(0, '{"instalado":false}')) is False
+    with pytest.raises(RuntimeError):
+        d.ise_instalado(rodar=lambda s, **k: res(1, ""))
+    assert d.remover_ise(rodar=lambda s, **k: res(1, "")).estado == "falha"
+    evento = threading.Event()
+    evento.set()
+    assert d.remover_ise(rodar=lambda s, **k: res(0, "OK"), cancelar=evento).estado == "cancelado"
+
+
 # ---------------------------------------------------------------- locais por origem (revisão)
 
 HKU_PF = rf"{PF}\X\Uninstall.exe"

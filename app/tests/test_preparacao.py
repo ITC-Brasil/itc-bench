@@ -187,7 +187,10 @@ def test_appx_lista_so_microsoft_e_nomes_validos():
         assert desinstalar.NOME_APPX.fullmatch(n)
         assert n.lower().startswith(("microsoft.", "clipchamp."))
     assert "Microsoft.WindowsStore" not in desinstalar.APPX_PREINSTALADOS
-    assert "Microsoft.WindowsTerminal" not in desinstalar.APPX_PREINSTALADOS
+    # winget (etapa 5) vem do App Installer: nunca na lista.
+    assert "Microsoft.DesktopAppInstaller" not in desinstalar.APPX_PREINSTALADOS
+    # ADR-061: o Terminal entra na etapa 6.
+    assert "Microsoft.WindowsTerminal" in desinstalar.APPX_PREINSTALADOS
 
 
 def test_appx_recusa_fora_da_lista_sem_chamar_o_trecho():

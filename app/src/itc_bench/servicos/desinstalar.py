@@ -381,6 +381,7 @@ APPX_PREINSTALADOS: tuple[str, ...] = (
     "Microsoft.Todos",
     "Microsoft.WindowsFeedbackHub",
     "Microsoft.WindowsMaps",
+    "Microsoft.WindowsTerminal",  # ADR-061: também na etapa 6 (antes só em Remover programas)
     "Microsoft.XboxGameOverlay",
     "Microsoft.XboxGamingOverlay",
     "Microsoft.XboxSpeechToTextOverlay",
@@ -456,3 +457,37 @@ def remover_appx(
         log.error("Remover: Appx %s: %s", nome, codigo)
         feitos.append(Feito(e, "falha", f"{nome}: {RECUSA_APPX.get(codigo, codigo)}."))
     return feitos
+
+
+# ---------------------------------------------------------------- PowerShell ISE (ADR-061)
+
+NOME_ISE = "PowerShell ISE"
+
+
+def ise_instalado(*, rodar: Rodar = executor.powershell) -> bool:
+    """O recurso opcional do Windows "PowerShell ISE" está instalado? Nome fixo no trecho."""
+    r = rodar(programas.script("ise"), timeout=programas.TIMEOUT_LEITURA, acao="ver")
+    if not r.ok:
+        raise RuntimeError(f"Leitura do PowerShell ISE falhou (código {r.codigo}).")
+    try:
+        lido = json.loads(r.saida or "{}")
+    except json.JSONDecodeError:
+        raise RuntimeError("Saída inválida da leitura do PowerShell ISE.") from None
+    return isinstance(lido, dict) and lido.get("instalado") is True
+
+
+def remover_ise(
+    *, rodar: Rodar = executor.powershell, cancelar: threading.Event | None = None
+) -> Feito:
+    """Remove o recurso opcional (Remove-WindowsCapability). O powershell.exe não é tocado."""
+    e = Entrada(NOME_ISE, "programa", "silencioso")
+    if cancelar is not None and cancelar.is_set():
+        return Feito(e, "cancelado", "Cancelado antes de começar.")
+    r = rodar(programas.script("ise"), timeout=TIMEOUT, acao="remover")
+    linha = next((x for x in r.saida.splitlines() if x.startswith("OK")), "")
+    if r.ok and linha:
+        log.info("Remover: PowerShell ISE removido (%s)", linha)
+        extra = " Vale depois de reiniciar." if linha == "OK|reinicio" else ""
+        return Feito(e, "ok", f"{NOME_ISE} removido.{extra}")
+    log.error("Remover: PowerShell ISE: código %s", r.codigo)
+    return Feito(e, "falha", f"Não foi possível remover o {NOME_ISE}.")
