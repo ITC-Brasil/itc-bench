@@ -1224,6 +1224,33 @@ pede as colunas pelo nome no `fields=`; com a coluna apagada, a leitura da tabel
   anterior ainda pede as colunas.
 - O GLPI Agent passa a ser instalado sem `TAG=` (como já era com a coluna vazia).
 
+## TA-ADR-035 — Projeto do papel de parede em Instaladores
+
+**Status:** Accepted
+**Date:** 2026-11-16, revisado em 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-057; emenda ao TA-ADR-030)
+
+**Context**
+Cada projeto tem o seu papel de parede. Instaladores (`Tipo = papel`) não dizia de qual projeto
+era a imagem.
+
+**Decision**
+- Coluna nova `Projeto` (SingleLineText) em Instaladores, com a sigla de Projetos. Lida no
+  `fields=` só com `NOCODB_TABELA_PROJETOS` preenchido (TA-ADR-036).
+- Só nas linhas `papel`: o valor vai para `instaladores[].projeto`. Vazio = sem projeto. Sigla
+  que não é de um Projeto ativo descarta a linha (`projeto_invalido`, só o Id no log).
+- Nas outras linhas a coluna é ignorada e `projeto` sai vazio.
+- O `?unidade=` não filtra o papel: o Bench recebe todos e escolhe (a tela mostra todos).
+
+**Alternatives considered**
+- Coluna `Unidade` no papel (primeira versão): o responsável preferiu por projeto.
+- `Projetos.PapelDeParede` apontando para a linha pelo nome: vínculo frágil ao renomear.
+
+**Consequences**
+- **Ordem do deploy:** criar a coluna `Projeto` em Instaladores junto com a tabela Projetos,
+  antes de preencher `NOCODB_TABELA_PROJETOS` (sem a variável, a coluna não é lida).
+- Bench antigo ignora o campo novo.
+
 ## TA-ADR-036 — Tabela Projetos (opcional) e `Unidades.Projeto`
 
 **Status:** Accepted

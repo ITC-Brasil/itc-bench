@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 from itc_bench.servicos import aparencia as ap
 from itc_bench.servicos import energia, hive, protecao
 from itc_bench.servicos import papel_de_parede as pp
-from itc_bench.servicos.cadastros import Cadastros, Instalador
+from itc_bench.servicos.cadastros import Cadastros, Instalador, Unidade
 from itc_bench.ui import aparencia as tela
 from itc_bench.ui import protecao as tela_protecao
 
@@ -131,11 +131,31 @@ def test_papel_lista_cadastro_e_confirma(qtbot, monkeypatch):
     p = tela.PainelPapel(True, lambda: cad)
     qtbot.addWidget(p)
     p._recebeu((ALVOS, (None, {SID: pp.Situacao("nao_aplicado")})))
-    assert p.imagem.count() == 1 and p.imagem.currentText() == "Papel ITC"
+    assert p.imagem.count() == 1 and p.imagem.currentText() == "Papel ITC — sem projeto"
     assert "Aluno-Teste — não aplicado" in p.lista_alvos.item(1).text()
     texto = p.confirmacao("aplicar", [ALUNO, hive.PADRAO])
     assert texto is not None and "Aluno-Teste: não aplicado → papel de parede do Grupo" in texto
     assert "Contas futuras" in texto
+
+
+def test_papel_mostra_projeto_e_marca_o_da_maquina(qtbot, monkeypatch):
+    """ADR-057: cada imagem com o projeto; vem marcada a do projeto da unidade da máquina."""
+    _sem_tarefa(monkeypatch, tela)
+    base = Instalador(
+        1, "Geral", "", "p.png", "", "https://exemplo.invalid/p.png", "", tipo="papel"
+    )
+    abc = replace(base, id=2, programa="Papel ABC", projeto="ABC")
+    defi = replace(base, id=3, programa="Papel DEF", projeto="DEF")
+    unidade = Unidade(1, "UM-02", "UM-02", "", "", "", "", projeto="DEF")
+    cad = Cadastros(
+        "v" * 64, datetime.now(UTC), "t", "UM-02", False, (), (base, abc, defi), (), (unidade,)
+    )
+    p = tela.PainelPapel(True, lambda: cad)
+    qtbot.addWidget(p)
+    p._recebeu((ALVOS, (None, {})))
+    textos = [p.imagem.itemText(i) for i in range(p.imagem.count())]
+    assert textos == ["Geral — sem projeto", "Papel ABC — projeto ABC", "Papel DEF — projeto DEF"]
+    assert p.imagem.currentData() == 3
 
 
 def _png(caminho, largura=1600, altura=900):

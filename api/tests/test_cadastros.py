@@ -480,6 +480,27 @@ def test_projetos_opcional_e_unidade_aponta_pela_sigla(settings, fake, caplog):
     assert "Id 2: projeto_invalido" in caplog.text
 
 
+def test_papel_por_projeto(settings, fake, caplog):
+    """TA-ADR-035: papel row with Projeto (read only with the Projetos table); unknown sigla
+    drops the row; other Tipos ignore the column."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    base = {"Programa": "Papel", "Tipo": "papel", "Arquivo": "p.jpg", "Link": "https://exemplo.invalid/p.jpg", "Ativo": True}
+    fake.dados["mIns"] += [
+        {**base, "Id": 2, "Projeto": "ABC"},
+        {**base, "Id": 3, "Projeto": "XYZ"},
+        {**base, "Id": 4},
+        {"Id": 5, "Programa": "Pacote", "Tipo": "winget", "Identificador": "Exemplo.Pacote", "Projeto": "XYZ", "Ativo": True},
+    ]
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert {i["id"]: i["projeto"] for i in sem["instaladores"]} == {1: "", 2: "", 3: "", 4: "", 5: ""}
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro"), httpx.MockTransport(fake.handler)
+        )
+    assert {i["id"]: i["projeto"] for i in com["instaladores"]} == {1: "", 2: "ABC", 4: "", 5: ""}
+    assert "Id 3 descartado: projeto_invalido" in caplog.text
+
+
 def test_cadastros_entrega_projetos(settings, fake):
     fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
     fake.dados["mUni"][0]["Projeto"] = "ABC"

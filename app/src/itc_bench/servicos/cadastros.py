@@ -60,6 +60,7 @@ class Instalador:
     argumentos: str = ""
     deteccao: str = ""
     modo: str = "quiosque"
+    projeto: str = ""  # só no papel (ADR-057): sigla do projeto; vale para as unidades dele
 
 
 @dataclass(frozen=True)
@@ -159,6 +160,7 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(i.get("argumentos") or ""),
                 str(i.get("deteccao") or ""),
                 str(i.get("modo") or "quiosque"),
+                str(i.get("projeto") or ""),
             )
             for i in dados["instaladores"]
         ),

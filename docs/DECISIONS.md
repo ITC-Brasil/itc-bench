@@ -3064,6 +3064,48 @@ O responsável vai mexer nos perfis da Preparação completa (ADR-023) e pediu, 
 - Etapa nova entra no fim ou exige renumerar com ADR; o número é a referência para os próximos
   pedidos sobre perfis.
 
+## ADR-057 — Papel de parede por projeto; etapa 10 some sem papel
+
+**Status:** Accepted
+**Date:** 2026-11-16, revisado em 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-022 e ao ADR-023; com o TA-ADR-035 e o ADR-059)
+
+**Context**
+Cada projeto tem o seu papel de parede, que vale para todas as unidades dele. A etapa 10 da
+Preparação exigia uma e só uma imagem ativa no cadastro inteiro.
+
+**Decision**
+1. A linha de papel em Instaladores (`Tipo = papel`) ganha a coluna `Projeto`, com a sigla de
+   Projetos (ADR-059), ao lado de `Link`, `Arquivo` e o resto. A API entrega
+   `instaladores[].projeto` (TA-ADR-035). `Instalador.projeto` no Bench; cache antigo sem o campo
+   = sem projeto.
+2. `papel_de_parede.da_unidade(cadastros, unidade)`: as linhas de papel cujo `Projeto` é o
+   projeto da unidade da máquina (`Unidades.Projeto`). Sem unidade (bancada), unidade sem
+   projeto ou projeto sem papel: nada.
+3. **Etapa 10 some** (`etapas.ocultas`): com cadastro e sem papel, a Preparação não mostra a
+   etapa e não a roda; a lista pula da 9 para a 11 (o número fica, ADR-056). Sem cadastro nenhum,
+   a etapa continua aparecendo, bloqueada pedindo o cadastro. Duas imagens ativas do mesmo projeto
+   bloqueiam a etapa.
+4. A lista se refaz ao voltar para a tela quando a unidade ou o cadastro mudaram.
+5. Tela Tela e papel de parede: cada imagem mostra o projeto ("— projeto ABC" ou "— sem
+   projeto"); na primeira leitura vem marcada a do projeto da unidade da máquina. Aplicar à mão
+   continua aceitando qualquer imagem.
+6. O arquivo guardado continua com o hash no nome (ADR-022): imagens de projetos diferentes
+   convivem na pasta, e a troca de imagem não esbarra no cache do Windows.
+
+**Alternatives considered**
+- Papel por unidade (primeira versão deste ADR), e por unidade como exceção ao do projeto:
+  obrigava repetir a imagem em cada unidade; o responsável preferiu só por projeto.
+- Coluna `PapelDeParede` em Projetos apontando para a imagem pelo nome: o responsável preferiu o
+  projeto na própria linha do papel; o vínculo por nome quebraria ao renomear.
+- Papel padrão do Grupo (linha sem projeto) para quem não tem o seu: o responsável preferiu que
+  a etapa não apareça.
+
+**Consequences**
+- Papel sem `Projeto` não entra na Preparação (só pela tela, à mão). A coluna `Projeto` do papel
+  só é lida com a tabela Projetos configurada (TA-ADR-036).
+- Roteiro de máquina real 10.16.
+
 ## ADR-058 — Remover programas mostra só os removíveis por padrão
 
 **Status:** Accepted

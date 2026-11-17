@@ -140,3 +140,54 @@ def test_registro_filtra(qtbot, monkeypatch):
     p.carregar()
     p.nivel.setCurrentText("Erros")
     assert "dois" in p.texto.toPlainText() and "um" not in p.texto.toPlainText()
+
+
+def _cad_papel(unidade_maquina, *unidades_papel):
+    from datetime import UTC, datetime
+
+    from itc_bench.servicos.cadastros import Cadastros, Instalador, Unidade
+
+    papeis = tuple(
+        Instalador(
+            i,
+            f"Papel {u}",
+            "",
+            "p.png",
+            "",
+            "https://exemplo.invalid/p.png",
+            "",
+            tipo="papel",
+            projeto=f"P{u}",
+        )
+        for i, u in enumerate(unidades_papel, start=1)
+    )
+    # Cada unidade UM-0n é do projeto PUM-0n: papel "da unidade" = papel do projeto dela.
+    unidades = tuple(
+        Unidade(n, c, c, "", "", "", "", projeto=f"P{c}")
+        for n, c in enumerate(("UM-01", "UM-02"), start=1)
+    )
+    return Cadastros(
+        "v" * 64, datetime.now(UTC), "t", unidade_maquina, False, (), papeis, (), unidades
+    )
+
+
+def _ids_da_lista(p):
+    return [p.lista.topLevelItem(i).data(0, 256) for i in range(p.lista.topLevelItemCount())]
+
+
+def test_preparacao_sem_papel_da_unidade_pula_da_9_para_a_11(qtbot):
+    """ADR-057: sem papel da unidade, a etapa 10 some da lista e não roda."""
+    cad = _cad_papel("UM-02", "UM-01", "")
+    p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-02")
+    qtbot.addWidget(p)
+    ids = _ids_da_lista(p)
+    assert "papel" not in ids and ids[ids.index("protecao") + 1] == "mouse"
+    assert "papel" in p.desmarcadas()
+    assert p.lista.topLevelItem(ids.index("mouse")).text(0) == "11. Mouse e teclado"
+
+
+def test_preparacao_com_papel_da_unidade_mostra_a_10(qtbot):
+    cad = _cad_papel("UM-01", "UM-01")
+    p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-01")
+    qtbot.addWidget(p)
+    assert "papel" in _ids_da_lista(p) and "papel" not in p.desmarcadas()

@@ -39,6 +39,7 @@ marcada como obrigatória nem única: validação fica na API.
 | `Argumentos` | LongText | Só instalador: um argumento por linha (MSI: `PROPRIEDADE=valor`). Vazio em `.exe` = instalação interativa |
 | `Deteccao` | SingleLineText | Opcional: começo do nome em "Aplicativos instalados" quando é diferente de `Programa` |
 | `Modo` | SingleSelect: `quiosque`, `app` | Só webapp; vazio = `quiosque` |
+| `Projeto` | SingleLineText | Só papel (ADR-057, TA-ADR-035): sigla de `Projetos.Sigla`; vale para todas as unidades do projeto. Sigla que não é Projeto ativo descarta a linha. Lida só com `NOCODB_TABELA_PROJETOS` configurado |
 
 Contrato de Programas (ADR-020, TA-ADR-029):
 - **instalador:** `Programa`, `Versao`, `Arquivo` `.msi`/`.exe`, `Link` `https://`; `SHA256`
@@ -49,7 +50,10 @@ Contrato de Programas (ADR-020, TA-ADR-029):
   referência. `Link`, `SHA256` e `Arquivo` vazios.
 - **papel** (ADR-022, TA-ADR-030): `Programa` (nome na tela), `Arquivo` `.jpg`/`.jpeg`/`.png`,
   `Link` `https://` e `SHA256` opcional (TA-ADR-034). JPG ou PNG de até 20 MB, de 640x480 a 7680x4320. Guardado em
-  `%ProgramData%\ITC\Bench\papel\` e aplicado pela tela Tela e papel de parede.
+  `%ProgramData%\ITC\Bench\papel\` e aplicado pela tela Tela e papel de parede. `Projeto`
+  diz de qual projeto é a imagem (ADR-057): a etapa 10 da Preparação usa a do projeto da
+  unidade da máquina; sem ela (ou com a máquina em bancada), a etapa 10 não aparece. Uma imagem
+  por projeto; duas ativas do mesmo projeto bloqueiam a etapa.
 - **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
   opcional: `Link` `https://` do `.ico`, `Arquivo` `.ico` e `SHA256` opcional.
 - Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não
@@ -84,8 +88,8 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 
 ### Projetos
 
-Opcional: só lida com `NOCODB_TABELA_PROJETOS` preenchido (ADR-059, TA-ADR-036). Por enquanto
-só organiza as unidades; nenhum comportamento do Bench depende do projeto.
+Opcional: só lida com `NOCODB_TABELA_PROJETOS` preenchido (ADR-059, TA-ADR-036). O papel de
+parede da etapa 10 (ADR-057) depende dele.
 
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|

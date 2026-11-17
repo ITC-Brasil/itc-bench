@@ -52,6 +52,12 @@ AJUDA = (
     "mexe na Microsoft Store, no Edge, na Calculadora, no Bloco de Notas nem no App Installer "
     "(winget).\n"
     "\n"
+    "Papel de parede\n"
+    "Cada projeto tem o seu, no cadastro (Instaladores, tipo papel, coluna Projeto). A etapa "
+    "10 usa o do projeto da unidade desta máquina. Sem papel do projeto, unidade sem projeto "
+    "ou máquina em bancada (sem unidade), a etapa 10 não aparece: a lista pula da 9 para a "
+    "11.\n"
+    "\n"
     "Perfis\n"
     "Sala de aula: todas as etapas (1 a 14). Administrativo: sem 6. Remover pré-instalados, "
     "7. Políticas e 8. USB. Só diagnóstico: só 14. Diagnóstico.\n"
@@ -128,6 +134,7 @@ class PainelPreparacao(QWidget):
         self.pausar = threading.Event()
         self.ocupado = False
         self.iniciado = False
+        self._ocultas_lista: frozenset[str] = frozenset()
         self.sinais = _Sinais()
         self.sinais.texto.connect(self._linha)
         self.sinais.etapa.connect(self._etapa_mudou)
@@ -215,8 +222,11 @@ class PainelPreparacao(QWidget):
         u = cad.unidade_por_codigo(self.obter_unidade()) if cad is not None else None
         return perfis.do_cadastro(u.perfil_padrao if u is not None else None)
 
+    def ocultas(self) -> frozenset[str]:
+        return etapas.ocultas(self.obter_cadastros(), self.obter_unidade())
+
     def desmarcadas(self) -> list[str]:
-        fora = []
+        fora = list(self.ocultas())  # etapa escondida não roda (ADR-057)
         for i in range(self.lista.topLevelItemCount()):
             item = self.lista.topLevelItem(i)
             if item is not None and item.checkState(0) != Qt.CheckState.Checked:
@@ -234,7 +244,10 @@ class PainelPreparacao(QWidget):
     def _montar_lista(self, desmarcadas: tuple[str, ...] = ()) -> None:
         self.lista.blockSignals(True)
         self.lista.clear()
+        ocultas = self._ocultas_lista = self.ocultas()
         for eid in self.perfil_atual().etapas:
+            if eid in ocultas:
+                continue  # sem papel da unidade: a lista pula da 9 para a 11 (ADR-057)
             item = QTreeWidgetItem([perfis.rotulo(eid), prep.ROTULO["nao_iniciado"], ""])
             item.setData(0, Qt.ItemDataRole.UserRole, eid)
             marcado = Qt.CheckState.Unchecked if eid in desmarcadas else Qt.CheckState.Checked
@@ -247,6 +260,10 @@ class PainelPreparacao(QWidget):
     def showEvent(self, evento: QShowEvent) -> None:
         super().showEvent(evento)
         if self.iniciado:
+            # Unidade ou cadastro mudou desde a última vez: a etapa 10 aparece ou some (ADR-057).
+            if not self.ocupado and self.ocultas() != self._ocultas_lista:
+                fora = tuple(e for e in self.desmarcadas() if e not in self._ocultas_lista)
+                self._montar_lista(fora)
             return
         self.iniciado = True
         perfil, aviso = self.perfil_da_unidade()

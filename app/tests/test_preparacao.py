@@ -428,3 +428,42 @@ def test_etapas_numeradas_pela_ordem_fixa():
     assert perfis.rotulo("diagnostico") == "14. Diagnóstico"
     adm = perfis.POR_ID["administrativo"].etapas
     assert [perfis.NUMERO[e] for e in adm] == [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]
+
+
+def test_papel_pelo_projeto_da_unidade():
+    """ADR-057: o papel é o do projeto da unidade; unidade sem projeto, projeto sem papel ou
+    bancada: nenhum, e a etapa 10 some. Sem cadastro, a etapa não some (fica bloqueada)."""
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    from itc_bench.servicos import papel_de_parede
+    from itc_bench.servicos.cadastros import Cadastros, Instalador, Projeto, Unidade
+
+    base = Instalador(0, "P", "", "p.png", "", "https://exemplo.invalid/p.png", "", tipo="papel")
+    do_abc = replace(base, id=1, projeto="ABC")
+    unidades = tuple(
+        Unidade(i, c, c, "", "", "", "", projeto=p)
+        for i, (c, p) in enumerate((("UM-01", "ABC"), ("UM-02", "DEF"), ("UM-03", "")), 1)
+    )
+    cad = Cadastros(
+        "v" * 64,
+        datetime.now(UTC),
+        "t",
+        None,
+        False,
+        (),
+        (do_abc, base),
+        (),
+        unidades,
+        projetos=(Projeto(1, "ABC", "Abc"), Projeto(2, "DEF", "Def")),
+    )
+    assert [i.id for i in papel_de_parede.da_unidade(cad, "UM-01")] == [1]
+    assert papel_de_parede.da_unidade(cad, "UM-02") == []  # projeto sem papel
+    assert papel_de_parede.da_unidade(cad, "UM-03") == []  # unidade sem projeto
+    assert papel_de_parede.da_unidade(cad, None) == []  # bancada
+    assert etapas.ocultas(cad, "UM-01") == frozenset()
+    assert etapas.ocultas(cad, "UM-02") == {"papel"}
+    assert etapas.ocultas(cad, None) == {"papel"}
+    assert etapas.ocultas(None, "UM-01") == frozenset()
+    assert etapas.Papel(etapas.Contexto(True, cad, unidade="UM-01"))._linha().id == 1
+    assert [papel_de_parede.dono(i) for i in (do_abc, base)] == ["projeto ABC", "sem projeto"]

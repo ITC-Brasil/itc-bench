@@ -50,8 +50,8 @@ TABELAS = {
         ("Id", "Codigo", "Nome", "UF", "PerfilPadrao", "Ativo"),
         "Codigo",
     ),
-    # TA-ADR-036: optional. Only read when nocodb_tabela_projetos is set; then Unidades also
-    # reads its Projeto column (the sigla of a Projetos row).
+    # TA-ADR-036: optional. Only read when nocodb_tabela_projetos is set; then Unidades and
+    # Instaladores also read their Projeto column (the sigla of a Projetos row, TA-ADR-035).
     "projetos": ("nocodb_tabela_projetos", ("Id", "Sigla", "Nome", "Ativo"), "Sigla"),
 }
 OPCIONAIS = ("projetos",)
@@ -91,7 +91,7 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
             if nome in OPCIONAIS and not getattr(settings, id_setting).strip():
                 brutos[nome] = []
                 continue
-            if nome in ("unidades",) and com_projetos:
+            if nome in ("unidades", "instaladores") and com_projetos:
                 campos = (*campos, "Projeto")
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
@@ -159,6 +159,9 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
     instaladores = []
     for linha in validos["instaladores"]:
         motivo = motivo_instalador(linha)
+        # TA-ADR-035: a papel row names its project; an unknown sigla drops the row.
+        if not motivo and papel_projeto(linha) not in siglas | {""}:
+            motivo = "projeto_invalido"
         if motivo:
             descartados.setdefault("instaladores", []).append(linha.get("Id"))
             log.warning("cadastro instaladores Id %s descartado: %s", linha.get("Id"), motivo)
@@ -241,7 +244,14 @@ def instalador(linha: dict) -> dict:
         "argumentos": texto(linha.get("Argumentos")),
         "deteccao": texto(linha.get("Deteccao")),
         "modo": texto(linha.get("Modo")) or "quiosque",
+        "projeto": papel_projeto(linha),
     }
+
+
+def papel_projeto(linha: dict) -> str:
+    """Projeto of a papel row (TA-ADR-035): empty = none. Other Tipos ignore the column."""
+    tipo = texto(linha.get("Tipo")) or "instalador"
+    return texto(linha.get("Projeto")) if tipo == "papel" else ""
 
 
 def rede(linha: dict) -> dict:

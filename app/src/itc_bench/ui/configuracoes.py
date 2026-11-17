@@ -37,7 +37,7 @@ AJUDA = (
     "depois do login online.\n\n"
     "• Projetos: cada unidade aponta para o projeto dela pela sigla (coluna Projeto em "
     "Unidades). A aba Projetos mostra as unidades de cada um; unidade sem projeto aparece com "
-    "—. Por enquanto o projeto só organiza: não muda perfil, papel de parede nem diagnóstico.\n\n"
+    "—. O papel de parede da Preparação é o do projeto da unidade.\n\n"
     "• Para mudar um cadastro, edite no NocoDB; aqui é só leitura. A mudança chega na próxima "
     "sincronização (a cada 30 min ou em Sincronizar agora, que só funciona depois do login "
     "online).\n"

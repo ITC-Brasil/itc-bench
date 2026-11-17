@@ -484,7 +484,7 @@ class Papel:
     id: str = "papel"
 
     def _linha(self) -> Any:
-        ls = papel_de_parede.linhas(self.ctx.cadastros)
+        ls = papel_de_parede.da_unidade(self.ctx.cadastros, self.ctx.unidade)
         return ls[0] if len(ls) == 1 else None
 
     def ler(self) -> Leitura:
@@ -492,7 +492,7 @@ class Papel:
             return _bloq(motivo)
         linha = self._linha()
         if linha is None:
-            return _bloq("cadastre uma (e só uma) imagem ativa de papel de parede")
+            return _bloq("cadastre uma (e só uma) imagem ativa de papel de parede da unidade")
         sit = papel_de_parede.ler(self.ctx.alvos_hive(), linha, descarregados=True)
         falta = [k for k, s in sit.items() if s.estado != "aplicado"]
         return Leitura("pendente", f"{len(falta)} alvo(s)") if falta else Leitura("feito")
@@ -606,6 +606,15 @@ class Diagnostico:
         r = self.ctx.diagnosticar(cancelar)
         self.feita = r.estado == "ok"
         return r
+
+
+def ocultas(cadastros: Cadastros | None, unidade: str | None) -> frozenset[str]:
+    """Etapas que a Preparação não mostra nem roda (ADR-057): 10. Papel de parede quando a
+    unidade da máquina não tem papel cadastrado. Sem cadastro, nada some (a etapa fica
+    bloqueada pedindo o cadastro, como antes)."""
+    if cadastros is not None and not papel_de_parede.da_unidade(cadastros, unidade):
+        return frozenset({"papel"})
+    return frozenset()
 
 
 def montar(ctx: Contexto) -> list[Etapa]:
