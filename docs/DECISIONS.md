@@ -3028,3 +3028,31 @@ a identificação pelo nome do computador (ADR-048), que deixaria `INESQ-EST03` 
   `DESKTOP-K2FI5PV`) passam a ter formato de código, mas só escolhem unidade se existirem no
   cadastro (ADR-048, item 3). Nada muda para essas máquinas enquanto não houver tal unidade.
 - A API não muda. Roteiro de máquina real 11.9 vale também para `INESQ-EST01`.
+
+## ADR-056 — Etapas da Preparação completa numeradas (número fixo)
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-023; primeiro passo da revisão dos perfis)
+
+**Context**
+O responsável vai mexer nos perfis da Preparação completa (ADR-023) e pediu, para começar, que as
+14 etapas sejam numeradas, para facilitar falar delas e montar perfis.
+
+**Decision**
+1. Cada etapa tem um número fixo pela ordem do ADR-023, item 2 (`perfis.NUMERO`): 1.
+   Identificação, 2. Contas, 3. Wi-Fi, 4. Acesso remoto, 5. Programas, 6. Remover
+   pré-instalados, 7. Políticas, 8. USB, 9. Proteção do login, 10. Papel de parede, 11. Mouse e
+   teclado, 12. Energia, 13. Limpeza, 14. Diagnóstico.
+2. O número não muda com o perfil: o Administrativo mostra 1 a 5 e 9 a 14.
+3. `perfis.rotulo(etapa)` ("2. Contas") é o nome usado na lista da tela Preparação, na
+   confirmação, no log ao vivo e no motivo de bloqueio ("depende de 2. Contas"). Os ids das
+   etapas, a ordem e o andamento guardado não mudam.
+
+**Alternatives considered**
+- Numerar de novo dentro de cada perfil (1 a 11 no Administrativo): o mesmo número apontaria para
+  etapas diferentes conforme o perfil.
+
+**Consequences**
+- Etapa nova entra no fim ou exige renumerar com ADR; o número é a referência para os próximos
+  pedidos sobre perfis.

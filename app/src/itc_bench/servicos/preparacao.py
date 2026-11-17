@@ -88,7 +88,7 @@ def _bloqueio(etapa: str, andamento: Andamento) -> str:
             continue
         s = andamento.situacao.get(dep)
         if s is not None and s.situacao in ("falhou", "bloqueada"):
-            return f"depende de {perfis.NOMES[dep]}"
+            return f"depende de {perfis.rotulo(dep)}"
     return ""
 
 

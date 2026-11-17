@@ -387,3 +387,12 @@ def test_gestao_administradora_nao_deixa_contas_pendente() -> None:
 
     extras = etapas._admins_extra(lista(SUPORTE, GESTAO), frozenset({"suporte"}))
     assert extras == []
+
+
+def test_etapas_numeradas_pela_ordem_fixa():
+    assert [perfis.NUMERO[e] for e in perfis.ORDEM] == list(range(1, 15))
+    assert perfis.rotulo("identificacao") == "1. Identificação"
+    assert perfis.rotulo("contas") == "2. Contas"
+    assert perfis.rotulo("diagnostico") == "14. Diagnóstico"
+    adm = perfis.POR_ID["administrativo"].etapas
+    assert [perfis.NUMERO[e] for e in adm] == [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]
