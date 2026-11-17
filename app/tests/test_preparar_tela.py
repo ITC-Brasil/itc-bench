@@ -70,6 +70,35 @@ def test_wifi_marca_ausentes_e_filtra_unidade(qtbot, monkeypatch):
     assert p.tabela.rowCount() == 2 and not p.b_instalar.isEnabled()
 
 
+def test_wifi_abre_sempre_no_projeto_desta_maquina(qtbot, monkeypatch):
+    """ADR-065: filtro padrão = projeto da unidade, a cada abertura; outras só em Todas."""
+    from dataclasses import replace
+
+    from itc_bench.servicos.cadastros import Unidade
+
+    a = replace(rede(1, "Rede-Projeto", unidade="ABC02"), projeto="ABC")
+    b = rede(2, "Rede-Outro-Projeto", unidade="XYZ01")
+    cad = replace(
+        cadastros(a, b), unidades=(Unidade(1, "ABC01", "ABC01", "", "", "", "", projeto="ABC"),)
+    )
+    p = painel(qtbot, monkeypatch, cad)
+    p.filtro.setCurrentIndex(1)
+    p.show()
+    assert p.filtro.currentIndex() == 0 and p.filtro.currentText() == "Projeto desta máquina"
+    p._recebeu(tela_wifi.Leitura((wifi.Linha(a, "ausente"), wifi.Linha(b, "ausente")), ()))
+    assert p.tabela.rowCount() == 1 and p.tabela.item(0, 1).text() == "ABC"
+    assert p.estado.text() == "1 rede(s) do projeto ABC."
+    p.filtro.setCurrentIndex(1)
+    assert p.tabela.rowCount() == 2
+
+
+def test_wifi_em_bancada_fica_no_projeto_e_avisa(qtbot, monkeypatch):
+    p = painel(qtbot, monkeypatch, cadastros(rede(1, "Rede-A")), unidade=None)
+    p.show()
+    p._recebeu(tela_wifi.Leitura((), ()))
+    assert p.filtro.currentIndex() == 0 and "bancada" in p.estado.text()
+
+
 def test_wifi_invalida_nao_marca(qtbot, monkeypatch):
     r = rede(1, "Rede-A", senha="")
     p = painel(qtbot, monkeypatch, cadastros(r))

@@ -3519,8 +3519,11 @@ responsável pediu as redes como o papel de parede: por projeto, com os perfis q
    o perfil, ou em bancada, a etapa **some** (`etapas.ocultas`, como a 4).
 4. Manutenção, etapa 2: sem perfil, considera todas as redes do projeto da unidade e continua só
    atualizando as que já estão na máquina.
-5. Tela Wi-Fi, filtro "Esta unidade": as redes do projeto da unidade. Cache offline ao trocar de
-   unidade: guarda as do projeto dela. Configurações › Wi-Fi mostra Projeto e Perfis.
+5. Tela Wi-Fi: abre **sempre** no filtro "Projeto desta máquina" (as redes do projeto da
+   unidade), a cada vez que a tela aparece; as outras redes só em "Todas". Em bancada, fica no
+   projeto e avisa para escolher a unidade ou usar Todas. A coluna mostra o projeto (rede antiga:
+   a unidade). Cache offline ao trocar de unidade: guarda as do projeto dela. Configurações ›
+   Wi-Fi mostra Projeto e Perfis.
 6. `Perfis` usa o **código** do perfil (não o nome): não quebra com acento, maiúscula ou troca
    de nome, e é o mesmo do `Unidades.PerfilPadrao`.
 
