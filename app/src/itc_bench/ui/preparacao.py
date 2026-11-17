@@ -1,6 +1,6 @@
 """Telas Configuração e Manutenção (ADR-023, ADR-062). Motor em `servicos/preparacao.py`,
 etapas em `servicos/etapas.py`, retomada em `servicos/retomada.py`; aqui só tela. As duas
-usam a mesma classe: a Manutenção não tem perfil, contas de aluno nem retomada."""
+usam a mesma classe: a Manutenção não tem perfil nem retomada."""
 
 import threading
 from collections.abc import Callable
@@ -104,23 +104,37 @@ AJUDA = (
     "Sem administrador (modo de teste), só a leitura."
 )
 AJUDA_MANUTENCAO = (
-    "Cuida de uma máquina que já está em uso. Não usa perfil: todas as etapas vêm marcadas e "
-    "você desmarca as que não quer. Os números são fixos: 2. Wi-Fi: atualizar senhas e "
-    "3. Diagnóstico (o 1 fica para a limpeza de arquivos das contas, que entra depois).\n"
+    "Cuida de uma máquina que já está em uso. Não usa perfil: as etapas vêm marcadas e você "
+    "desmarca as que não quer. Números fixos: 1. Limpeza de usuários, 2. Wi-Fi: atualizar "
+    "senhas, 3. Diagnóstico e 4. Remover Steam.\n"
+    "\n"
+    "Limpeza de usuários (1)\n"
+    "Nas contas de aluno marcadas, apaga para sempre, sem como recuperar: Área de Trabalho "
+    "(os atalhos ficam), Documentos, Downloads, Imagens, Vídeos, Jogos salvos e todos os dados "
+    "do Chrome (contas conectadas, senhas, histórico e favoritos: o Chrome abre como novo). "
+    "Políticas, configurações e o resto da conta ficam. A conta tem de estar sem sessão aberta; "
+    "Suporte, Gestão, o Administrador nativo e a sua conta nunca entram. Ler situação mostra "
+    "quanto vai liberar; a confirmação mostra por conta.\n"
     "\n"
     "Wi-Fi: atualizar senhas (2)\n"
-    "Confere as redes do cadastro da unidade que já estão instaladas nesta máquina e regrava "
-    "as que estão com outra senha. Rede que não está na máquina não é instalada: para isso, "
-    "use a tela Wi-Fi ou a Configuração.\n"
+    "Confere as redes do cadastro que já estão instaladas nesta máquina e regrava as que estão "
+    "com outra senha. Rede que não está na máquina não é instalada: para isso, use a tela Wi-Fi "
+    "ou a Configuração.\n"
     "\n"
     "Diagnóstico (3)\n"
     "A mesma coleta da tela Diagnóstico: processos, rede, erros do Windows, disco e bateria, "
     "com o laudo da IA. Só lê a máquina.\n"
     "\n"
+    "Remover Steam (4)\n"
+    "Só aparece com a Steam instalada. Desinstala a Steam com os jogos da biblioteca padrão e os "
+    "usuários salvos nela, para todas as contas. Feche a Steam antes. Jogos instalados em outra "
+    "biblioteca (outro disco) não são apagados.\n"
+    "\n"
     "Como usar\n"
-    "1. Ler situação confere cada etapa: feito, pendente ou bloqueada (com o motivo).\n"
-    "2. Rodar N etapas mostra o que muda e pede confirmação. Etapa já feita é pulada.\n"
-    "3. Pausar para depois da etapa que está rodando.\n"
+    "1. Marque as contas de aluno que serão limpas.\n"
+    "2. Ler situação confere cada etapa: feito, pendente ou bloqueada (com o motivo).\n"
+    "3. Rodar N etapas mostra o que muda e pede confirmação. Etapa já feita é pulada.\n"
+    "4. Pausar para depois da etapa que está rodando.\n"
     "\n"
     "Sem administrador (modo de teste), só a leitura."
 )
@@ -152,7 +166,7 @@ class PainelPreparacao(QWidget):
         manutencao: bool = False,
     ) -> None:
         super().__init__()
-        self.manutencao = manutencao  # ADR-062: sem perfil, sem contas de aluno, sem retomada
+        self.manutencao = manutencao  # ADR-062: sem perfil e sem retomada
         self.fluxo = perfis.MANUTENCAO if manutencao else perfis.CONFIGURACAO
         self.admin = admin
         self.obter_cadastros = obter_cadastros
@@ -217,8 +231,6 @@ class PainelPreparacao(QWidget):
         alunos.addWidget(self.alunos, 1)
         meio.addWidget(self.lista, 3)
         meio.addWidget(self.painel_alunos, 1)
-        if manutencao:
-            self.painel_alunos.hide()
         v.addLayout(meio, 3)
 
         acoes = QHBoxLayout()
@@ -286,7 +298,7 @@ class PainelPreparacao(QWidget):
 
     def ocultas(self) -> frozenset[str]:
         if self.manutencao:
-            return frozenset()
+            return etapas.ocultas_manutencao()  # Steam (ADR-064)
         return etapas.ocultas(self.obter_cadastros(), self.obter_unidade())
 
     def desmarcadas(self) -> list[str]:
@@ -337,6 +349,7 @@ class PainelPreparacao(QWidget):
         self.iniciado = True
         if self.manutencao:
             self._montar_lista()
+            self._carregar_alunos()
             return
         self._carregar_perfis()
         perfil, aviso = self.perfil_da_unidade()

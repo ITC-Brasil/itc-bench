@@ -26,6 +26,7 @@ PS_PROIBIDOS = {
 
 # Quem chama a API do Windows direto, fora do executor, e por quê (critério do ADR-018).
 WINREG_CTYPES = {
+    "servicos/steam.py": "lê só a chave de desinstalação da Steam (ADR-064)",
     "nucleo/acl.py": "ACL e dono por SDDL (ADR-011): sem processo, sem texto do icacls",
     "nucleo/assinatura.py": "ECDSA P-256 pela CNG, sem dependência nova (ADR-026)",
     "nucleo/caminhos.py": "ProgramData e perfis pelo HKLM, sem o ambiente do usuário (Módulo 14)",

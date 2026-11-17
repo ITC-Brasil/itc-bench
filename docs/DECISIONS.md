@@ -3452,3 +3452,47 @@ com uma ordem nova.
 - Próximas partes: etapa 11 só define senha da Suporte/Gestão quando vazia; limpeza de arquivos
   na Manutenção; McAfee e Office pré-instalado na etapa 2; Wi-Fi e Programas por perfil.
 - Roteiro de máquina real 10.19 e 10.20.
+
+## ADR-064 — Manutenção: limpeza de usuários (1) e Remover Steam (4)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; parte 3 da ADR-062)
+**Module:** Pós-16 (emenda ao ADR-042 e ao ADR-062; revisa o ADR-023 sobre apagar arquivos
+pessoais)
+
+**Context**
+Os notebooks em uso acumulam arquivos pesados nas contas de aluno e jogos da Steam. O
+responsável pediu, na Manutenção, apagar o que pesa sem mexer em políticas e configurações, e
+desinstalar a Steam.
+
+**Decision**
+1. **Etapa 1, Limpeza de usuários** (`etapas.LimpezaUsuarios`): reusa a limpeza de contas do
+   ADR-042 (`recursos/limpeza/contas.ps1`), com as mesmas recusas (Administrador nativo,
+   Suporte, Gestão, a conta do Bench, conta com sessão aberta ou sem perfil), sem seguir links e
+   com log só de números. Só nas contas de aluno marcadas na tela.
+2. Três categorias novas, só para a Manutenção (`limpeza.CATEGORIAS_MANUTENCAO`):
+   - `desktop`: Área de Trabalho, **menos atalhos** (`.lnk` e `.url`);
+   - `arquivos`: Documentos, Downloads, Imagens, Vídeos e Jogos salvos (sem Músicas);
+   - `chrome`: `AppData\Local\Google\Chrome\User Data` inteiro (contas conectadas, senhas,
+     cookies, histórico, favoritos e extensões; o Chrome abre como novo).
+   O trecho passa a receber `ITC_CATEGORIAS`; vazio = as quatro categorias da tela Limpeza, que
+   não muda.
+3. Apagar é definitivo (a lixeira não vale para arquivos de outra conta). Ler situação mostra o
+   total; a confirmação mostra por conta. Registro da conta (NTUSER.DAT), políticas e o resto
+   do perfil ficam.
+4. **Etapa 4, Remover Steam** (`servicos/steam.py`, `etapas.Steam`): da máquina, não da conta.
+   Só aceita o `uninstall.exe` da pasta padrão (`Program Files (x86)\Steam`), lido da chave de
+   desinstalação; roda `/S` e espera a chave sumir (até 15 min). Leva os jogos da biblioteca
+   padrão e os usuários salvos. A etapa só aparece com a Steam instalada
+   (`etapas.ocultas_manutencao`).
+5. A tela da Manutenção passa a mostrar as contas de aluno (para a etapa 1).
+
+**Alternatives considered**
+- Só desconectar a conta Google no Chrome: deixaria senhas e cookies de outros sites para o
+  próximo aluno.
+- Steam dentro da limpeza de usuários: é da máquina e pede o desinstalador dela.
+
+**Consequences**
+- Jogos da Steam em outra biblioteca (outro disco) não são apagados.
+- Steam aberta pode impedir a remoção; a etapa falha com "não saiu a tempo".
+- Roteiro de máquina real 10.22 e 10.23.

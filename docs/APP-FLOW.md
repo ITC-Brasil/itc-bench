@@ -40,9 +40,9 @@ que resolve, atalhos (forçar inventário GLPI, limpar temporários).
 **Configuração** (antes Preparação completa) — escolhe perfil (ex.: Aluno), lista etapas numeradas de 1 a 12 com número fixo (ADR-062), "Rodar N etapas",
 "Pausar". Log ao vivo. Se uma etapa pede reinício, agenda retomada e continua depois do boot.
 
-**Manutenção** (ADR-062) — máquina em uso, sem perfil: etapas com número fixo (2. Wi-Fi:
-atualizar senhas, 3. Diagnóstico; o 1 reservado para a limpeza de arquivos das contas), todas
-marcadas, "Ler situação" e "Rodar N etapas" como na Configuração. Sem retomada.
+**Manutenção** (ADR-062, ADR-064) — máquina em uso, sem perfil: 1. Limpeza de usuários (contas
+de aluno marcadas), 2. Wi-Fi: atualizar senhas, 3. Diagnóstico, 4. Remover Steam (só com a
+Steam instalada); "Ler situação" e "Rodar N etapas" como na Configuração. Sem retomada.
 
 **Tela de cadastro (Wi-Fi como modelo)** — abas filtro (esta unidade / todas / instaladas no
 Windows), tabela com situação no Windows (igual, senha antiga, ausente), ação "Instalar N

@@ -58,14 +58,15 @@ CONFIGURACAO = Fluxo(
         (12, "diagnostico", "Diagnóstico"),
     ),
 )
-# Manutenção (ADR-062): máquina em uso, sem perfil. O 1 fica reservado para a limpeza de
-# arquivos das contas (próxima parte); os números não mudam quando ela entrar.
+# Manutenção (ADR-062, ADR-064): máquina em uso, sem perfil.
 MANUTENCAO = Fluxo(
     "manutencao",
     "Manutenção",
     (
+        (1, "limpeza_usuarios", "Limpeza de usuários"),
         (2, "wifi_senhas", "Wi-Fi: atualizar senhas"),
         (3, "diagnostico", "Diagnóstico"),
+        (4, "steam", "Remover Steam"),
     ),
 )
 

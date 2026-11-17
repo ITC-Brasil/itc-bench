@@ -24,6 +24,7 @@ from itc_bench.servicos import (
     programas,
     protecao,
     remoto,
+    steam,
     wifi,
 )
 from itc_bench.servicos.cadastros import Cadastros
@@ -655,6 +656,89 @@ def ocultas(cadastros: Cadastros | None, unidade: str | None) -> frozenset[str]:
     return frozenset()
 
 
+def ocultas_manutencao() -> frozenset[str]:
+    """Manutenção: 4. Remover Steam só aparece com a Steam instalada (ADR-064)."""
+    return frozenset() if steam.instalada() else frozenset({"steam"})
+
+
+# ---------------------------------------------------------------- Limpeza de usuários e Steam
+
+
+@dataclass
+class LimpezaUsuarios:
+    """Manutenção, etapa 1 (ADR-064): arquivos que pesam nas contas de aluno marcadas, pelo
+    trecho da limpeza de contas (ADR-042). Configurações, políticas e o registro da conta
+    ficam."""
+
+    ctx: Contexto
+    id: str = "limpeza_usuarios"
+    _previa: list[Any] = field(default_factory=list, repr=False)
+
+    def _alvos(self) -> list[contas.Conta]:
+        por_sid = {c.sid: c for c in self.ctx.lista().contas}
+        return [por_sid[s] for s in self.ctx.alvos if s in por_sid]
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx):
+            return _bloq(motivo)
+        alvos_ = self._alvos()
+        if not alvos_:
+            return _bloq("marque as contas de aluno a limpar")
+        self._previa = limpeza.previa_contas(
+            alvos_, self.ctx.protegidas(), categorias=CATEGORIAS_LIMPEZA
+        )
+        total = sum(i.bytes for i in self._previa)
+        if not total:
+            return Leitura("feito")
+        n = len({i.sid for i in self._previa if i.bytes})
+        return Leitura("pendente", f"{limpeza.tamanho(total)} em {n} conta(s)")
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        itens = limpeza.limpar_contas(
+            self._alvos(), self.ctx.protegidas(), categorias=CATEGORIAS_LIMPEZA
+        )
+        recusadas = [i for i in itens if i.codigo]
+        em_uso = sum(i.em_uso for i in itens)
+        if recusadas:
+            return Resultado("falha", "; ".join(i.motivo for i in recusadas[:3]), "parcial")
+        if em_uso:
+            return Resultado("falha", f"{em_uso} arquivo(s) em uso ficaram", "parcial")
+        return Resultado("ok")
+
+    def mudancas(self) -> str:
+        nomes = {c.sid: c.nome for c in self._alvos()}
+        por_conta: dict[str, int] = {}
+        for i in self._previa:
+            por_conta[i.sid] = por_conta.get(i.sid, 0) + i.bytes
+        partes = [f"{nomes.get(s, '?')} {limpeza.tamanho(b)}" for s, b in por_conta.items() if b]
+        return "apagar para sempre (sem lixeira): " + (", ".join(partes) or "nada")
+
+
+CATEGORIAS_LIMPEZA = tuple(c for c, _ in limpeza.CATEGORIAS_MANUTENCAO)
+
+
+@dataclass
+class Steam:
+    """Manutenção, etapa 4 (ADR-064): desinstala a Steam com os jogos, se estiver instalada."""
+
+    ctx: Contexto
+    id: str = "steam"
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx):
+            return _bloq(motivo)
+        if steam.instalada():
+            return Leitura("pendente", "Steam e jogos instalados")
+        return Leitura("feito")
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        ok, mensagem = steam.remover(cancelar=cancelar)
+        return Resultado("ok") if ok else Resultado("falha", mensagem, "steam")
+
+    def mudancas(self) -> str:
+        return "desinstalar a Steam, com todos os jogos e usuários dela"
+
+
 def montar(ctx: Contexto) -> list[Etapa]:
     """Configuração (ADR-062): todas as etapas, na ordem de `perfis.CONFIGURACAO`; o andamento
     diz quais rodam. Identificação, Mouse e teclado e Limpeza ficam só nas telas delas."""
@@ -678,8 +762,8 @@ def montar(ctx: Contexto) -> list[Etapa]:
 
 
 def montar_manutencao(ctx: Contexto) -> list[Etapa]:
-    """Manutenção (ADR-062), na ordem de `perfis.MANUTENCAO`; sem perfil."""
-    lista: list[Etapa] = [WifiSenhas(ctx), Diagnostico(ctx)]
+    """Manutenção (ADR-062, ADR-064), na ordem de `perfis.MANUTENCAO`; sem perfil."""
+    lista: list[Etapa] = [LimpezaUsuarios(ctx), WifiSenhas(ctx), Diagnostico(ctx), Steam(ctx)]
     if tuple(e.id for e in lista) != perfis.MANUTENCAO.ordem:
         raise RuntimeError("Etapas fora da ordem de perfis.MANUTENCAO.")
     return lista

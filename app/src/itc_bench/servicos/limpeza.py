@@ -128,7 +128,13 @@ CATEGORIAS: tuple[tuple[str, str], ...] = (
     ("navegadores", "Cache dos navegadores e do Teams"),
     ("programas", "Programas só da conta"),
 )
-NOMES_CATEGORIA = dict(CATEGORIAS)
+# Manutenção, etapa 1 (ADR-064): o que pesa na máquina, sem mexer em configurações e políticas.
+CATEGORIAS_MANUTENCAO: tuple[tuple[str, str], ...] = (
+    ("desktop", "Área de Trabalho (menos atalhos)"),
+    ("arquivos", "Documentos, Downloads, Imagens, Vídeos e Jogos salvos"),
+    ("chrome", "Dados do Chrome (contas, senhas, histórico, favoritos)"),
+)
+NOMES_CATEGORIA = dict(CATEGORIAS) | dict(CATEGORIAS_MANUTENCAO)
 DETALHE_CATEGORIA = {
     "pessoais": "Área de Trabalho, Documentos, Downloads, Imagens, Vídeos, Músicas e Jogos salvos",
     "temporarios": "Temp, despejos de falha, cache de sombreadores, cache da internet, "
@@ -136,6 +142,9 @@ DETALHE_CATEGORIA = {
     "navegadores": "cache do Edge, do Chrome, do Firefox e do Teams clássico; favoritos, senhas "
     "e configurações ficam",
     "programas": r"programas instalados só para a conta (AppData\Local\Programs)",
+    "desktop": "arquivos e pastas da Área de Trabalho; atalhos (.lnk e .url) ficam",
+    "arquivos": "Documentos, Downloads, Imagens, Vídeos e Jogos salvos",
+    "chrome": "todos os dados do Chrome da conta: o Chrome abre como novo",
 }
 RECUSAS_CONTA = {
     "nativo": "Administrador nativo: nunca é limpo",
@@ -187,7 +196,11 @@ def recusa_conta(conta: Any, protegidas_: Iterable[str]) -> str:
 
 
 def _rodar_contas(
-    acao: str, contas_: Sequence[Any], protegidas_: Iterable[str], rodar: Rodar
+    acao: str,
+    contas_: Sequence[Any],
+    protegidas_: Iterable[str],
+    rodar: Rodar,
+    categorias: Iterable[str] = (),
 ) -> list[ItemConta]:
     prot = sorted(_suporte(protegidas_))
     validas = [c for c in contas_ if not recusa_conta(c, prot)]
@@ -199,12 +212,16 @@ def _rodar_contas(
     if not validas:
         return saida
     sids = [c.sid for c in validas]
+    pedidas = [c for c in dict.fromkeys(categorias) if c in NOMES_CATEGORIA] or [
+        c for c, _ in CATEGORIAS
+    ]
     r = rodar(
         (RECURSOS / "contas.ps1").read_text("utf-8"),
         timeout=TIMEOUT_CONTAS if acao == "limpar" else TIMEOUT_PREVIA,
         acao=acao,
         sids=",".join(sids),
         protegidas=",".join(prot),
+        categorias=",".join(pedidas),
     )
     if not r.ok:
         log.error(
@@ -249,12 +266,21 @@ def _rodar_contas(
 
 
 def previa_contas(
-    contas_: Sequence[Any], protegidas_: Iterable[str], *, rodar: Rodar = executor.powershell
+    contas_: Sequence[Any],
+    protegidas_: Iterable[str],
+    *,
+    rodar: Rodar = executor.powershell,
+    categorias: Iterable[str] = (),
 ) -> list[ItemConta]:
-    return _rodar_contas("previa", contas_, protegidas_, rodar)
+    """`categorias` vazio = as quatro da tela Limpeza (ADR-042)."""
+    return _rodar_contas("previa", contas_, protegidas_, rodar, categorias)
 
 
 def limpar_contas(
-    contas_: Sequence[Any], protegidas_: Iterable[str], *, rodar: Rodar = executor.powershell
+    contas_: Sequence[Any],
+    protegidas_: Iterable[str],
+    *,
+    rodar: Rodar = executor.powershell,
+    categorias: Iterable[str] = (),
 ) -> list[ItemConta]:
-    return _rodar_contas("limpar", contas_, protegidas_, rodar)
+    return _rodar_contas("limpar", contas_, protegidas_, rodar, categorias)
