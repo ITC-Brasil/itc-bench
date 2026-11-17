@@ -72,7 +72,7 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
-| `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,8})$`, até 8 (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
+| `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,15})$`: com número até 8; só letras até 15, o limite do nome do computador (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
 | `Nome` | SingleLineText | |
 | `Cidade` | SingleLineText | |
 | `UF` | SingleLineText | |

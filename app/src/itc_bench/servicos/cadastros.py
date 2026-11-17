@@ -346,8 +346,9 @@ def rotulo(cadastros: Cadastros | None, offline: bool, agora: datetime | None = 
 # ---------------------------------------------------------------- unidade pelo nome (ADR-048)
 
 # Mesmo formato de `Unidades.Codigo` (ADR-018, ADR-055): sigla de 1 a 6 letras e o número da
-# UM, ou só a sigla, de 2 a 8 letras, sem número (MOBILITY, INESQ).
-CODIGO_UNIDADE = re.compile(r"^(?:[A-Z]{1,6}[0-9]{2}|[A-Z]{2,8})$")
+# UM, ou só a sigla, de 2 a 15 letras, sem número (MOBILITY, INESQ, ITCBRASIL). 15 é o limite
+# do nome do computador no Windows (ADR-055, revisado em 17/11/2026).
+CODIGO_UNIDADE = re.compile(r"^(?:[A-Z]{1,6}[0-9]{2}|[A-Z]{2,15})$")
 CHAVE_NOME_PC = r"SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName"
 
 

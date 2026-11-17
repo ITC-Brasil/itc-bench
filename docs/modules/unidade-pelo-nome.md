@@ -40,5 +40,5 @@ desta máquina (`QUALIFICA-EST`): nenhum código, nada muda.
 
 - Sem unidade gravada, a escolha "bancada" vale só na sessão; na próxima, o nome volta a valer.
 - Nome fora do padrão continua com a escolha manual de sempre.
-- Desde 16/11/2026 (ADR-055) o código também pode ser só a sigla, de 2 a 8 letras, para as
+- Desde 16/11/2026 (ADR-055) o código também pode ser só a sigla, de 2 a 15 letras desde 17/11 (antes 8), para as
   unidades sem número (MOBILITY, INESQ).

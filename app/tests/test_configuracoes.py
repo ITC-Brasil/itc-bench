@@ -151,7 +151,10 @@ def test_servidor_sem_acesso_aos_cadastros_avisa(qtbot, monkeypatch, tmp_path):
         ("ABC07", "ABC07"),
         ("ABC07-", "ABC07"),
         ("ABC071-EST", None),  # depois do código vem dígito: não é código
-        ("QUALIFICA-EST", None),  # sigla sem número com mais de 8 letras
+        ("QUALIFICA-EST", "QUALIFICA"),  # formato de código; só vale se estiver no cadastro
+        ("ITCBRASIL-EST01", "ITCBRASIL"),  # 9 letras (ADR-055 revisado)
+        ("ABCDEFGHIJKLMNO", "ABCDEFGHIJKLMNO"),  # 15 letras: o nome inteiro do computador
+        ("ABCDEFGHIJKLMNOP", None),  # 16 letras: não cabe num nome de computador
         ("MOBILITY-EST01", "MOBILITY"),  # unidade sem número (ADR-055)
         ("inesq-est03", "INESQ"),
         ("INESQ", "INESQ"),

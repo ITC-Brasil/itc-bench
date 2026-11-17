@@ -3029,6 +3029,13 @@ a identificação pelo nome do computador (ADR-048), que deixaria `INESQ-EST03` 
   cadastro (ADR-048, item 3). Nada muda para essas máquinas enquanto não houver tal unidade.
 - A API não muda. Roteiro de máquina real 11.9 vale também para `INESQ-EST01`.
 
+**Revisão (17/11/2026, pedido do responsável)**
+A unidade `ITCBRASIL` tem 9 letras e não era reconhecida pelo nome do computador. O código
+só de letras passa a aceitar de 2 a 15 (`[A-Z]{2,15}`), o limite do nome do computador no
+Windows: `ITCBRASIL-EST01` → `ITCBRASIL`. O código com número continua até 8. Nomes como
+`QUALIFICA-EST` passam a ter formato de código, mas, como no item de Consequências acima,
+só escolhem unidade se `QUALIFICA` existir no cadastro.
+
 ## ADR-056 — Etapas da Preparação completa numeradas (número fixo)
 
 **Status:** Accepted

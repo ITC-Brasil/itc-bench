@@ -2,6 +2,13 @@
 
 ## ESTADO ATUAL
 
+- **18/11/2026: branch `feat/sem-tabelas`, saindo da `develop`.** Só o que não depende de
+  tabela nova no NocoDB nem de variável no servidor, para subir antes: etapas da Preparação
+  numeradas (ADR-056), Remover programas só com os removíveis (ADR-058), Windows Terminal e
+  PowerShell ISE na etapa de pré-instalados (ADR-061), código de unidade só de letras até 15
+  (ADR-055 revisado, para `ITCBRASIL`) e Office de fábrica na mesma etapa (ADR-063). O resto
+  (Projetos, papel por projeto, Perfis pelo NocoDB, Configuração/Manutenção, Wi-Fi por projeto)
+  fica na `feat/com-tabelas`, por cima desta.
 - **16/11/2026 (tarde): branch `feat/unidades-sem-numero`, saindo da `develop`.** Unidades sem
   número no código, MOBILITY e INESQ (ADR-055): `cadastros.CODIGO_UNIDADE` aceita também só a
   sigla, de 2 a 8 letras, para a identificação pelo nome do computador (`INESQ-EST03` → `INESQ`).
