@@ -46,6 +46,7 @@ class Contexto:
     unidade: str | None = None
     nome: str = ""  # nome pedido para o computador; vazio = não renomear
     alvos: tuple[str, ...] = ()  # SIDs das contas de aluno marcadas
+    perfil: str = ""  # código do perfil da Configuração (Wi-Fi por perfil, ADR-065)
     avisar: Callable[[str], None] = lambda _t: None
     diagnosticar: Callable[[threading.Event], Resultado] | None = None
     _lista: contas.Lista | None = field(default=None, repr=False)
@@ -224,7 +225,7 @@ class Wifi:
     def _redes(self) -> list[Any]:
         if self.ctx.cadastros is None:
             return []
-        return list(self.ctx.cadastros.redes_da_unidade(self.ctx.unidade))
+        return list(self.ctx.cadastros.redes_para(self.ctx.unidade, self.ctx.perfil or None))
 
     def _abrir(self) -> Any:
         if self.cliente is not None:
@@ -238,7 +239,7 @@ class Wifi:
             return _bloq(motivo)
         redes = self._redes()
         if not redes:
-            return _bloq("nenhuma rede cadastrada para a unidade")
+            return _bloq("nenhuma rede cadastrada para o projeto e o perfil")
         try:
             with self._abrir() as c:
                 linhas = wifi.situacao(redes, c, admin=True)
@@ -257,7 +258,7 @@ class Wifi:
         return Resultado("ok")
 
     def mudancas(self) -> str:
-        return f"instalar as redes da unidade ({len(self._redes())})"
+        return f"instalar as redes do projeto e do perfil ({len(self._redes())})"
 
 
 @dataclass
@@ -266,6 +267,12 @@ class WifiSenhas(Wifi):
     outra configuração) são regravadas. Rede ausente não é instalada."""
 
     id: str = "wifi_senhas"
+
+    def _redes(self) -> list[Any]:
+        """Sem perfil: todas as redes do projeto da unidade (ADR-065)."""
+        if self.ctx.cadastros is None:
+            return []
+        return list(self.ctx.cadastros.redes_para(self.ctx.unidade))
 
     def _diferentes(self) -> list[Any]:
         with self._abrir() as c:
@@ -276,7 +283,7 @@ class WifiSenhas(Wifi):
         if motivo := _sem(self.ctx, cadastro=True):
             return _bloq(motivo)
         if not self._redes():
-            return _bloq("nenhuma rede cadastrada para a unidade")
+            return _bloq("nenhuma rede cadastrada para o projeto da unidade")
         try:
             n = len(self._diferentes())
         except wifi.SemWifi:
@@ -647,13 +654,17 @@ class Diagnostico:
         return r
 
 
-def ocultas(cadastros: Cadastros | None, unidade: str | None) -> frozenset[str]:
+def ocultas(cadastros: Cadastros | None, unidade: str | None, perfil: str = "") -> frozenset[str]:
     """Etapas que a Preparação não mostra nem roda (ADR-057): 10. Papel de parede quando a
     unidade da máquina não tem papel cadastrado. Sem cadastro, nada some (a etapa fica
     bloqueada pedindo o cadastro, como antes)."""
+    fora = set()
     if cadastros is not None and not papel_de_parede.da_unidade(cadastros, unidade):
-        return frozenset({"papel"})
-    return frozenset()
+        fora.add("papel")
+    # ADR-065: sem rede para o projeto e o perfil (ou em bancada), a 3 também some.
+    if cadastros is not None and not cadastros.redes_para(unidade, perfil or None):
+        fora.add("wifi")
+    return frozenset(fora)
 
 
 def ocultas_manutencao() -> frozenset[str]:

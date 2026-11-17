@@ -532,6 +532,55 @@ def test_perfis_validados(settings, fake, caplog):
         assert motivo in caplog.text
 
 
+def test_wifi_por_projeto_e_perfis(settings, fake, caplog):
+    """TA-ADR-038: com Projeto vale o projeto; Perfis por código; desconhecido descarta."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    fake.dados["mPer"] = [
+        {"Id": 1, "Codigo": "aluno", "Etapas": "1", "Ativo": True},
+        {"Id": 2, "Codigo": "pedagogo", "Etapas": "1", "Ativo": True},
+    ]
+    base = {"Senha": MARCADOR_WIFI, "Categoria": "Carreta", "Ativo": True}
+    fake.dados["mWif"] = [
+        {**base, "Id": 20, "SSID": "Rede-Projeto", "Projeto": "ABC", "Unidade": "UM-99"},
+        {**base, "Id": 21, "SSID": "Rede-Coord", "Projeto": "ABC", "Perfis": "Pedagogo; aluno"},
+        {**base, "Id": 22, "SSID": "Rede-Antiga", "Unidade": "UM-02"},
+        {**base, "Id": 23, "SSID": "Rede-X", "Projeto": "XYZ"},
+        {**base, "Id": 24, "SSID": "Rede-Y", "Projeto": "ABC", "Perfis": "fantasma"},
+    ]
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        dados = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer"),
+            httpx.MockTransport(fake.handler),
+        )
+    por_id = {r["id"]: r for r in dados["wifi"]}
+    assert set(por_id) == {20, 21, 22}
+    assert (por_id[20]["projeto"], por_id[20]["perfis"]) == ("ABC", [])
+    assert por_id[21]["perfis"] == ["aluno", "pedagogo"]
+    assert sorted(dados["descartados"]["wifi"]) == [23, 24]
+    assert "projeto_invalido" in caplog.text and "perfil_invalido" in caplog.text
+    assert "Rede-X" not in caplog.text
+
+
+def test_cadastros_filtra_wifi_pelo_projeto_da_unidade(settings, fake):
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    base = {"Senha": MARCADOR_WIFI, "Categoria": "Carreta", "Ativo": True}
+    fake.dados["mWif"] = [
+        {**base, "Id": 20, "SSID": "Rede-Projeto", "Projeto": "ABC", "Unidade": "UM-02"},
+        {**base, "Id": 21, "SSID": "Rede-Antiga-UM01", "Unidade": "UM-01"},
+        {**base, "Id": 22, "SSID": "Rede-Antiga-UM02", "Unidade": "UM-02"},
+    ]
+    s = configurar(settings, nocodb_tabela_projetos="mPro")
+    criar_sessao(s)
+    app = create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(fake.handler)})
+    with TestClient(app) as c:
+        um01 = c.get("/v1/bench/cadastros?unidade=UM-01", headers=AUT).json()
+        um02 = c.get("/v1/bench/cadastros?unidade=UM-02", headers=AUT).json()
+    assert sorted(r["id"] for r in um01["wifi"]) == [20, 21]  # projeto ABC + a antiga da UM-01
+    assert sorted(r["id"] for r in um02["wifi"]) == [22]  # UM-02 sem projeto: só a antiga
+
+
 def test_cadastros_entrega_projetos(settings, fake):
     fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
     fake.dados["mUni"][0]["Projeto"] = "ABC"

@@ -101,8 +101,11 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
             if nome in OPCIONAIS and not getattr(settings, id_setting).strip():
                 brutos[nome] = []
                 continue
-            if nome in ("unidades", "instaladores", "perfis") and com_projetos:
+            if nome in ("unidades", "instaladores", "perfis", "wifi") and com_projetos:
                 campos = (*campos, "Projeto")
+            # TA-ADR-038: WiFi.Perfis only exists together with the Perfis table.
+            if nome == "wifi" and settings.nocodb_tabela_perfis.strip():
+                campos = (*campos, "Perfis")
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
                 brutos[nome] = paginas(client, url, headers, campos, inicio)
@@ -178,11 +181,14 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
             continue
         instaladores.append(instalador(linha))
 
+    perfis_ = perfis(validos["perfis"], siglas, descartados)
+    codigos_perfil = {p["codigo"] for p in perfis_}
     wifi = []
     for linha in validos["wifi"]:
-        if texto(linha.get("Unidade")) not in codigos:
+        motivo = motivo_rede(linha, siglas, codigos, codigos_perfil)
+        if motivo:
             descartados.setdefault("wifi", []).append(linha.get("Id"))
-            log.warning("cadastro wifi Id %s descartado: unidade_invalida", linha.get("Id"))
+            log.warning("cadastro wifi Id %s descartado: %s", linha.get("Id"), motivo)
             continue
         wifi.append(rede(linha))
     return {
@@ -191,7 +197,7 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
         "wifi": wifi,
         "unidades": unidades,
         "projetos": projetos,
-        "perfis": perfis(validos["perfis"], siglas, descartados),
+        "perfis": perfis_,
         "descartados": descartados,
     }
 
@@ -271,9 +277,33 @@ def rede(linha: dict) -> dict:
         "ssid": texto(linha.get("SSID")),
         "senha": SecretStr(texto(linha.get("Senha"))),
         "unidade": texto(linha.get("Unidade")),
+        "projeto": texto(linha.get("Projeto")),
+        "perfis": lista_perfis(linha),
         "categoria": texto(linha.get("Categoria")),
         "atualizado_em": texto(linha.get("AtualizadoEm")),
     }
+
+
+def lista_perfis(linha: dict) -> list[str]:
+    """WiFi.Perfis (TA-ADR-038): Perfis codes split by comma, semicolon or space, lowercase,
+    sorted and unique. Empty = every profile."""
+    partes = re.split(r"[,;\s]+", texto(linha.get("Perfis")).lower())
+    return sorted({p for p in partes if p})
+
+
+def motivo_rede(linha: dict, siglas: set[str], codigos: set[str], perfis_: set[str]) -> str:
+    """TA-ADR-038: with Projeto the project rules (Unidade is just a note); without it, the old
+    rule (an active Unidade). An unknown profile drops the network: giving it to everyone would
+    be worse."""
+    projeto_ = texto(linha.get("Projeto"))
+    if projeto_:
+        if projeto_ not in siglas:
+            return "projeto_invalido"
+    elif texto(linha.get("Unidade")) not in codigos:
+        return "unidade_invalida"
+    if any(p not in perfis_ for p in lista_perfis(linha)):
+        return "perfil_invalido"
+    return ""
 
 
 def unidade(linha: dict) -> dict:

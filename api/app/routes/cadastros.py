@@ -106,7 +106,17 @@ def cadastros(
     if unidade is not None and unidade.strip() not in codigos:
         raise Refusal(422, "unidade_invalida")
     unidade = unidade.strip() if unidade else None
-    wifi = [rede for rede in dados["wifi"] if unidade is None or rede["unidade"] == unidade]
+    # TA-ADR-038: with a unit, its project's networks plus the old ones (no project) of the unit.
+    projeto_da_unidade = next(
+        (u.get("projeto", "") for u in dados["unidades"] if u["codigo"] == unidade), ""
+    )
+    wifi = [
+        rede
+        for rede in dados["wifi"]
+        if unidade is None
+        or (rede.get("projeto") and rede["projeto"] == projeto_da_unidade)
+        or (not rede.get("projeto") and rede["unidade"] == unidade)
+    ]
     conteudo = revelar(
         {
             "unidade": unidade,

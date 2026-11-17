@@ -69,7 +69,9 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 |---|---|---|
 | `SSID` | SingleLineText, display | **Sensível para log**: visível na tela, nunca no log (o log usa `Id`) |
 | `Senha` | SingleLineText | **Sensível**, nunca exibida na UI. Obrigatória: WPA2-Personal, 8–63 caracteres comuns ou 64 hexadecimais; vazia ou fora disso, o Bench não instala (ADR-018) |
-| `Unidade` | SingleLineText | Texto livre, casa com `Unidades.Codigo` (sem link) |
+| `Unidade` | SingleLineText | Código de `Unidades.Codigo` (sem link). Com `Projeto` preenchido, é só anotação (ADR-065); sem `Projeto`, a rede vale só nessa unidade (regra antiga) |
+| `Projeto` | SingleLineText | Sigla de `Projetos.Sigla` (ADR-065, TA-ADR-038): a rede vale em **todas** as unidades do projeto. Sigla que não é Projeto ativo descarta a rede. Lida só com `NOCODB_TABELA_PROJETOS` |
+| `Perfis` | SingleLineText | Códigos de `Perfis.Codigo` separados por vírgula (ex.: `aluno,pedagogo`). Vazio = todos os perfis. Código desconhecido descarta a rede. Lida só com `NOCODB_TABELA_PERFIS` |
 | `categoria` | SingleLineText | Ex.: Carreta, Roteador 4G, Parceiro local |
 | `Ativo` | Checkbox | |
 | `AtualizadoPor` | SingleLineText | Técnico |
@@ -121,6 +123,10 @@ Números das etapas da Configuração (ADR-062): 1 Energia: nunca desligar, 2 Re
 pré-instalados, 3 Wi-Fi, 4 Papel de parede, 5 Acesso remoto, 6 Programas, 7 Políticas, 8 USB,
 9 Proteção do login, 10 Energia: planos finais, 11 Contas, 12 Diagnóstico. Sem dependência
 entre elas. A Manutenção não usa perfil.
+
+**Regra de Wi-Fi por projeto (ADR-065):** a etapa 3 da Configuração instala as redes cujo
+`Projeto` é o projeto da unidade da máquina e cujo `Perfis` está vazio ou contém o perfil
+escolhido; rede sem `Projeto` vale só na sua `Unidade`; máquina em bancada não recebe rede.
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
 `Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o

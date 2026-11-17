@@ -3496,3 +3496,40 @@ desinstalar a Steam.
 - Jogos da Steam em outra biblioteca (outro disco) não são apagados.
 - Steam aberta pode impedir a remoção; a etapa falha com "não saiu a tempo".
 - Roteiro de máquina real 10.22 e 10.23.
+
+## ADR-065 — Wi-Fi por projeto e perfil; etapa 3 some sem rede
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; parte 5 da ADR-062)
+**Module:** Pós-16 (emenda ao ADR-014 e ao ADR-018; com o TA-ADR-038)
+
+**Context**
+Algumas redes são só para um perfil (ex.: "Notebooks" para aluno, "Coordenação" para pedagogo)
+e alguns projetos (ex.: Brasil.IA) põem as redes de todas as unidades em todos os notebooks. O
+responsável pediu as redes como o papel de parede: por projeto, com os perfis que as recebem.
+
+**Decision**
+1. `Rede.projeto` e `Rede.perfis` no Bench (TA-ADR-038); cache antigo sem os campos = sem
+   projeto, todos os perfis.
+2. `Cadastros.redes_para(unidade, perfil)`: as redes cujo `projeto` é o projeto da unidade
+   (de qualquer unidade dele) e as antigas, sem projeto, da própria unidade; com perfil, só as de
+   `perfis` vazio ou que o contêm. **Máquina em bancada (sem unidade): nenhuma rede** (decisão do
+   responsável, pela recomendação).
+3. Configuração, etapa 3: usa o perfil escolhido (`Contexto.perfil`). Sem rede para o projeto e
+   o perfil, ou em bancada, a etapa **some** (`etapas.ocultas`, como a 4).
+4. Manutenção, etapa 2: sem perfil, considera todas as redes do projeto da unidade e continua só
+   atualizando as que já estão na máquina.
+5. Tela Wi-Fi, filtro "Esta unidade": as redes do projeto da unidade. Cache offline ao trocar de
+   unidade: guarda as do projeto dela. Configurações › Wi-Fi mostra Projeto e Perfis.
+6. `Perfis` usa o **código** do perfil (não o nome): não quebra com acento, maiúscula ou troca
+   de nome, e é o mesmo do `Unidades.PerfilPadrao`.
+
+**Alternatives considered**
+- Coluna "Wi-Fi do projeto" em Projetos, com as redes por unidade: o responsável preferiu o
+  projeto na própria rede, como no papel de parede.
+- Bancada recebendo todas as redes: o notebook sairia com senhas de outros projetos.
+
+**Consequences**
+- Rede cadastrada com `Projeto` vai para todas as unidades do projeto; rede só de uma unidade
+  fica sem `Projeto` (regra antiga).
+- Roteiro de máquina real 10.24.

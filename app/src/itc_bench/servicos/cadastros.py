@@ -73,6 +73,8 @@ class Rede:
     unidade: str
     categoria: str
     atualizado_em: str
+    projeto: str = ""  # ADR-065: sigla de Projetos; com ela, a Unidade é só anotação
+    perfis: tuple[str, ...] = ()  # ADR-065: códigos de Perfis; vazio = todos os perfis
 
 
 @dataclass(frozen=True)
@@ -113,7 +115,25 @@ class Cadastros:
         return next((s for s in self.servidores if s.servico == servico and s.papel == papel), None)
 
     def redes_da_unidade(self, codigo: str | None) -> tuple[Rede, ...]:
-        return self.redes if codigo is None else tuple(r for r in self.redes if r.unidade == codigo)
+        """Tela Wi-Fi: sem unidade, todas; com unidade, as do projeto dela (ADR-065)."""
+        return self.redes if codigo is None else self.redes_para(codigo)
+
+    def redes_para(self, unidade: str | None, perfil: str | None = None) -> tuple[Rede, ...]:
+        """Redes desta máquina (ADR-065): as do projeto da unidade (e as antigas, sem
+        projeto, da própria unidade); com `perfil`, só as que valem para ele (`perfis`
+        vazio = todos). Sem unidade (bancada), nenhuma."""
+        if not unidade:
+            return ()
+        u = self.unidade_por_codigo(unidade)
+        projeto = u.projeto if u is not None else ""
+        saida = [
+            r
+            for r in self.redes
+            if (r.projeto and r.projeto == projeto) or (not r.projeto and r.unidade == unidade)
+        ]
+        if perfil:
+            saida = [r for r in saida if not r.perfis or perfil in r.perfis]
+        return tuple(saida)
 
     def unidade_por_codigo(self, codigo: str | None) -> Unidade | None:
         return next((u for u in self.unidades if u.codigo == codigo), None)
@@ -175,6 +195,8 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(w["unidade"]),
                 str(w["categoria"]),
                 str(w["atualizado_em"]),
+                str(w.get("projeto") or ""),
+                tuple(str(p) for p in w.get("perfis") or ()),
             )
             for w in dados["wifi"]
         ),
@@ -262,7 +284,8 @@ class Armazem:
         return cadastros
 
     def filtrar(self, unidade: str | None) -> Cadastros | None:
-        """Troca de unidade sem rede: só o Wi-Fi dela fica no cache (o resto já é global)."""
+        """Troca de unidade sem rede: só o Wi-Fi do projeto dela fica no cache (o resto já é
+        global)."""
         registro = self._ler()
         atual = self.carregar() if registro is not None else None
         if registro is None or atual is None:
@@ -270,7 +293,16 @@ class Armazem:
         if unidade is None:
             return atual  # sem rede não há como trazer as outras unidades de volta
         dados = dict(registro["dados"])
-        dados["wifi"] = [w for w in dados["wifi"] if w.get("unidade") == unidade]
+        # ADR-065: as redes do projeto da unidade e as antigas (sem projeto) dela.
+        projeto = next(
+            (u.get("projeto") or "" for u in dados["unidades"] if u.get("codigo") == unidade), ""
+        )
+        dados["wifi"] = [
+            w
+            for w in dados["wifi"]
+            if (w.get("projeto") and w["projeto"] == projeto)
+            or (not w.get("projeto") and w.get("unidade") == unidade)
+        ]
         # versão vazia: a próxima sincronização baixa de novo em vez de receber um 304
         novo = {**registro, "dados": dados, "unidade": unidade, "versao": ""}
         novo.pop("formato", None)

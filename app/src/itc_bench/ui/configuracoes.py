@@ -38,7 +38,10 @@ AJUDA = (
     "pela API, depois do login online.\n\n"
     "• Projetos: cada unidade aponta para o projeto dela pela sigla (coluna Projeto em "
     "Unidades). A aba Projetos mostra as unidades de cada um; unidade sem projeto aparece com "
-    "—. O papel de parede da Preparação é o do projeto da unidade.\n\n"
+    "—. O papel de parede e as redes Wi-Fi da Configuração são os do projeto da unidade.\n\n"
+    "• Wi-Fi: cada rede diz o projeto (coluna Projeto) e, se quiser, os perfis que a recebem "
+    "(coluna Perfis, pelo código; todos = qualquer perfil). Rede antiga, sem projeto, vale só "
+    "na unidade dela.\n\n"
     "• Perfis: os perfis da Configuração (tabela Perfis). Cada um diz quais etapas rodam, "
     "pelos números de 1 a 14; Projeto diz em que unidades ele aparece (todos = em todas). O que "
     "cada etapa faz não vem do cadastro.\n\n"
@@ -103,7 +106,9 @@ class PainelConfiguracoes(QWidget):
 
         self.abas = QTabWidget()
         self.servidores = self._tabela(["Serviço", "Papel", "Valor", "Versão", "Observação"])
-        self.wifi = self._tabela(["SSID", "Unidade", "Categoria", "Senha", "Atualizado em"])
+        self.wifi = self._tabela(
+            ["SSID", "Unidade", "Categoria", "Senha", "Atualizado em", "Projeto", "Perfis"]
+        )
         self.instaladores = self._tabela(["Programa", "Versão", "Arquivo", "SHA-256", "Link"])
         self.unidades = self._tabela(
             ["Código", "Nome", "Projeto", "UF", "Perfil padrão"]  # ADR-059, ADR-067
@@ -180,7 +185,18 @@ class PainelConfiguracoes(QWidget):
         )
         self._preencher(
             self.wifi,
-            [[r.ssid, r.unidade, r.categoria, r.senha, r.atualizado_em] for r in c.redes]
+            [
+                [
+                    r.ssid,
+                    r.unidade,
+                    r.categoria,
+                    r.senha,
+                    r.atualizado_em,
+                    r.projeto or "—",
+                    ", ".join(r.perfis) or "todos",
+                ]
+                for r in c.redes
+            ]
             if c
             else [],
             {},

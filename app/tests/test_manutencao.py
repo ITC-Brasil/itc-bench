@@ -223,3 +223,117 @@ def test_configuracao_continua_com_perfil(qtbot):
     qtbot.addWidget(p)
     assert not p.perfil.isHidden() and not p.painel_alunos.isHidden()
     assert p.perfil_atual() is None  # sem cadastro, sem perfil (ADR-060)
+
+
+# -------------------------------------------------------- Wi-Fi por projeto e perfil (ADR-065)
+
+
+def _cad_wifi():
+    from dataclasses import replace
+
+    from itc_bench.servicos.cadastros import Projeto, Unidade
+
+    unidades = (
+        Unidade(1, "ABC01", "ABC01", "", "", "", "", projeto="ABC"),
+        Unidade(2, "ABC02", "ABC02", "", "", "", "", projeto="ABC"),
+        Unidade(3, "XYZ01", "XYZ01", "", "", "", "", projeto=""),
+    )
+    redes = (
+        replace(rede(1, "ABC02-Notebooks", unidade="ABC02"), projeto="ABC", perfis=("aluno",)),
+        replace(rede(2, "ABC-Coordenacao", unidade="ABC01"), projeto="ABC", perfis=("pedagogo",)),
+        replace(rede(3, "ABC-Geral", unidade="ABC01"), projeto="ABC"),
+        rede(4, "XYZ01-Antiga", unidade="XYZ01"),
+    )
+    return Cadastros(
+        "v" * 64,
+        datetime.now(UTC),
+        "t",
+        None,
+        False,
+        (),
+        (),
+        redes,
+        unidades,
+        projetos=(Projeto(1, "ABC", "Abc"),),
+    )
+
+
+def test_redes_pelo_projeto_e_pelo_perfil():
+    cad = _cad_wifi()
+    ids = lambda rs: sorted(r.id for r in rs)  # noqa: E731
+    assert ids(cad.redes_para("ABC01", "aluno")) == [1, 3]  # rede da ABC02 vale no projeto todo
+    assert ids(cad.redes_para("ABC02", "pedagogo")) == [2, 3]
+    assert ids(cad.redes_para("ABC01")) == [1, 2, 3]  # sem perfil (Manutenção): todas do projeto
+    assert ids(cad.redes_para("XYZ01", "aluno")) == [4]  # rede antiga, sem projeto: pela unidade
+    assert cad.redes_para(None, "aluno") == ()  # bancada: nenhuma
+    assert "wifi" in etapas.ocultas(cad, None, "aluno")
+    assert "wifi" not in etapas.ocultas(cad, "ABC01", "aluno")
+
+
+def test_etapa_wifi_usa_o_perfil_e_a_manutencao_nao():
+    cad = _cad_wifi()
+    ctx = etapas.Contexto(admin=True, cadastros=cad, unidade="ABC01", perfil="pedagogo")
+    assert sorted(r.id for r in etapas.Wifi(ctx)._redes()) == [2, 3]
+    assert sorted(r.id for r in etapas.WifiSenhas(ctx)._redes()) == [1, 2, 3]
+
+
+def test_cache_offline_guarda_as_redes_do_projeto(tmp_path):
+    from itc_bench.servicos import api
+    from itc_bench.servicos.cadastros import Armazem, sincronizar
+    from itc_bench.servicos.executor import Sensivel
+
+    corpo = {
+        "versao": "v" * 64,
+        "lido_em": "2026-11-17T12:00:00Z",
+        "defasado": False,
+        "unidade": None,
+        "servidores": [],
+        "instaladores": [],
+        "descartados": {},
+        "projetos": [],
+        "perfis": [],
+        "unidades": [
+            {
+                "id": 1,
+                "codigo": "ABC01",
+                "nome": "",
+                "cidade": "",
+                "uf": "",
+                "tag_glpi": "",
+                "perfil_padrao": "",
+                "projeto": "ABC",
+            },
+        ],
+        "wifi": [
+            {
+                "id": 1,
+                "ssid": "P",
+                "senha": "x" * 8,
+                "unidade": "ABC02",
+                "categoria": "",
+                "atualizado_em": "",
+                "projeto": "ABC",
+                "perfis": [],
+            },
+            {
+                "id": 2,
+                "ssid": "Q",
+                "senha": "x" * 8,
+                "unidade": "XYZ01",
+                "categoria": "",
+                "atualizado_em": "",
+                "projeto": "",
+                "perfis": [],
+            },
+        ],
+    }
+    original = (api.saude, api.cadastros)
+    try:
+        api.saude = lambda base: True
+        api.cadastros = lambda *a: corpo
+        armazem = Armazem(tmp_path / "c.dpapi")
+        sincronizar("b", Sensivel("t"), armazem, "t", None)
+    finally:
+        api.saude, api.cadastros = original
+    filtrado = armazem.filtrar("ABC01")
+    assert filtrado is not None and [r.id for r in filtrado.redes] == [1]

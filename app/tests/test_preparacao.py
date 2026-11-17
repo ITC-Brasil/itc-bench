@@ -504,9 +504,10 @@ def test_papel_pelo_projeto_da_unidade():
     assert papel_de_parede.da_unidade(cad, "UM-02") == []  # projeto sem papel
     assert papel_de_parede.da_unidade(cad, "UM-03") == []  # unidade sem projeto
     assert papel_de_parede.da_unidade(cad, None) == []  # bancada
-    assert etapas.ocultas(cad, "UM-01") == frozenset()
-    assert etapas.ocultas(cad, "UM-02") == {"papel"}
-    assert etapas.ocultas(cad, None) == {"papel"}
+    # o cadastro de teste não tem rede: a 3 também some (ADR-065); aqui importa o papel
+    assert "papel" not in etapas.ocultas(cad, "UM-01")
+    assert "papel" in etapas.ocultas(cad, "UM-02")
+    assert "papel" in etapas.ocultas(cad, None)
     assert etapas.ocultas(None, "UM-01") == frozenset()
     assert etapas.Papel(etapas.Contexto(True, cad, unidade="UM-01"))._linha().id == 1
     assert [papel_de_parede.dono(i) for i in (do_abc, base)] == ["projeto ABC", "sem projeto"]

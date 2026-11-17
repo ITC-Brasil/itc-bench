@@ -57,6 +57,12 @@ AJUDA = (
     "mexe na Microsoft Store, no Edge, na Calculadora, no Bloco de Notas nem no App Installer "
     "(winget).\n"
     "\n"
+    "Wi-Fi (3)\n"
+    "Instala as redes do projeto da unidade desta máquina (cadastro WiFi, coluna Projeto) que "
+    "valem para o perfil escolhido (coluna Perfis; vazia = todos). Uma rede de outra unidade do "
+    "mesmo projeto também entra. Rede antiga, sem projeto, só na unidade dela. Sem rede para o "
+    "projeto e o perfil, ou com a máquina em bancada, a etapa 3 não aparece.\n"
+    "\n"
     "Papel de parede (4)\n"
     "Cada projeto tem o seu, no cadastro (Instaladores, tipo papel, coluna Projeto). A etapa "
     "4 usa o do projeto da unidade desta máquina. Sem papel do projeto, unidade sem projeto "
@@ -299,7 +305,8 @@ class PainelPreparacao(QWidget):
     def ocultas(self) -> frozenset[str]:
         if self.manutencao:
             return etapas.ocultas_manutencao()  # Steam (ADR-064)
-        return etapas.ocultas(self.obter_cadastros(), self.obter_unidade())
+        perfil = str(self.perfil.currentData() or "")
+        return etapas.ocultas(self.obter_cadastros(), self.obter_unidade(), perfil)
 
     def desmarcadas(self) -> list[str]:
         fora = list(self.ocultas())  # etapa escondida não roda (ADR-057)
@@ -427,6 +434,8 @@ class PainelPreparacao(QWidget):
     def _preparar_ctx(self) -> None:
         self.ctx.cadastros = self.obter_cadastros()
         self.ctx.unidade = self.obter_unidade()
+        perfil = self.perfil_atual()
+        self.ctx.perfil = perfil.id if perfil is not None and not self.manutencao else ""
         self.ctx.nome = ""  # Identificação saiu da Configuração (ADR-062)
         self.ctx.alvos = tuple(self.alvos())
         self.ctx.avisar = self.sinais.texto.emit

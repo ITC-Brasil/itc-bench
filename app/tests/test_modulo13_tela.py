@@ -213,7 +213,9 @@ def test_preparacao_sem_papel_da_unidade_pula_da_3_para_a_5(qtbot):
     p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-02")
     qtbot.addWidget(p)
     ids = _ids_da_lista(p)
-    assert "papel" not in ids and ids[ids.index("wifi") + 1] == "remoto"
+    # sem rede no cadastro de teste, a 3 também some (ADR-065)
+    assert "papel" not in ids and "wifi" not in ids
+    assert ids[ids.index("preinstalados") + 1] == "remoto"
     assert "papel" in p.desmarcadas()
     assert p.lista.topLevelItem(ids.index("remoto")).text(0) == "5. Acesso remoto"
 

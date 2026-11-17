@@ -1314,3 +1314,30 @@ Os perfis da Preparação saem do código do Bench e passam ao NocoDB (ADR-060).
 **Consequences**
 - **Ordem:** criar a tabela Perfis (e os perfis) no NocoDB, depois `NOCODB_TABELA_PERFIS` no
   `.env` do servidor. Com o Bench novo e sem a variável, a Preparação completa não roda.
+
+## TA-ADR-038 — WiFi por projeto e perfil
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-065; emenda ao TA-ADR-027 e ao ADR-014)
+
+**Context**
+As redes eram por unidade. O responsável quer as redes como o papel de parede: por projeto, e
+com os perfis que as recebem (ex.: `BSBIA03-NOTEBOOKS` para o projeto BSBIA, perfil aluno).
+
+**Decision**
+- Colunas novas em WiFi: `Projeto` (lida com `NOCODB_TABELA_PROJETOS`) e `Perfis` (lida com
+  `NOCODB_TABELA_PERFIS`), entregues em `wifi[].projeto` e `wifi[].perfis` (lista de códigos em
+  minúsculas, sem repetir).
+- Validação, só Id no log quando descarta: com `Projeto`, a sigla tem de ser de um Projeto ativo
+  (`projeto_invalido`) e a `Unidade` vira anotação; sem `Projeto`, a regra antiga
+  (`unidade_invalida`). Código de perfil desconhecido descarta a rede (`perfil_invalido`).
+- `GET /v1/bench/cadastros?unidade=X`: as redes do projeto de X e as antigas (sem projeto) de X.
+  Sem `?unidade=`, todas (como antes).
+
+**Alternatives considered**
+- Perfil desconhecido ignorado (rede para todos): entregaria senha de rede a quem não deveria.
+
+**Consequences**
+- **Ordem:** criar as colunas `Projeto` e `Perfis` em WiFi junto com as tabelas Projetos e
+  Perfis; redes sem `Projeto` continuam funcionando pela unidade.
