@@ -104,19 +104,23 @@ parede da etapa 10 (ADR-057) e os perfis por projeto (ADR-060) dependem dele.
 API com o TA-ADR-039 estiver publicada.
 ### Perfis
 Opcional: só lida com `NOCODB_TABELA_PERFIS` preenchido (ADR-060, TA-ADR-037). **Sem ela, a
-Preparação completa não roda.** O perfil só escolhe quais etapas rodam; o que cada etapa faz é
+Configuração não roda.** O perfil só escolhe quais etapas rodam; o que cada etapa faz é
 do código.
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
 | `Codigo` | SingleLineText, display | Minúsculas, números e `_`, até 32 (ex.: `aluno`, `professor`). Único. É o que `Unidades.PerfilPadrao` cita |
 | `Nome` | SingleLineText | Nome na tela (vazio = o código) |
-| `Etapas` | SingleLineText | Números de 1 a 14 separados por vírgula (ex.: `1,2,3,4,5,9,10,11,12,13,14`) |
+| `Etapas` | SingleLineText | Números de 1 a 12 separados por vírgula (ex.: `1,3,4,5,6,9,10,11,12`) |
 | `Projeto` | SingleLineText | Opcional: sigla de Projetos; o perfil só aparece nas unidades desse projeto. Vazio = todas |
 | `Descricao` | SingleLineText | Opcional |
 | `Ativo` | Checkbox | |
 Números das etapas (ADR-056): 1 Identificação, 2 Contas, 3 Wi-Fi, 4 Acesso remoto, 5 Programas,
 6 Remover pré-instalados, 7 Políticas, 8 USB, 9 Proteção do login, 10 Papel de parede, 11 Mouse
 e teclado, 12 Energia, 13 Limpeza, 14 Diagnóstico. 7, 8, 10 e 11 dependem de 2.
+Números das etapas da Configuração (ADR-062): 1 Energia: nunca desligar, 2 Remover
+pré-instalados, 3 Wi-Fi, 4 Papel de parede, 5 Acesso remoto, 6 Programas, 7 Políticas, 8 USB,
+9 Proteção do login, 10 Energia: planos finais, 11 Contas, 12 Diagnóstico. Sem dependência
+entre elas. A Manutenção não usa perfil.
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
 `Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o

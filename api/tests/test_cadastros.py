@@ -503,12 +503,12 @@ def test_papel_por_projeto(settings, fake, caplog):
 
 
 def test_perfis_validados(settings, fake, caplog):
-    """TA-ADR-037: Codigo, Etapas 1..14 and Projeto checked; duplicates and bad rows dropped."""
+    """TA-ADR-037: Codigo, Etapas 1..12 and Projeto checked; duplicates and bad rows dropped."""
     fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
     fake.dados["mPer"] = [
-        {"Id": 1, "Codigo": "Aluno", "Nome": "Aluno", "Etapas": "14, 1;2 2 3", "Ativo": True},
+        {"Id": 1, "Codigo": "Aluno", "Nome": "Aluno", "Etapas": "12, 1;2 2 3", "Ativo": True},
         {"Id": 2, "Codigo": "prof", "Etapas": "1,2", "Projeto": "ABC", "Ativo": True},
-        {"Id": 3, "Codigo": "ruim", "Etapas": "1,15", "Ativo": True},
+        {"Id": 3, "Codigo": "ruim", "Etapas": "1,13", "Ativo": True},
         {"Id": 4, "Codigo": "com espaco", "Etapas": "1", "Ativo": True},
         {"Id": 5, "Codigo": "outro", "Etapas": "1", "Projeto": "XYZ", "Ativo": True},
         {"Id": 6, "Codigo": "dup", "Etapas": "1", "Ativo": True},
@@ -524,7 +524,7 @@ def test_perfis_validados(settings, fake, caplog):
             httpx.MockTransport(fake.handler),
         )
     assert com["perfis"] == [
-        {"id": 1, "codigo": "aluno", "nome": "Aluno", "etapas": [1, 2, 3, 14], "projeto": "", "descricao": ""},
+        {"id": 1, "codigo": "aluno", "nome": "Aluno", "etapas": [1, 2, 3, 12], "projeto": "", "descricao": ""},
         {"id": 2, "codigo": "prof", "nome": "prof", "etapas": [1, 2], "projeto": "ABC", "descricao": ""},
     ]
     assert sorted(com["descartados"]["perfis"]) == [3, 4, 5, 6, 7, 8]

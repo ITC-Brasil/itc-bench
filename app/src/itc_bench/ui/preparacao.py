@@ -1,5 +1,6 @@
-"""Tela Preparação completa (ADR-023). Motor em `servicos/preparacao.py`, etapas em
-`servicos/etapas.py`, retomada em `servicos/retomada.py`; aqui só tela."""
+"""Telas Configuração e Manutenção (ADR-023, ADR-062). Motor em `servicos/preparacao.py`,
+etapas em `servicos/etapas.py`, retomada em `servicos/retomada.py`; aqui só tela. As duas
+usam a mesma classe: a Manutenção não tem perfil, contas de aluno nem retomada."""
 
 import threading
 from collections.abc import Callable
@@ -11,7 +12,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -32,14 +32,19 @@ from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
 AJUDA = (
-    "Roda as etapas do perfil em ordem, cada uma com número fixo: 1. Identificação, "
-    "2. Contas, 3. Wi-Fi, 4. Acesso remoto, 5. Programas, 6. Remover pré-instalados, "
-    "7. Políticas, 8. USB, 9. Proteção do login, 10. Papel de parede, 11. Mouse e teclado, "
-    "12. Energia, 13. Limpeza e 14. Diagnóstico. O número não muda com o perfil: um perfil "
-    "que pula 6, 7 e 8 mostra 1 a 5 e depois 9 a 14. Cada etapa usa as mesmas regras da tela "
-    "dela.\n"
+    "Configura uma máquina nova, com as etapas do perfil, em ordem e com número fixo: "
+    "1. Energia: nunca desligar, 2. Remover pré-instalados, 3. Wi-Fi, 4. Papel de parede, "
+    "5. Acesso remoto, 6. Programas, 7. Políticas, 8. USB, 9. Proteção do login, 10. Energia: "
+    "planos finais, 11. Contas e 12. Diagnóstico. O número não muda com o perfil: um perfil "
+    "sem 7 e 8 mostra 1 a 6 e depois 9 a 12. Cada etapa usa as mesmas regras da tela dela. "
+    "Identificação (nome do computador) e Mouse e teclado ficam só nas telas deles.\n"
     "\n"
-    "Remover pré-instalados (6)\n"
+    "Energia (1 e 10)\n"
+    "A 1 deixa tela e suspensão em Nunca, na tomada e na bateria, para a máquina não dormir no "
+    "meio da configuração. A 10 aplica os planos finais, iguais para todo perfil: desligar a "
+    "tela em 30 minutos e suspender em 1 hora, na tomada e na bateria.\n"
+    "\n"
+    "Remover pré-instalados (2)\n"
     "Remove, para todas as contas e para as contas novas, os apps da Microsoft de uma lista "
     "fechada: Clipchamp, Notícias, Clima, Xbox e Game Bar, Obter Ajuda, Dicas, Microsoft 365 "
     "(hub), Paciência, Realidade Misturada, Pessoas, Power Automate, Skype, To Do, Hub de "
@@ -52,29 +57,29 @@ AJUDA = (
     "mexe na Microsoft Store, no Edge, na Calculadora, no Bloco de Notas nem no App Installer "
     "(winget).\n"
     "\n"
-    "Papel de parede\n"
+    "Papel de parede (4)\n"
     "Cada projeto tem o seu, no cadastro (Instaladores, tipo papel, coluna Projeto). A etapa "
-    "10 usa o do projeto da unidade desta máquina. Sem papel do projeto, unidade sem projeto "
-    "ou máquina em bancada (sem unidade), a etapa 10 não aparece: a lista pula da 9 para a "
-    "11.\n"
+    "4 usa o do projeto da unidade desta máquina. Sem papel do projeto, unidade sem projeto "
+    "ou máquina em bancada (sem unidade), a etapa 4 não aparece: a lista pula da 3 para a 5.\n"
     "\n"
     "Perfis\n"
     "Vêm do cadastro (tabela Perfis no NocoDB; veja em Configurações › Perfis). Cada perfil "
-    "diz quais etapas rodam, pelos números; o que cada etapa faz não muda com o perfil. "
-    "Aparecem os perfis gerais e os do projeto desta unidade; vem marcado o perfil padrão da "
-    "unidade. Sem perfil no cadastro, a Preparação não roda: cadastre e sincronize.\n"
+    "diz quais etapas rodam, pelos números de 1 a 12; o que cada etapa faz não muda com o "
+    "perfil. Aparecem os perfis gerais e os do projeto desta unidade; vem marcado o perfil "
+    "padrão da unidade. Sem perfil no cadastro, a Configuração não roda: cadastre e "
+    "sincronize.\n"
     "\n"
     "Como usar\n"
     "1. Escolha o perfil (vem marcado o da unidade). Desmarque etapas que não quer agora.\n"
-    "2. Digite o nome do computador, se for trocar. As contas de aluno vêm marcadas: "
-    "desmarque as que não devem receber.\n"
+    "2. As contas de aluno vêm marcadas: desmarque as que não devem receber políticas, USB e "
+    "papel de parede.\n"
     "3. Ler situação confere cada etapa no Windows: feito, pendente ou bloqueada (com o "
     "motivo).\n"
     "4. Rodar N etapas mostra o que muda e pede confirmação. Etapa já feita é pulada; rodar "
     "de novo não refaz nada.\n"
     "5. Pausar para depois da etapa que está rodando.\n"
     "\n"
-    "Contas\n"
+    "Contas (11)\n"
     "Aplica a conta Suporte e tira administrador de todas as outras, inclusive da conta em "
     "uso (vale na próxima entrada; depois o UAC pede a Suporte). Com as linhas Conta Gestão "
     "em Servidores, também aplica a conta Gestão (cria se faltar, ativa e torna "
@@ -84,18 +89,38 @@ AJUDA = (
     "\n"
     "Contas de aluno\n"
     "Contas locais ativas que não são administradoras e já têm perfil, menos a Suporte, o "
-    "Administrador nativo e a conta em uso. Políticas, USB, papel de parede e mouse valem "
-    "para elas e para Contas futuras.\n"
+    "Administrador nativo e a conta em uso. Políticas, USB e papel de parede valem para elas "
+    "e para Contas futuras.\n"
     "\n"
-    "Falha e bloqueio\n"
-    "Etapa que falha não para as outras; as que dependem dela (Políticas, USB, papel e mouse "
-    "dependem de 2. Contas) ficam bloqueadas. Veja o motivo na linha e no Registro.\n"
+    "Falha\n"
+    "Etapa que falha não para as outras. Veja o motivo na linha e no Registro.\n"
     "\n"
     "Reinício\n"
-    "Trocar o nome e alguns instaladores pedem reinício. O Bench não reinicia sozinho: use "
-    "Reiniciar agora. Depois do reinício, abra o Bench, entre e escolha Continuar; a "
-    "preparação relê tudo e roda só o que falta. Vale por 24 horas e até 2 reinícios. "
-    "Descartar apaga a preparação guardada.\n"
+    "Alguns instaladores pedem reinício. O Bench não reinicia sozinho: use Reiniciar agora. "
+    "Depois do reinício, abra o Bench, entre e escolha Continuar; a configuração relê tudo e "
+    "roda só o que falta. Vale por 24 horas e até 2 reinícios. Descartar apaga a configuração "
+    "guardada.\n"
+    "\n"
+    "Sem administrador (modo de teste), só a leitura."
+)
+AJUDA_MANUTENCAO = (
+    "Cuida de uma máquina que já está em uso. Não usa perfil: todas as etapas vêm marcadas e "
+    "você desmarca as que não quer. Os números são fixos: 2. Wi-Fi: atualizar senhas e "
+    "3. Diagnóstico (o 1 fica para a limpeza de arquivos das contas, que entra depois).\n"
+    "\n"
+    "Wi-Fi: atualizar senhas (2)\n"
+    "Confere as redes do cadastro da unidade que já estão instaladas nesta máquina e regrava "
+    "as que estão com outra senha. Rede que não está na máquina não é instalada: para isso, "
+    "use a tela Wi-Fi ou a Configuração.\n"
+    "\n"
+    "Diagnóstico (3)\n"
+    "A mesma coleta da tela Diagnóstico: processos, rede, erros do Windows, disco e bateria, "
+    "com o laudo da IA. Só lê a máquina.\n"
+    "\n"
+    "Como usar\n"
+    "1. Ler situação confere cada etapa: feito, pendente ou bloqueada (com o motivo).\n"
+    "2. Rodar N etapas mostra o que muda e pede confirmação. Etapa já feita é pulada.\n"
+    "3. Pausar para depois da etapa que está rodando.\n"
     "\n"
     "Sem administrador (modo de teste), só a leitura."
 )
@@ -124,8 +149,11 @@ class PainelPreparacao(QWidget):
         obter_cadastros: Callable[[], Cadastros | None],
         obter_unidade: Callable[[], str | None],
         diagnosticar: Callable[[threading.Event], prep.Resultado] | None = None,
+        manutencao: bool = False,
     ) -> None:
         super().__init__()
+        self.manutencao = manutencao  # ADR-062: sem perfil, sem contas de aluno, sem retomada
+        self.fluxo = perfis.MANUTENCAO if manutencao else perfis.CONFIGURACAO
         self.admin = admin
         self.obter_cadastros = obter_cadastros
         self.obter_unidade = obter_unidade
@@ -160,13 +188,14 @@ class PainelPreparacao(QWidget):
         self.perfil = QComboBox()
         self._carregar_perfis()  # do cadastro (ADR-060)
         self.perfil.currentIndexChanged.connect(lambda _i: self._montar_lista())
-        self.nome = QLineEdit()
-        self.nome.setPlaceholderText("Nome do computador (vazio = não trocar)")
-        self.nome.setMaxLength(15)
-        topo.addWidget(_rotulo("Perfil:"))
+        self.rotulo_perfil = _rotulo("Perfil:")
+        topo.addWidget(self.rotulo_perfil)
         topo.addWidget(self.perfil)
-        topo.addWidget(self.nome, 1)
+        topo.addStretch()
         v.addLayout(topo)
+        if manutencao:
+            self.rotulo_perfil.hide()
+            self.perfil.hide()
         self.aviso = _rotulo("")
         v.addWidget(self.aviso)
         if not admin:
@@ -179,13 +208,17 @@ class PainelPreparacao(QWidget):
         self.lista.setColumnWidth(1, 150)
         self.lista.setRootIsDecorated(False)
         self.lista.itemChanged.connect(lambda *_: self._ocupar(self.ocupado))
-        alunos = QVBoxLayout()
+        self.painel_alunos = QWidget()
+        alunos = QVBoxLayout(self.painel_alunos)
+        alunos.setContentsMargins(0, 0, 0, 0)
         alunos.addWidget(_rotulo("Contas de aluno"))
         self.alunos = QListWidget()
         self.alunos.setMaximumWidth(240)
         alunos.addWidget(self.alunos, 1)
         meio.addWidget(self.lista, 3)
-        meio.addLayout(alunos, 1)
+        meio.addWidget(self.painel_alunos, 1)
+        if manutencao:
+            self.painel_alunos.hide()
         v.addLayout(meio, 3)
 
         acoes = QHBoxLayout()
@@ -217,7 +250,9 @@ class PainelPreparacao(QWidget):
 
     def _carregar_perfis(self) -> bool:
         """Preenche o seletor com os perfis do cadastro que valem para a unidade (ADR-060).
-        Mantém o escolhido, se ainda existir. True se a lista mudou."""
+        Mantém o escolhido, se ainda existir. True se a lista mudou. Manutenção: nada."""
+        if self.manutencao:
+            return False
         lista = perfis.disponiveis(self.obter_cadastros(), self.obter_unidade())
         novos = [(p.nome, p.id) for p in lista]
         atuais = [
@@ -236,6 +271,8 @@ class PainelPreparacao(QWidget):
         return True
 
     def perfil_atual(self) -> perfis.Perfil | None:
+        if self.manutencao:
+            return perfis.Perfil("manutencao", "Manutenção", "", self.fluxo.ordem)
         cad = self.obter_cadastros()
         pid = self.perfil.currentData()
         if cad is None or pid is None:
@@ -243,9 +280,13 @@ class PainelPreparacao(QWidget):
         return next((p for p in cad.perfis if p.id == pid), None)
 
     def perfil_da_unidade(self) -> tuple[perfis.Perfil | None, str]:
+        if self.manutencao:
+            return self.perfil_atual(), ""
         return perfis.padrao(self.obter_cadastros(), self.obter_unidade())
 
     def ocultas(self) -> frozenset[str]:
+        if self.manutencao:
+            return frozenset()
         return etapas.ocultas(self.obter_cadastros(), self.obter_unidade())
 
     def desmarcadas(self) -> list[str]:
@@ -273,8 +314,8 @@ class PainelPreparacao(QWidget):
             self.aviso.setText(perfis.SEM_PERFIL)
         for eid in perfil.etapas if perfil is not None else ():
             if eid in ocultas:
-                continue  # sem papel da unidade: a lista pula da 9 para a 11 (ADR-057)
-            item = QTreeWidgetItem([perfis.rotulo(eid), prep.ROTULO["nao_iniciado"], ""])
+                continue  # sem papel do projeto: a lista pula da 3 para a 5 (ADR-057)
+            item = QTreeWidgetItem([self.fluxo.rotulo(eid), prep.ROTULO["nao_iniciado"], ""])
             item.setData(0, Qt.ItemDataRole.UserRole, eid)
             marcado = Qt.CheckState.Unchecked if eid in desmarcadas else Qt.CheckState.Checked
             item.setCheckState(0, marcado)
@@ -294,6 +335,9 @@ class PainelPreparacao(QWidget):
                 self._montar_lista(fora)
             return
         self.iniciado = True
+        if self.manutencao:
+            self._montar_lista()
+            return
         self._carregar_perfis()
         perfil, aviso = self.perfil_da_unidade()
         if perfil is not None:
@@ -354,7 +398,6 @@ class PainelPreparacao(QWidget):
             return
         self.perfil.setCurrentIndex(n)
         self._montar_lista(g.desmarcadas)
-        self.nome.setText(g.nome)
         self._carregar_alunos(g.alvos)
         self.banner.hide()
         log.info("Preparação: retomada perfil=%s reinicios=%s", g.perfil, g.reinicios)
@@ -371,14 +414,13 @@ class PainelPreparacao(QWidget):
     def _preparar_ctx(self) -> None:
         self.ctx.cadastros = self.obter_cadastros()
         self.ctx.unidade = self.obter_unidade()
-        self.ctx.nome = (
-            identificacao.normalizar(self.nome.text()) if self.nome.text().strip() else ""
-        )
+        self.ctx.nome = ""  # Identificação saiu da Configuração (ADR-062)
         self.ctx.alvos = tuple(self.alvos())
         self.ctx.avisar = self.sinais.texto.emit
         self.ctx._lista = None
         if not self.etapas:
-            self.etapas = etapas.montar(self.ctx)
+            montar = etapas.montar_manutencao if self.manutencao else etapas.montar
+            self.etapas = montar(self.ctx)
 
     def ler(self) -> None:
         perfil = self.perfil_atual()
@@ -407,8 +449,8 @@ class PainelPreparacao(QWidget):
             detalhe = s.detalhe
             if eid == "contas":
                 detalhe = etapas.Contas(self.ctx).mudancas()
-            linhas.append(f"• {perfis.rotulo(eid)}: {detalhe or 'aplicar'}")
-        return "Rodar a preparação?\n\n" + "\n".join(linhas)
+            linhas.append(f"• {self.fluxo.rotulo(eid)}: {detalhe or 'aplicar'}")
+        return f"Rodar a {self.fluxo.nome.lower()}?\n\n" + "\n".join(linhas)
 
     def _rodar(self) -> None:
         if self.andamento is None:
@@ -465,7 +507,8 @@ class PainelPreparacao(QWidget):
             item.setToolTip(2, txt.dica(s.detalhe))
             item.setForeground(1, QColor(tema.cor_situacao(COR[s.situacao])))
             if s.situacao in ("feito", "falhou", "bloqueada", "aguardando_reinicio"):
-                self._linha(f"{perfis.rotulo(eid)}: {prep.ROTULO[s.situacao]}. {s.detalhe}".strip())
+                rotulo = self.fluxo.rotulo(eid)
+                self._linha(f"{rotulo}: {prep.ROTULO[s.situacao]}. {s.detalhe}".strip())
 
     def _reiniciar(self) -> None:
         anterior = self.guardado
@@ -521,10 +564,9 @@ class PainelPreparacao(QWidget):
         self.b_rodar.setEnabled(self.admin and not ocupado and pendentes > 0)
         if not self.admin:
             self.b_rodar.setToolTip("Precisa de administrador.")
-        self.b_ler.setEnabled(not ocupado and self.perfil.count() > 0)
+        self.b_ler.setEnabled(not ocupado and self.perfil_atual() is not None)
         self.b_pausar.setEnabled(ocupado)
         self.perfil.setEnabled(not ocupado)
-        self.nome.setEnabled(not ocupado and self.admin)
         self.b_reiniciar.setEnabled(not ocupado and self.admin)
 
     def _linha(self, texto: str) -> None:

@@ -53,7 +53,7 @@ TABELAS = {
     # TA-ADR-036: optional. Only read when nocodb_tabela_projetos is set; then Unidades and
     # Instaladores also read their Projeto column (the sigla of a Projetos row, TA-ADR-035).
     "projetos": ("nocodb_tabela_projetos", ("Id", "Sigla", "Nome", "Ativo"), "Sigla"),
-    # TA-ADR-037: optional. Preparação profiles: which of the 14 numbered steps run.
+    # TA-ADR-037: optional. Configuração profiles: which of the 12 numbered steps run.
     "perfis": (
         "nocodb_tabela_perfis",
         ("Id", "Codigo", "Nome", "Etapas", "Descricao", "Ativo"),
@@ -61,9 +61,9 @@ TABELAS = {
     ),
 }
 OPCIONAIS = ("projetos", "perfis")
-# Steps of the Bench Preparação, numbered 1..14 (ADR-056). The API only checks the range;
-# the Bench maps numbers to steps.
-TOTAL_ETAPAS = 14
+# Steps of the Bench Configuração, numbered 1..12 (ADR-062; was 1..14, ADR-056). The API only
+# checks the range; the Bench maps numbers to steps.
+TOTAL_ETAPAS = 12
 CODIGO_PERFIL = re.compile(r"[a-z0-9_]{1,32}")
 
 
@@ -298,7 +298,7 @@ def projeto(linha: dict) -> dict:
 
 
 def perfis(linhas: list[dict], siglas: set[str], descartados: dict) -> list[dict]:
-    """TA-ADR-037: Codigo [a-z0-9_]{1,32} and unique; Etapas = numbers 1..14 (comma, semicolon or
+    """TA-ADR-037: Codigo [a-z0-9_]{1,32} and unique; Etapas = numbers 1..12 (comma, semicolon or
     space); Projeto empty or an active sigla. A bad row is dropped, logged by Id only."""
     saida, vistos = [], {}
     for linha in linhas:
@@ -335,7 +335,7 @@ def perfis(linhas: list[dict], siglas: set[str], descartados: dict) -> list[dict
 
 
 def etapas(valor: str) -> list[int] | None:
-    """"1, 2,3;14" -> [1, 2, 3, 14] (sorted, unique). None if empty or any part is not 1..14."""
+    """"1, 2,3;12" -> [1, 2, 3, 12] (sorted, unique). None if empty or any part is not 1..12."""
     partes = [p for p in re.split(r"[,;\s]+", valor) if p]
     if not partes or not all(p.isdigit() and 1 <= int(p) <= TOTAL_ETAPAS for p in partes):
         return None

@@ -21,7 +21,7 @@ Barra lateral fixa com 7 grupos, na ordem de trabalho no notebook:
 
 | Grupo | Itens |
 |---|---|
-| Início | Início · Preparação completa |
+| Início | Início · Configuração · Manutenção |
 | Preparar | Identificação · Contas · Wi-Fi · Acesso remoto |
 | Software | Programas · Remover programas |
 | Segurança | Políticas · Proteção do login · USB |
@@ -37,8 +37,12 @@ Selos na barra: progresso da preparação (ex.: `6/9`) e contagem de alertas cr�
 preparação (feito / pendente / não iniciado), último diagnóstico, alertas com atalho para a tela
 que resolve, atalhos (forçar inventário GLPI, limpar temporários).
 
-**Preparação completa** — escolhe perfil (ex.: Sala de aula), lista etapas numeradas de 1 a 14 com número fixo (ADR-056), "Rodar N etapas",
+**Configuração** (antes Preparação completa) — escolhe perfil (ex.: Aluno), lista etapas numeradas de 1 a 12 com número fixo (ADR-062), "Rodar N etapas",
 "Pausar". Log ao vivo. Se uma etapa pede reinício, agenda retomada e continua depois do boot.
+
+**Manutenção** (ADR-062) — máquina em uso, sem perfil: etapas com número fixo (2. Wi-Fi:
+atualizar senhas, 3. Diagnóstico; o 1 reservado para a limpeza de arquivos das contas), todas
+marcadas, "Ler situação" e "Rodar N etapas" como na Configuração. Sem retomada.
 
 **Tela de cadastro (Wi-Fi como modelo)** — abas filtro (esta unidade / todas / instaladas no
 Windows), tabela com situação no Windows (igual, senha antiga, ausente), ação "Instalar N

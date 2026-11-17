@@ -3,11 +3,11 @@
 from itc_bench.servicos import perfis
 from itc_bench.servicos.perfis import Perfil
 
-# (código, nome, números das etapas)
+# (código, nome, números das etapas da Configuração, ADR-062)
 LINHAS = (
-    ("aluno", "Aluno", list(range(1, 15))),
-    ("administrativo", "Administrativo", [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]),
-    ("so_diagnostico", "Só diagnóstico", [14]),
+    ("aluno", "Aluno", list(range(1, 13))),
+    ("administrativo", "Administrativo", [1, 3, 4, 5, 6, 9, 10, 11, 12]),
+    ("so_diagnostico", "Só diagnóstico", [12]),
 )
 
 

@@ -3407,3 +3407,48 @@ versão do Bench: todos pelo NocoDB.
 - Sem a tabela configurada no servidor, a Preparação completa fica parada (as telas avulsas não).
   Ordem de implantação no TA-ADR-037.
 - Roteiro de máquina real 10.17 (perfis do cadastro).
+
+## ADR-062 — Preparação separada em Configuração (com perfil) e Manutenção (sem perfil)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; parte 1 de várias)
+**Module:** Pós-16 (revisa o ADR-023, itens 1 e 2, e o ADR-056)
+
+**Context**
+A Preparação completa misturava o que se faz numa máquina nova e o que se faz numa máquina em
+uso. O responsável definiu dois roteiros: Configuração (com perfil) e Manutenção (sem perfil),
+com uma ordem nova.
+
+**Decision**
+1. **Configuração** (a tela que era Preparação completa, item `prep`): 12 etapas, número fixo:
+   1 Energia: nunca desligar, 2 Remover pré-instalados, 3 Wi-Fi, 4 Papel de parede, 5 Acesso
+   remoto, 6 Programas, 7 Políticas, 8 USB, 9 Proteção do login, 10 Energia: planos finais,
+   11 Contas, 12 Diagnóstico. Perfis do cadastro (ADR-060) passam a usar 1 a 12.
+2. **Saem da Configuração:** Identificação (nome do computador) e Mouse e teclado; continuam nas
+   telas deles. Limpeza também sai (vai para a Manutenção, em outra parte).
+3. **Sem dependência entre etapas** (`perfis.DEPENDE` vazio): Contas foi para o fim e as
+   políticas, o USB e o papel valem para as contas de aluno marcadas sem precisar da Suporte
+   aplicada antes. Uma etapa que falha não bloqueia outra.
+4. **Energia em duas etapas:** a 1 deixa tela e suspensão em Nunca (tomada e bateria) para a
+   máquina não dormir no meio; a 10 aplica os planos finais, iguais para todo perfil: tela em
+   30 min e suspensão em 1 h, na tomada e na bateria (`perfis.ENERGIA_INICIO` e `ENERGIA`,
+   valores da lista fechada de `energia.TEMPOS`).
+5. **Manutenção** (item novo `manut`, mesma classe de tela com `manutencao=True`): sem perfil, sem
+   contas de aluno e sem retomada; todas as etapas marcadas. Números fixos: 2 Wi-Fi: atualizar
+   senhas e 3 Diagnóstico; o 1 fica reservado para a limpeza de arquivos das contas (próxima
+   parte).
+6. **Wi-Fi da Manutenção** (`etapas.WifiSenhas`): só as redes do cadastro da unidade que já estão
+   na máquina e diferem (`wifi.situacao` = `diferente`) são regravadas; rede ausente não é
+   instalada.
+7. A retomada guardada continua só da Configuração.
+
+**Alternatives considered**
+- Uma tela com seletor Configuração/Manutenção, ou um tipo no perfil: o responsável quis a
+  Manutenção sem perfil; duas entradas no menu deixam isso claro.
+
+**Consequences**
+- Perfis já cadastrados com números de 1 a 14 precisam ser revistos (TA-ADR-037 revisado).
+- O menu passa a ter 21 itens.
+- Próximas partes: etapa 11 só define senha da Suporte/Gestão quando vazia; limpeza de arquivos
+  na Manutenção; McAfee e Office pré-instalado na etapa 2; Wi-Fi e Programas por perfil.
+- Roteiro de máquina real 10.19 e 10.20.

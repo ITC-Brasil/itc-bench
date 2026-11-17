@@ -1303,6 +1303,9 @@ Os perfis da Preparação saem do código do Bench e passam ao NocoDB (ADR-060).
 - `GET /v1/bench/cadastros` ganha `perfis`: `id`, `codigo`, `nome` (vazio = o código),
   `etapas` (lista de inteiros), `projeto`, `descricao`.
 - A API só confere a faixa 1..14; quem liga número a etapa é o Bench (ADR-056).
+- **Revisado em 17/11/2026 (ADR-062):** a Configuração passou a ter 12 etapas; a faixa
+  aceita é 1..12 (`TOTAL_ETAPAS = 12`). Perfis com 13 ou 14 são descartados
+  (`etapas_invalidas`) e precisam ser revistos.
 
 **Alternatives considered**
 - Coluna `Id` como código: o `Id` é a chave interna do NocoDB.

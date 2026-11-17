@@ -39,7 +39,7 @@ AJUDA = (
     "• Projetos: cada unidade aponta para o projeto dela pela sigla (coluna Projeto em "
     "Unidades). A aba Projetos mostra as unidades de cada um; unidade sem projeto aparece com "
     "—. O papel de parede da Preparação é o do projeto da unidade.\n\n"
-    "• Perfis: os perfis da Preparação completa (tabela Perfis). Cada um diz quais etapas rodam, "
+    "• Perfis: os perfis da Configuração (tabela Perfis). Cada um diz quais etapas rodam, "
     "pelos números de 1 a 14; Projeto diz em que unidades ele aparece (todos = em todas). O que "
     "cada etapa faz não vem do cadastro.\n\n"
     "• Para mudar um cadastro, edite no NocoDB; aqui é só leitura. A mudança chega na próxima "

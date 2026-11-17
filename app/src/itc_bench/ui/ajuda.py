@@ -40,6 +40,7 @@ from itc_bench.ui.navegacao import GRUPOS
 from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
 from itc_bench.ui.politicas import AJUDA_USB
 from itc_bench.ui.preparacao import AJUDA as AJUDA_PREPARACAO
+from itc_bench.ui.preparacao import AJUDA_MANUTENCAO
 from itc_bench.ui.programas import AJUDA as AJUDA_PROGRAMAS
 from itc_bench.ui.programas import AJUDA_REMOVER
 from itc_bench.ui.protecao import AJUDA as AJUDA_PROTECAO
@@ -64,6 +65,7 @@ AJUDA = (
 TEXTOS: dict[str, str] = {
     "inicio": AJUDA_INICIO,
     "prep": AJUDA_PREPARACAO,
+    "manut": AJUDA_MANUTENCAO,
     "id": AJUDA_IDENTIFICACAO,
     "contas": AJUDA_CONTAS,
     "wifi": AJUDA_WIFI,

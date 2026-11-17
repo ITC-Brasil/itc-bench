@@ -101,7 +101,7 @@ def _falhas(itens: list[Any], ok: Callable[[Any], bool], msg: Callable[[Any], st
     return Resultado("falha", "; ".join(msg(i) for i in ruins[:3]), "parcial")
 
 
-# ---------------------------------------------------------------- 1 Identificação
+# ---------------------------------------------------------------- Identificação
 
 
 @dataclass
@@ -135,7 +135,7 @@ class Identificacao:
         )
 
 
-# ---------------------------------------------------------------- 2 Contas
+# ---------------------------------------------------------------- Contas
 
 
 def _admins_extra(lista: contas.Lista, prot: frozenset[str]) -> list[contas.Conta]:
@@ -211,7 +211,7 @@ class Contas:
         )
 
 
-# ---------------------------------------------------------------- 3 Wi-Fi
+# ---------------------------------------------------------------- Wi-Fi
 
 
 @dataclass
@@ -259,7 +259,42 @@ class Wifi:
         return f"instalar as redes da unidade ({len(self._redes())})"
 
 
-# ---------------------------------------------------------------- 4 Acesso remoto
+@dataclass
+class WifiSenhas(Wifi):
+    """Manutenção (ADR-062): só as redes do cadastro que já estão na máquina com outra senha (ou
+    outra configuração) são regravadas. Rede ausente não é instalada."""
+
+    id: str = "wifi_senhas"
+
+    def _diferentes(self) -> list[Any]:
+        with self._abrir() as c:
+            linhas = wifi.situacao(self._redes(), c, admin=True)
+        return [ln.rede for ln in linhas if ln.situacao == "diferente"]
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx, cadastro=True):
+            return _bloq(motivo)
+        if not self._redes():
+            return _bloq("nenhuma rede cadastrada para a unidade")
+        try:
+            n = len(self._diferentes())
+        except wifi.SemWifi:
+            return _bloq("sem adaptador Wi-Fi")
+        return Leitura("pendente", f"{n} rede(s) com senha a atualizar") if n else Leitura("feito")
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        diferentes = self._diferentes()
+        with self._abrir() as c:
+            r = wifi.instalar(diferentes, c, cancelar=cancelar)
+        if r.falhas:
+            return Resultado("falha", f"{len(r.falhas)} rede(s) não atualizada(s)", "wifi")
+        return Resultado("ok")
+
+    def mudancas(self) -> str:
+        return f"atualizar a senha das redes já instaladas ({len(self._diferentes())})"
+
+
+# ---------------------------------------------------------------- Acesso remoto
 
 
 def _remoto_ok(s: remoto.Situacao) -> bool:
@@ -313,7 +348,7 @@ class Remoto:
         return Resultado("ok")
 
 
-# ---------------------------------------------------------------- 5 Programas
+# ---------------------------------------------------------------- Programas
 
 
 @dataclass
@@ -357,7 +392,7 @@ class Programas:
         return f"instalar {len(self._falta())} programa(s)"
 
 
-# ---------------------------------------------------------------- 6 Remover pré-instalados
+# ---------------------------------------------------------------- Remover pré-instalados
 
 
 @dataclass
@@ -397,7 +432,7 @@ class Preinstalados:
         return "remover para todas as contas: " + ", ".join(self._presentes())
 
 
-# ---------------------------------------------------------------- 7 Políticas e 8 USB
+# ---------------------------------------------------------------- Políticas e USB
 
 
 @dataclass
@@ -449,7 +484,7 @@ class Politicas:
         return f"{len(self._ids())} políticas na máquina, em Contas futuras e em {n} conta(s)"
 
 
-# ---------------------------------------------------------------- 9 Proteção do login
+# ---------------------------------------------------------------- Proteção do login
 
 
 @dataclass
@@ -475,7 +510,7 @@ class Protecao:
         return Resultado("ok") if ok else Resultado("falha", msg, "atalho")
 
 
-# ---------------------------------------------------------------- 10 Papel de parede
+# ---------------------------------------------------------------- Papel de parede
 
 
 @dataclass
@@ -513,7 +548,7 @@ class Papel:
         return _falhas(fs, lambda f: f.ok, lambda f: f"{f.alvo.rotulo}: {f.mensagem}")
 
 
-# ---------------------------------------------------------------- 11 Mouse e teclado
+# ---------------------------------------------------------------- Mouse e teclado
 
 
 @dataclass
@@ -542,27 +577,30 @@ class Mouse:
         return _falhas(fs, lambda f: f.ok, lambda f: f"{f.alvo.rotulo}: {f.mensagem}")
 
 
-# ---------------------------------------------------------------- 12 Energia
+# ---------------------------------------------------------------- Energia
 
 
 @dataclass
 class Energia:
+    """Etapa 10 (planos finais) e, com `ENERGIA_INICIO`, etapa 1 ("nunca desligar")."""
+
     ctx: Contexto
     id: str = "energia"
+    valores: dict[tuple[str, str], int] = field(default_factory=lambda: dict(perfis.ENERGIA))
 
     def ler(self) -> Leitura:
         if motivo := _sem(self.ctx):
             return _bloq(motivo)
         s = energia.situacao()
-        falta = [k for k, seg in perfis.ENERGIA.items() if s.valores[k].atual != seg]  # type: ignore[index]
+        falta = [k for k, seg in self.valores.items() if s.valores[k].atual != seg]  # type: ignore[index]
         return Leitura("pendente", f"{len(falta)} ajuste(s)") if falta else Leitura("feito")
 
     def aplicar(self, cancelar: threading.Event) -> Resultado:
-        fs = energia.tempos(perfis.ENERGIA, cancelar=cancelar)  # type: ignore[arg-type]
+        fs = energia.tempos(self.valores, cancelar=cancelar)  # type: ignore[arg-type]
         return _falhas(fs, lambda f: f.ok, lambda f: f.mensagem)
 
 
-# ---------------------------------------------------------------- 13 Limpeza e 14 Diagnóstico
+# ---------------------------------------------------------------- Limpeza e Diagnóstico
 
 
 @dataclass
@@ -618,23 +656,30 @@ def ocultas(cadastros: Cadastros | None, unidade: str | None) -> frozenset[str]:
 
 
 def montar(ctx: Contexto) -> list[Etapa]:
-    """Todas as etapas, na ordem de `perfis.ORDEM`; o andamento diz quais rodam."""
+    """Configuração (ADR-062): todas as etapas, na ordem de `perfis.CONFIGURACAO`; o andamento
+    diz quais rodam. Identificação, Mouse e teclado e Limpeza ficam só nas telas delas."""
     lista: list[Etapa] = [
-        Identificacao(ctx),
-        Contas(ctx),
+        Energia(ctx, id="energia_inicio", valores=dict(perfis.ENERGIA_INICIO)),
+        Preinstalados(ctx),
         Wifi(ctx),
+        Papel(ctx),
         Remoto(ctx),
         Programas(ctx),
-        Preinstalados(ctx),
         Politicas(ctx),
         Politicas(ctx, usb=True),
         Protecao(ctx),
-        Papel(ctx),
-        Mouse(ctx),
         Energia(ctx),
-        Limpeza(ctx),
+        Contas(ctx),
         Diagnostico(ctx),
     ]
-    if tuple(e.id for e in lista) != perfis.ORDEM:
-        raise RuntimeError("Etapas fora da ordem de perfis.ORDEM.")
+    if tuple(e.id for e in lista) != perfis.CONFIGURACAO.ordem:
+        raise RuntimeError("Etapas fora da ordem de perfis.CONFIGURACAO.")
+    return lista
+
+
+def montar_manutencao(ctx: Contexto) -> list[Etapa]:
+    """Manutenção (ADR-062), na ordem de `perfis.MANUTENCAO`; sem perfil."""
+    lista: list[Etapa] = [WifiSenhas(ctx), Diagnostico(ctx)]
+    if tuple(e.id for e in lista) != perfis.MANUTENCAO.ordem:
+        raise RuntimeError("Etapas fora da ordem de perfis.MANUTENCAO.")
     return lista

@@ -670,7 +670,9 @@ class Janela(QMainWindow):
     def closeEvent(self, evento: QCloseEvent) -> None:
         oferta = self.oferta
         if oferta is not None and (self.faixa.confirmada or oferta.obrigatoria):
-            preparando = bool(getattr(self.preparacao, "ocupado", False))
+            preparando = any(
+                bool(getattr(p, "ocupado", False)) for p in (self.preparacao, self.manutencao)
+            )
             motivo = atualizacao.motivo_para_nao_instalar(preparando)
             if motivo:
                 txt.aviso(self, "ITC Bench", f"{motivo}\n\nO Bench fecha sem atualizar.")
@@ -789,12 +791,21 @@ class Janela(QMainWindow):
         tela.corpo.addWidget(painel, 1)
 
     def _modulo13(self) -> None:
-        """Início, Preparação completa, Limpeza e Ajuda (ADR-023); ajuda de todas as telas."""
+        """Início, Configuração, Manutenção, Limpeza e Ajuda (ADR-023, ADR-062); ajuda de todas
+        as telas."""
         self.preparacao = PainelPreparacao(
             self.admin, lambda: self.cadastros, lambda: self.unidade, self._diagnosticar
         )
         self.preparacao.selo.connect(self._selo_preparacao)
         self.preparacao.selo.connect(lambda _s: self.reenviar_fila())
+        self.manutencao = PainelPreparacao(
+            self.admin,
+            lambda: self.cadastros,
+            lambda: self.unidade,
+            self._diagnosticar,
+            manutencao=True,
+        )
+        self.manutencao.selo.connect(lambda _s: self.reenviar_fila())
         self.inicio = PainelInicio(
             self.admin,
             lambda: self.cadastros,
@@ -812,6 +823,7 @@ class Janela(QMainWindow):
         for chave, painel in (
             ("inicio", self.inicio),
             ("prep", self.preparacao),
+            ("manut", self.manutencao),
             ("limpeza", self.limpeza),
             ("ajuda", self.ajuda_geral),
         ):
@@ -831,7 +843,7 @@ class Janela(QMainWindow):
         self.abrir(chave)
 
     def _selo_preparacao(self, selo: str) -> None:
-        self.nav["prep"].setText(f"Preparação completa  {selo}")
+        self.nav["prep"].setText(f"Configuração  {selo}")
 
     def _selo_alertas(self, criticos: int) -> None:
         self.nav["inicio"].setText(f"Início  ⛔ {criticos}" if criticos else "Início")

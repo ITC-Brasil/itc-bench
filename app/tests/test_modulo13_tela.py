@@ -127,7 +127,7 @@ def test_preparacao_lista_os_perfis_do_cadastro(qtbot):
     ]
     p.perfil.setCurrentIndex(2)
     assert [p.lista.topLevelItem(i).text(0) for i in range(p.lista.topLevelItemCount())] == [
-        "14. Diagnóstico"
+        "12. Diagnóstico"
     ]
 
 
@@ -207,15 +207,15 @@ def _ids_da_lista(p):
     return [p.lista.topLevelItem(i).data(0, 256) for i in range(p.lista.topLevelItemCount())]
 
 
-def test_preparacao_sem_papel_da_unidade_pula_da_9_para_a_11(qtbot):
+def test_preparacao_sem_papel_da_unidade_pula_da_3_para_a_5(qtbot):
     """ADR-057: sem papel da unidade, a etapa 10 some da lista e não roda."""
     cad = _cad_papel("UM-02", "UM-01", "")
     p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-02")
     qtbot.addWidget(p)
     ids = _ids_da_lista(p)
-    assert "papel" not in ids and ids[ids.index("protecao") + 1] == "mouse"
+    assert "papel" not in ids and ids[ids.index("wifi") + 1] == "remoto"
     assert "papel" in p.desmarcadas()
-    assert p.lista.topLevelItem(ids.index("mouse")).text(0) == "11. Mouse e teclado"
+    assert p.lista.topLevelItem(ids.index("remoto")).text(0) == "5. Acesso remoto"
 
 
 def test_preparacao_com_papel_da_unidade_mostra_a_10(qtbot):
