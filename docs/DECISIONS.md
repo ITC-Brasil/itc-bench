@@ -3056,3 +3056,31 @@ O responsável vai mexer nos perfis da Preparação completa (ADR-023) e pediu, 
 **Consequences**
 - Etapa nova entra no fim ou exige renumerar com ADR; o número é a referência para os próximos
   pedidos sobre perfis.
+
+## ADR-058 — Remover programas mostra só os removíveis por padrão
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-020)
+
+**Context**
+A tela Remover programas lista tudo o que está instalado. Os itens que o Bench não remove
+(protegidos, recusados, sem desinstalador) aparecem sem caixa de marcar e ocupam boa parte da
+lista (drivers e runtimes).
+
+**Decision**
+1. Por padrão a lista mostra só os itens removíveis (`Entrada.selecionavel`: silencioso ou
+   interativo).
+2. A caixa "Mostrar também os que não podem ser removidos", desmarcada a cada abertura, traz os
+   outros de volta, com o motivo como antes.
+3. Ao lado, o aviso "N oculto(s): protegidos, recusados ou sem desinstalador." e, com busca,
+   "N com esse nome está(ão) oculto(s).", para o técnico não achar que o programa não está
+   instalado.
+4. Só a tela muda: `servicos/desinstalar.py` (plano, recusas e proteção) não muda.
+
+**Alternatives considered**
+- Esconder de vez: o técnico não saberia que o programa existe e foi recusado, nem veria a
+  orientação de remover pelo Painel de Controle.
+
+**Consequences**
+- Roteiro de máquina real 8.8a.

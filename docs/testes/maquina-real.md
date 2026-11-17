@@ -146,6 +146,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 8.6 | Instalador MSI com `TRANSFORMS=` em Argumentos | Recusado antes de executar | 14 |
 | 8.7 | Desinstalar MSI, EXE silencioso, EXE interativo, comando recusado, protegido | Conforme o ADR-020 | 10/V6 |
 | 8.8 | Entrada em HKU criada por `Teste01` apontando para `%WINDIR%` | Recusada | 10/V11 |
+| 8.8a | Remover programas ao abrir: só removíveis; o aviso conta os ocultos; buscar um driver; marcar "Mostrar também os que não podem ser removidos" | Lista sem protegidos, recusados e sem desinstalador; aviso "N oculto(s)…"; a busca pelo driver avisa "1 com esse nome está(ão) oculto(s)"; com a caixa marcada, eles voltam com o motivo e sem caixa de marcar | ADR-058 |
 | 8.9 | Remover o Windows Terminal; criar conta nova | Não volta | 10/V7 |
 
 ### 9. Políticas e USB

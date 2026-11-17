@@ -11,6 +11,7 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -69,6 +70,9 @@ AJUDA_REMOVER = (
     "fabricante: siga até o fim).\n"
     "3. Um item que falha não para os outros.\n\n"
     "Itens que não podem ser marcados\n"
+    "Ficam ocultos: a lista mostra só o que dá para remover, e o aviso ao lado diz quantos "
+    "estão ocultos (e quantos batem com a busca). Marque Mostrar também os que não podem ser "
+    "removidos para vê-los, com o motivo:\n"
     "Protegido (cadeado): o Bench, o acesso remoto, drivers e runtimes.\n"
     "Recusado: o comando do registro usa um interpretador, não dá para separar com segurança "
     "ou o desinstalador está fora de Program Files e do Windows (ou numa pasta do Windows em "
@@ -414,6 +418,14 @@ class PainelRemover(_Base):
     def __init__(self, admin: bool) -> None:
         super().__init__(admin)
         self.entradas: list[des.Entrada] = []
+        # ADR-058: por padrão só os removíveis; os outros voltam por esta caixa.
+        self.todos = QCheckBox("Mostrar também os que não podem ser removidos")
+        self.todos.toggled.connect(lambda _m: self._filtrar())
+        self.ocultos = _rotulo("")
+        linha = QHBoxLayout()
+        linha.addWidget(self.todos)
+        linha.addWidget(self.ocultos, 1)
+        self.corpo.addLayout(linha)
         self._montar()
 
     def carregar(self) -> None:
@@ -440,8 +452,20 @@ class PainelRemover(_Base):
 
     def _filtrar(self) -> None:
         busca = self.busca.text().casefold()
+        todos = self.todos.isChecked()
+        ocultos = ocultos_busca = 0
         for r, e in enumerate(self.entradas):
-            self.tabela.setRowHidden(r, busca not in e.nome.casefold())
+            casa = busca in e.nome.casefold()
+            escondido = not todos and not e.selecionavel
+            ocultos += escondido
+            ocultos_busca += escondido and casa and bool(busca)
+            self.tabela.setRowHidden(r, not casa or escondido)
+        texto = ""
+        if ocultos:
+            texto = f"{ocultos} oculto(s): protegidos, recusados ou sem desinstalador."
+        if ocultos_busca:
+            texto += f" {ocultos_busca} com esse nome está(ão) oculto(s)."
+        self.ocultos.setText(texto.strip())
         self._contar()
 
     def confirmacao(self, entradas: list[des.Entrada]) -> str:
