@@ -12,6 +12,7 @@ import sys
 import threading
 from pathlib import Path
 
+import perfis_teste
 import pytest
 
 from itc_bench.servicos import contas, desinstalar, etapas, executor, limpeza, perfis, politicas
@@ -21,22 +22,55 @@ from itc_bench.servicos.preparacao import Leitura, Resultado
 # ---------------------------------------------------------------- perfis
 
 
-def test_perfis_usam_so_etapas_e_parametros_fechados():
-    for p in perfis.PERFIS:
-        assert set(p.etapas) <= set(perfis.ORDEM)
-        assert list(p.etapas) == [e for e in perfis.ORDEM if e in p.etapas]
+def test_etapas_dos_numeros_e_parametros_fechados():
+    """ADR-060: o cadastro só escolhe números de 1 a 14; ordem e parâmetros são do código."""
+    assert perfis.etapas_dos_numeros([14, 1, 2, 2]) == ("identificacao", "contas", "diagnostico")
+    assert perfis.etapas_dos_numeros(["3", 1]) == ("identificacao", "wifi")
+    assert perfis.etapas_dos_numeros([0, 1]) is None
+    assert perfis.etapas_dos_numeros([15]) is None
+    assert perfis.etapas_dos_numeros([]) is None
+    assert perfis.etapas_dos_numeros(["x"]) is None
     for pid in (*perfis.POLITICAS_USUARIO, *perfis.POLITICAS_MAQUINA, perfis.POLITICA_USB):
         assert pid in politicas.POR_ID
     assert set(perfis.LIMPEZA) <= set(limpeza.NOMES)
     assert "lixeira" not in perfis.LIMPEZA
 
 
-def test_perfil_do_cadastro():
-    assert perfis.do_cadastro("administrativo")[0].id == "administrativo"
-    assert perfis.do_cadastro(" Sala_de_Aula ")[0].id == "sala_de_aula"
-    assert perfis.do_cadastro(None) == (perfis.PADRAO, "")
-    perfil, aviso = perfis.do_cadastro("qualquer coisa")
-    assert perfil is perfis.PADRAO and "desconhecido" in aviso
+def test_perfil_padrao_e_disponiveis_do_cadastro():
+    """ADR-060: perfis só do cadastro; os de outro projeto ficam de fora; PerfilPadrao marca."""
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    from itc_bench.servicos.cadastros import Cadastros, Unidade
+
+    so_abc = replace(perfis_teste.PERFIS[0], id="aluno_abc", nome="Aluno ABC", projeto="ABC")
+    unidades = (
+        Unidade(1, "UM-01", "UM-01", "", "", "", " Administrativo ", projeto="ABC"),
+        Unidade(2, "UM-02", "UM-02", "", "", "", "qualquer", projeto="DEF"),
+        Unidade(3, "UM-03", "UM-03", "", "", "", ""),
+    )
+    cad = Cadastros(
+        "v" * 64,
+        datetime.now(UTC),
+        "t",
+        None,
+        False,
+        (),
+        (),
+        (),
+        unidades,
+        perfis=(*perfis_teste.PERFIS, so_abc),
+    )
+    assert [p.id for p in perfis.disponiveis(cad, "UM-01")][-1] == "aluno_abc"
+    assert "aluno_abc" not in [p.id for p in perfis.disponiveis(cad, "UM-02")]
+    assert perfis.padrao(cad, "UM-01") == (perfis_teste.POR_ID["administrativo"], "")
+    perfil, aviso = perfis.padrao(cad, "UM-02")
+    assert perfil == perfis_teste.PERFIS[0] and "desconhecido" in aviso
+    assert perfis.padrao(cad, "UM-03") == (perfis_teste.PERFIS[0], "")
+    assert perfis.padrao(cad, None) == (perfis_teste.PERFIS[0], "")
+    sem = replace(cad, perfis=())
+    assert perfis.padrao(sem, "UM-01") == (None, perfis.SEM_PERFIL)
+    assert perfis.padrao(None, None) == (None, perfis.SEM_PERFIL)
 
 
 def test_montar_segue_a_ordem():
@@ -134,7 +168,8 @@ def test_ok_mas_ainda_pendente_vira_falha():
 
 
 def test_desmarcadas_nao_rodam_e_selo():
-    a = prep.novo(perfis.POR_ID["sala_de_aula"], desmarcadas=["usb", "limpeza"])
+    a = prep.novo(perfis_teste.POR_ID["aluno"], desmarcadas=["usb", "limpeza"])
+    assert a.nome == "Aluno"
     assert "usb" not in a.etapas and a.selo() == f"0/{len(perfis.ORDEM) - 2}"
 
 
@@ -426,8 +461,9 @@ def test_etapas_numeradas_pela_ordem_fixa():
     assert perfis.rotulo("identificacao") == "1. Identificação"
     assert perfis.rotulo("contas") == "2. Contas"
     assert perfis.rotulo("diagnostico") == "14. Diagnóstico"
-    adm = perfis.POR_ID["administrativo"].etapas
+    adm = perfis_teste.POR_ID["administrativo"].etapas
     assert [perfis.NUMERO[e] for e in adm] == [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]
+    assert "preinstalados" not in adm and "politicas" not in adm and "usb" not in adm
 
 
 def test_papel_pelo_projeto_da_unidade():

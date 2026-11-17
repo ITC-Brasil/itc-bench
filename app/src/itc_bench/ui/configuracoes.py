@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from itc_bench.servicos import perfis
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.executor import Sensivel
 from itc_bench.ui import tema
@@ -33,11 +34,14 @@ MODOS = (("Claro", "claro"), ("Escuro", "escuro"))
 
 AJUDA = (
     "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores, "
-    "unidades e projetos (uma aba para cada). Eles vêm do cadastro central (NocoDB) pela API, "
-    "depois do login online.\n\n"
+    "unidades, projetos e perfis (uma aba para cada). Eles vêm do cadastro central (NocoDB) "
+    "pela API, depois do login online.\n\n"
     "• Projetos: cada unidade aponta para o projeto dela pela sigla (coluna Projeto em "
     "Unidades). A aba Projetos mostra as unidades de cada um; unidade sem projeto aparece com "
     "—. O papel de parede da Preparação é o do projeto da unidade.\n\n"
+    "• Perfis: os perfis da Preparação completa (tabela Perfis). Cada um diz quais etapas rodam, "
+    "pelos números de 1 a 14; Projeto diz em que unidades ele aparece (todos = em todas). O que "
+    "cada etapa faz não vem do cadastro.\n\n"
     "• Para mudar um cadastro, edite no NocoDB; aqui é só leitura. A mudança chega na próxima "
     "sincronização (a cada 30 min ou em Sincronizar agora, que só funciona depois do login "
     "online).\n"
@@ -105,11 +109,13 @@ class PainelConfiguracoes(QWidget):
             ["Código", "Nome", "Projeto", "UF", "Perfil padrão"]  # ADR-059, ADR-067
         )
         self.projetos = self._tabela(["Sigla", "Nome", "Unidades"])
+        self.perfis = self._tabela(["Código", "Nome", "Etapas", "Projeto"])
         self.abas.addTab(self.servidores, "Servidores")
         self.abas.addTab(self.wifi, "Wi-Fi")
         self.abas.addTab(self.instaladores, "Instaladores")
         self.abas.addTab(self.unidades, "Unidades")
         self.abas.addTab(self.projetos, "Projetos")
+        self.abas.addTab(self.perfis, "Perfis")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -214,6 +220,21 @@ class PainelConfiguracoes(QWidget):
                     ", ".join(u.codigo for u in c.unidades if u.projeto == p.sigla) or "—",
                 ]
                 for p in c.projetos
+            ]
+            if c
+            else [],
+            {},
+        )
+        self._preencher(
+            self.perfis,
+            [
+                [
+                    p.id,
+                    p.nome,
+                    ", ".join(str(perfis.NUMERO[e]) for e in p.etapas),
+                    p.projeto or "todos",
+                ]
+                for p in c.perfis
             ]
             if c
             else [],

@@ -1,11 +1,16 @@
-"""Perfis da Preparação completa (ADR-023), sem Qt: fechados no código.
+"""Etapas e perfis da Preparação completa (ADR-023, ADR-060), sem Qt.
 
-Perfil = id, nome e tupla ordenada de ids de etapa. Os parâmetros das etapas vêm só das listas
-fechadas abaixo ou das linhas ativas do cadastro; nada de texto livre, caminho ou comando.
-`Unidades.PerfilPadrao` escolhe o perfil pelo id.
+As 14 etapas, a ordem e os parâmetros de cada uma são fechados aqui. Os perfis vêm só do
+cadastro (tabela Perfis, ADR-060): cada um diz quais etapas rodam, pelos números de 1 a 14;
+nada de texto livre, caminho ou comando. `Unidades.PerfilPadrao` escolhe o perfil pelo código.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from itc_bench.servicos.cadastros import Cadastros
 
 # Ordem fixa da preparação (ADR-023, item 2).
 ETAPAS: tuple[tuple[str, str], ...] = (
@@ -66,35 +71,54 @@ LIMPEZA = ("temp_sistema", "temp_usuarios", "windows_update", "relatorios_erro")
 
 @dataclass(frozen=True)
 class Perfil:
-    id: str
+    """Perfil da Preparação (ADR-060): vem só do cadastro (tabela Perfis do NocoDB). O cadastro
+    escolhe quais das 14 etapas rodam; o que cada etapa faz continua fechado acima."""
+
+    id: str  # Perfis.Codigo
     nome: str
     descricao: str
-    etapas: tuple[str, ...]
+    etapas: tuple[str, ...]  # ids, sempre na ordem de ORDEM
+    projeto: str = ""  # vazio = vale para todas as unidades
 
 
-PERFIS: tuple[Perfil, ...] = (
-    Perfil("sala_de_aula", "Sala de aula", "Notebook de aluno: todas as etapas.", ORDEM),
-    Perfil(
-        "administrativo",
-        "Administrativo",
-        "Notebook da equipe: sem Políticas, USB e Remover pré-instalados.",
-        tuple(e for e in ORDEM if e not in ("preinstalados", "politicas", "usb")),
-    ),
-    Perfil("so_diagnostico", "Só diagnóstico", "Só a coleta do diagnóstico.", ("diagnostico",)),
-)
-POR_ID = {p.id: p for p in PERFIS}
-PADRAO = PERFIS[0]
+SEM_PERFIL = "Nenhum perfil no cadastro (tabela Perfis). Cadastre no NocoDB e sincronize."
 
 
-def do_cadastro(texto: str | None) -> tuple[Perfil, str]:
-    """Perfil pelo `Unidades.PerfilPadrao`; texto desconhecido cai no padrão, com aviso."""
-    chave = (texto or "").strip().lower()
+def etapas_dos_numeros(numeros: Iterable[Any]) -> tuple[str, ...] | None:
+    """[14, 1, 2] → ("identificacao", "contas", "diagnostico"); None se algum número não for
+    uma etapa (1 a 14) ou se não houver nenhum."""
+    try:
+        conjunto = {int(n) for n in numeros}
+    except (TypeError, ValueError):
+        return None
+    if not conjunto or not conjunto <= set(NUMERO.values()):
+        return None
+    return tuple(e for e in ORDEM if NUMERO[e] in conjunto)
+
+
+def disponiveis(cadastros: "Cadastros | None", unidade: str | None) -> list[Perfil]:
+    """Perfis que valem para a unidade: os sem projeto e os do projeto dela."""
+    if cadastros is None:
+        return []
+    u = cadastros.unidade_por_codigo(unidade)
+    projeto = u.projeto if u is not None else ""
+    return [p for p in cadastros.perfis if not p.projeto or p.projeto == projeto]
+
+
+def padrao(cadastros: "Cadastros | None", unidade: str | None) -> tuple[Perfil | None, str]:
+    """Perfil que vem marcado: o `Unidades.PerfilPadrao` da unidade; sem ele (ou desconhecido),
+    o primeiro disponível, com aviso. Nenhum perfil: (None, aviso)."""
+    lista = disponiveis(cadastros, unidade)
+    if not lista:
+        return None, SEM_PERFIL
+    u = cadastros.unidade_por_codigo(unidade) if cadastros is not None else None
+    chave = (u.perfil_padrao if u is not None else "").strip().lower()
     if not chave:
-        return PADRAO, ""
-    perfil = POR_ID.get(chave)
-    if perfil is None:
-        return PADRAO, "Perfil padrão da unidade desconhecido; usando Sala de aula."
-    return perfil, ""
+        return lista[0], ""
+    achado = next((p for p in lista if p.id == chave), None)
+    if achado is None:
+        return lista[0], f"Perfil padrão da unidade desconhecido; usando {lista[0].nome}."
+    return achado, ""
 
 
 def dependencias(etapa: str) -> tuple[str, ...]:

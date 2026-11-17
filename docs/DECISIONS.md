@@ -3364,3 +3364,46 @@ para o seu projeto.
 - Usos possíveis, a decidir: perfil padrão por projeto, papel de parede por projeto quando a
   unidade não tem o seu, e o diagnóstico enviando o projeto (com a política de limpeza vinda da
   tabela em vez da lista fixa do prompt).
+
+## ADR-060 — Perfis da Preparação só pelo cadastro (tabela Perfis)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (revoga o item 1 do ADR-023 na parte "perfis fechados no código"; com o
+TA-ADR-037)
+
+**Context**
+Os perfis (Sala de aula, Administrativo, Só diagnóstico) eram fixos no código. O responsável quer
+criar perfis como Aluno, Professor, Atendente e Administrativo, e outros por projeto, sem nova
+versão do Bench: todos pelo NocoDB.
+
+**Decision**
+1. Sai do código a lista de perfis (`PERFIS`, `POR_ID`, `PADRAO`, `do_cadastro`). Os perfis vêm
+   **só** da tabela Perfis do NocoDB (TA-ADR-037): `Codigo`, `Nome`, `Etapas`, `Projeto`,
+   `Descricao`, `Ativo`.
+2. **O cadastro só escolhe etapas.** `Etapas` são os números de 1 a 14 (ADR-056); a ordem, o que
+   cada etapa faz e todos os parâmetros (políticas, tempos de energia, itens da limpeza, Appx)
+   continuam fechados no código. É o mesmo poder que o técnico já tinha ao desmarcar etapas.
+   Número fora de 1 a 14 descarta o perfil, na API e de novo no Bench.
+3. `Projeto` (sigla, opcional): o perfil só aparece nas unidades desse projeto. Vazio = todas.
+4. `Unidades.PerfilPadrao` cita o `Codigo`. Vazio: o primeiro perfil disponível. Desconhecido:
+   o primeiro, com aviso. Os ids antigos (`sala_de_aula`…) só valem se existirem na tabela.
+5. **Sem perfil no cadastro** (tabela não configurada, sem sincronizar ou vazia), a Preparação
+   não lê nem roda e diz para cadastrar e sincronizar. As telas de cada etapa continuam
+   funcionando.
+6. Retomada depois do reinício: guarda o código; se o perfil sumiu do cadastro, a tela avisa e
+   não continua (o técnico descarta).
+7. Configurações ganha a aba Perfis (código, nome, etapas, projeto).
+
+**Alternatives considered**
+- Perfis no código mais extras no cadastro (proposta anterior): o responsável preferiu um lugar
+  só.
+- Parâmetros por perfil no cadastro (qual política, qual tempo): abriria texto livre para
+  regra de segurança; ficam no código.
+
+**Consequences**
+- Quem edita a tabela Perfis decide quais etapas rodam em cada máquina, inclusive tirar as
+  Políticas de um perfil de aluno. É uma decisão de cadastro, auditável no NocoDB.
+- Sem a tabela configurada no servidor, a Preparação completa fica parada (as telas avulsas não).
+  Ordem de implantação no TA-ADR-037.
+- Roteiro de máquina real 10.17 (perfis do cadastro).

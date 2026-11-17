@@ -1280,3 +1280,34 @@ apontando para a sua.
 - **Ordem do deploy:** criar a tabela Projetos e a coluna `Projeto` em Unidades no NocoDB,
   **depois** preencher `NOCODB_TABELA_PROJETOS` no `.env` do servidor. Sem a variável, nada muda.
 - Bench antigo ignora as chaves novas.
+
+## TA-ADR-037 — Tabela Perfis (perfis da Preparação do Bench)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-060; emenda ao TA-ADR-027)
+
+**Context**
+Os perfis da Preparação saem do código do Bench e passam ao NocoDB (ADR-060).
+
+**Decision**
+- Tabela nova Perfis, id em `NOCODB_TABELA_PERFIS` (opcional; vazio = `perfis: []`). Colunas:
+  `Codigo` (display), `Nome`, `Etapas`, `Descricao`, `Ativo` e, com `NOCODB_TABELA_PROJETOS`
+  preenchido, `Projeto`.
+- Validação, só Id no log quando descarta:
+  - `Codigo`: minúsculas, `[a-z0-9_]{1,32}` (vem em minúsculas); senão `codigo_invalido`.
+  - `Etapas`: números de 1 a 14 separados por vírgula, ponto e vírgula ou espaço; ordenados e
+    sem repetição na saída; vazio ou fora da faixa = `etapas_invalidas`.
+  - `Projeto`: vazio ou sigla de Projeto ativo; senão `projeto_invalido`.
+  - Dois perfis com o mesmo `Codigo`: os dois saem (`codigo_duplicado`).
+- `GET /v1/bench/cadastros` ganha `perfis`: `id`, `codigo`, `nome` (vazio = o código),
+  `etapas` (lista de inteiros), `projeto`, `descricao`.
+- A API só confere a faixa 1..14; quem liga número a etapa é o Bench (ADR-056).
+
+**Alternatives considered**
+- Coluna `Id` como código: o `Id` é a chave interna do NocoDB.
+- Etapas por nome (`contas, wifi`): mais sujeito a erro de digitação que o número da tela.
+
+**Consequences**
+- **Ordem:** criar a tabela Perfis (e os perfis) no NocoDB, depois `NOCODB_TABELA_PERFIS` no
+  `.env` do servidor. Com o Bench novo e sem a variável, a Preparação completa não roda.

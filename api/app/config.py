@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     nocodb_tabela_unidades: str = ""
     # Optional (TA-ADR-036): empty = no Projetos table and Unidades.Projeto is not read.
     nocodb_tabela_projetos: str = ""
+    # Optional (TA-ADR-037): empty = no Perfis table (the Bench has no Preparação profiles).
+    nocodb_tabela_perfis: str = ""
     nocodb_cadastros_timeout_seconds: float = Field(5.0, gt=0, le=15)
     nocodb_cadastros_ttl_seconds: int = Field(60, ge=1)
     # Keys the ETag: the content holds secrets, so the version must not derive from it alone.

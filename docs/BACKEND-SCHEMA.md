@@ -83,13 +83,15 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 | `Nome` | SingleLineText | |
 | `UF` | SingleLineText | |
 | `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
+| `TagGLPI` | SingleLineText | Tag do GLPI Agent |
+| `PerfilPadrao` | SingleLineText | `Codigo` de um perfil da tabela Perfis (ADR-060). Vazio = o primeiro perfil disponível; desconhecido = o primeiro, com aviso |
 | `Projeto` | SingleLineText | Sigla de `Projetos.Sigla` (sem link, como `WiFi.Unidade`). Vazio = sem projeto; sigla que não é Projeto ativo vira vazio, com aviso no log da API. Só lida com `NOCODB_TABELA_PROJETOS` configurado. ADR-059, TA-ADR-036 |
 | `Ativo` | Checkbox | |
 
 ### Projetos
 
 Opcional: só lida com `NOCODB_TABELA_PROJETOS` preenchido (ADR-059, TA-ADR-036). O papel de
-parede da etapa 10 (ADR-057) depende dele.
+parede da etapa 10 (ADR-057) e os perfis por projeto (ADR-060) dependem dele.
 
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
@@ -100,6 +102,21 @@ parede da etapa 10 (ADR-057) depende dele.
 `Cidade` e `TagGLPI` saíram (ADR-067, TA-ADR-039): a API não as pede mais e manda
 `cidade` e `tag_glpi` vazios. As colunas só podem ser apagadas no NocoDB **depois** que a
 API com o TA-ADR-039 estiver publicada.
+### Perfis
+Opcional: só lida com `NOCODB_TABELA_PERFIS` preenchido (ADR-060, TA-ADR-037). **Sem ela, a
+Preparação completa não roda.** O perfil só escolhe quais etapas rodam; o que cada etapa faz é
+do código.
+| Coluna | Tipo NocoDB | Observação |
+|---|---|---|
+| `Codigo` | SingleLineText, display | Minúsculas, números e `_`, até 32 (ex.: `aluno`, `professor`). Único. É o que `Unidades.PerfilPadrao` cita |
+| `Nome` | SingleLineText | Nome na tela (vazio = o código) |
+| `Etapas` | SingleLineText | Números de 1 a 14 separados por vírgula (ex.: `1,2,3,4,5,9,10,11,12,13,14`) |
+| `Projeto` | SingleLineText | Opcional: sigla de Projetos; o perfil só aparece nas unidades desse projeto. Vazio = todas |
+| `Descricao` | SingleLineText | Opcional |
+| `Ativo` | Checkbox | |
+Números das etapas (ADR-056): 1 Identificação, 2 Contas, 3 Wi-Fi, 4 Acesso remoto, 5 Programas,
+6 Remover pré-instalados, 7 Políticas, 8 USB, 9 Proteção do login, 10 Papel de parede, 11 Mouse
+e teclado, 12 Energia, 13 Limpeza, 14 Diagnóstico. 7, 8, 10 e 11 dependem de 2.
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
 `Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o

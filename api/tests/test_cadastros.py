@@ -52,6 +52,7 @@ def linhas():
             {"Id": 3, "Codigo": "UM-03", "Nome": "Unidade Tres", "Ativo": False},
         ],
         "mPro": [],
+        "mPer": [],
     }
 
 
@@ -499,6 +500,36 @@ def test_papel_por_projeto(settings, fake, caplog):
         )
     assert {i["id"]: i["projeto"] for i in com["instaladores"]} == {1: "", 2: "ABC", 4: "", 5: ""}
     assert "Id 3 descartado: projeto_invalido" in caplog.text
+
+
+def test_perfis_validados(settings, fake, caplog):
+    """TA-ADR-037: Codigo, Etapas 1..14 and Projeto checked; duplicates and bad rows dropped."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
+    fake.dados["mPer"] = [
+        {"Id": 1, "Codigo": "Aluno", "Nome": "Aluno", "Etapas": "14, 1;2 2 3", "Ativo": True},
+        {"Id": 2, "Codigo": "prof", "Etapas": "1,2", "Projeto": "ABC", "Ativo": True},
+        {"Id": 3, "Codigo": "ruim", "Etapas": "1,15", "Ativo": True},
+        {"Id": 4, "Codigo": "com espaco", "Etapas": "1", "Ativo": True},
+        {"Id": 5, "Codigo": "outro", "Etapas": "1", "Projeto": "XYZ", "Ativo": True},
+        {"Id": 6, "Codigo": "dup", "Etapas": "1", "Ativo": True},
+        {"Id": 7, "Codigo": "dup", "Etapas": "2", "Ativo": True},
+        {"Id": 8, "Codigo": "vazio", "Etapas": "", "Ativo": True},
+        {"Id": 9, "Codigo": "inativo", "Etapas": "1", "Ativo": False},
+    ]
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert sem["perfis"] == []
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer"),
+            httpx.MockTransport(fake.handler),
+        )
+    assert com["perfis"] == [
+        {"id": 1, "codigo": "aluno", "nome": "Aluno", "etapas": [1, 2, 3, 14], "projeto": "", "descricao": ""},
+        {"id": 2, "codigo": "prof", "nome": "prof", "etapas": [1, 2], "projeto": "ABC", "descricao": ""},
+    ]
+    assert sorted(com["descartados"]["perfis"]) == [3, 4, 5, 6, 7, 8]
+    for motivo in ("etapas_invalidas", "codigo_invalido", "projeto_invalido", "codigo_duplicado"):
+        assert motivo in caplog.text
 
 
 def test_cadastros_entrega_projetos(settings, fake):

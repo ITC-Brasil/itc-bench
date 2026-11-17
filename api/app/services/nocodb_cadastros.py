@@ -53,8 +53,18 @@ TABELAS = {
     # TA-ADR-036: optional. Only read when nocodb_tabela_projetos is set; then Unidades and
     # Instaladores also read their Projeto column (the sigla of a Projetos row, TA-ADR-035).
     "projetos": ("nocodb_tabela_projetos", ("Id", "Sigla", "Nome", "Ativo"), "Sigla"),
+    # TA-ADR-037: optional. Preparação profiles: which of the 14 numbered steps run.
+    "perfis": (
+        "nocodb_tabela_perfis",
+        ("Id", "Codigo", "Nome", "Etapas", "Descricao", "Ativo"),
+        "Codigo",
+    ),
 }
-OPCIONAIS = ("projetos",)
+OPCIONAIS = ("projetos", "perfis")
+# Steps of the Bench Preparação, numbered 1..14 (ADR-056). The API only checks the range;
+# the Bench maps numbers to steps.
+TOTAL_ETAPAS = 14
+CODIGO_PERFIL = re.compile(r"[a-z0-9_]{1,32}")
 
 
 class NocodbIndisponivel(Exception):
@@ -91,7 +101,7 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
             if nome in OPCIONAIS and not getattr(settings, id_setting).strip():
                 brutos[nome] = []
                 continue
-            if nome in ("unidades", "instaladores") and com_projetos:
+            if nome in ("unidades", "instaladores", "perfis") and com_projetos:
                 campos = (*campos, "Projeto")
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
@@ -181,6 +191,7 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
         "wifi": wifi,
         "unidades": unidades,
         "projetos": projetos,
+        "perfis": perfis(validos["perfis"], siglas, descartados),
         "descartados": descartados,
     }
 
@@ -284,3 +295,48 @@ def projeto(linha: dict) -> dict:
         "sigla": texto(linha.get("Sigla")),
         "nome": texto(linha.get("Nome")),
     }
+
+
+def perfis(linhas: list[dict], siglas: set[str], descartados: dict) -> list[dict]:
+    """TA-ADR-037: Codigo [a-z0-9_]{1,32} and unique; Etapas = numbers 1..14 (comma, semicolon or
+    space); Projeto empty or an active sigla. A bad row is dropped, logged by Id only."""
+    saida, vistos = [], {}
+    for linha in linhas:
+        codigo = texto(linha.get("Codigo")).lower()
+        numeros = etapas(texto(linha.get("Etapas")))
+        projeto_ = texto(linha.get("Projeto"))
+        motivo = (
+            "codigo_invalido" if not CODIGO_PERFIL.fullmatch(codigo)
+            else "etapas_invalidas" if numeros is None
+            else "projeto_invalido" if projeto_ and projeto_ not in siglas
+            else None
+        )
+        if motivo:
+            descartados.setdefault("perfis", []).append(linha.get("Id"))
+            log.warning("cadastro perfis Id %s descartado: %s", linha.get("Id"), motivo)
+            continue
+        vistos[codigo] = vistos.get(codigo, 0) + 1
+        saida.append(
+            {
+                "id": linha.get("Id"),
+                "codigo": codigo,
+                "nome": texto(linha.get("Nome")) or codigo,
+                "etapas": numeros,
+                "projeto": projeto_,
+                "descricao": texto(linha.get("Descricao")),
+            }
+        )
+    # Two rows with the same Codigo: neither is used (which one would Unidades.PerfilPadrao mean?).
+    for p in saida:
+        if vistos[p["codigo"]] > 1:
+            descartados.setdefault("perfis", []).append(p["id"])
+            log.warning("cadastro perfis Id %s descartado: codigo_duplicado", p["id"])
+    return [p for p in saida if vistos[p["codigo"]] == 1]
+
+
+def etapas(valor: str) -> list[int] | None:
+    """"1, 2,3;14" -> [1, 2, 3, 14] (sorted, unique). None if empty or any part is not 1..14."""
+    partes = [p for p in re.split(r"[,;\s]+", valor) if p]
+    if not partes or not all(p.isdigit() and 1 <= int(p) <= TOTAL_ETAPAS for p in partes):
+        return None
+    return sorted({int(p) for p in partes})

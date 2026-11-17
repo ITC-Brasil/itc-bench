@@ -236,6 +236,7 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
   "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "", "uf": "..", "tag_glpi": "", "perfil_padrao": "..."}],
   "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "...", "uf": "..", "tag_glpi": "...", "perfil_padrao": "...", "projeto": ""}],
   "projetos": [{"id": 1, "sigla": "ABC", "nome": "..."}],
+  "perfis": [{"id": 1, "codigo": "aluno", "nome": "Aluno", "etapas": [1, 2, 14], "projeto": "", "descricao": ""}],
   "descartados": {"wifi": [12]}
 }
 ```

@@ -86,7 +86,7 @@ class PainelInicio(QWidget):
         obter_cadastros: Callable[[], Cadastros | None],
         obter_unidade: Callable[[], str],
         fila: Callable[[], int],
-        obter_perfil: Callable[[], perfis.Perfil],
+        obter_perfil: Callable[[], perfis.Perfil | None],
         obter_andamento: Callable[[], Andamento | None],
         mutex_alheio: bool = False,
     ) -> None:
@@ -166,10 +166,14 @@ class PainelInicio(QWidget):
         perfil = self.obter_perfil()
         a = self.obter_andamento()
         if a is None:
-            self.prep.setText(f"Perfil {perfil.nome}: situação ainda não lida nesta sessão.")
+            self.prep.setText(
+                f"Perfil {perfil.nome}: situação ainda não lida nesta sessão."
+                if perfil is not None
+                else perfis.SEM_PERFIL
+            )
         else:
             self.prep.setText(
-                f"Perfil {perfis.POR_ID[a.perfil].nome}: {a.selo()} etapas feitas"
+                f"Perfil {a.nome or a.perfil}: {a.selo()} etapas feitas"
                 + (" · reinício pendente" if a.reinicio else "")
             )
         n = self.fila()

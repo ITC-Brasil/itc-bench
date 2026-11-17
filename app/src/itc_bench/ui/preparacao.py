@@ -35,9 +35,9 @@ AJUDA = (
     "Roda as etapas do perfil em ordem, cada uma com número fixo: 1. Identificação, "
     "2. Contas, 3. Wi-Fi, 4. Acesso remoto, 5. Programas, 6. Remover pré-instalados, "
     "7. Políticas, 8. USB, 9. Proteção do login, 10. Papel de parede, 11. Mouse e teclado, "
-    "12. Energia, 13. Limpeza e 14. Diagnóstico. O número não muda com o perfil: o "
-    "Administrativo, que pula 6, 7 e 8, mostra 1 a 5 e depois 9 a 14. Cada etapa usa as "
-    "mesmas regras da tela dela.\n"
+    "12. Energia, 13. Limpeza e 14. Diagnóstico. O número não muda com o perfil: um perfil "
+    "que pula 6, 7 e 8 mostra 1 a 5 e depois 9 a 14. Cada etapa usa as mesmas regras da tela "
+    "dela.\n"
     "\n"
     "Remover pré-instalados (6)\n"
     "Remove, para todas as contas e para as contas novas, os apps da Microsoft de uma lista "
@@ -59,8 +59,10 @@ AJUDA = (
     "11.\n"
     "\n"
     "Perfis\n"
-    "Sala de aula: todas as etapas (1 a 14). Administrativo: sem 6. Remover pré-instalados, "
-    "7. Políticas e 8. USB. Só diagnóstico: só 14. Diagnóstico.\n"
+    "Vêm do cadastro (tabela Perfis no NocoDB; veja em Configurações › Perfis). Cada perfil "
+    "diz quais etapas rodam, pelos números; o que cada etapa faz não muda com o perfil. "
+    "Aparecem os perfis gerais e os do projeto desta unidade; vem marcado o perfil padrão da "
+    "unidade. Sem perfil no cadastro, a Preparação não roda: cadastre e sincronize.\n"
     "\n"
     "Como usar\n"
     "1. Escolha o perfil (vem marcado o da unidade). Desmarque etapas que não quer agora.\n"
@@ -156,8 +158,7 @@ class PainelPreparacao(QWidget):
 
         topo = QHBoxLayout()
         self.perfil = QComboBox()
-        for p in perfis.PERFIS:
-            self.perfil.addItem(p.nome, p.id)
+        self._carregar_perfis()  # do cadastro (ADR-060)
         self.perfil.currentIndexChanged.connect(lambda _i: self._montar_lista())
         self.nome = QLineEdit()
         self.nome.setPlaceholderText("Nome do computador (vazio = não trocar)")
@@ -214,13 +215,35 @@ class PainelPreparacao(QWidget):
 
     # ---- dados
 
-    def perfil_atual(self) -> perfis.Perfil:
-        return perfis.POR_ID[str(self.perfil.currentData())]
+    def _carregar_perfis(self) -> bool:
+        """Preenche o seletor com os perfis do cadastro que valem para a unidade (ADR-060).
+        Mantém o escolhido, se ainda existir. True se a lista mudou."""
+        lista = perfis.disponiveis(self.obter_cadastros(), self.obter_unidade())
+        novos = [(p.nome, p.id) for p in lista]
+        atuais = [
+            (self.perfil.itemText(i), self.perfil.itemData(i)) for i in range(self.perfil.count())
+        ]
+        if novos == atuais:
+            return False
+        escolhido = self.perfil.currentData()
+        self.perfil.blockSignals(True)
+        self.perfil.clear()
+        for nome, pid in novos:
+            self.perfil.addItem(nome, pid)
+        if escolhido is not None and (n := self.perfil.findData(escolhido)) >= 0:
+            self.perfil.setCurrentIndex(n)
+        self.perfil.blockSignals(False)
+        return True
 
-    def perfil_da_unidade(self) -> tuple[perfis.Perfil, str]:
+    def perfil_atual(self) -> perfis.Perfil | None:
         cad = self.obter_cadastros()
-        u = cad.unidade_por_codigo(self.obter_unidade()) if cad is not None else None
-        return perfis.do_cadastro(u.perfil_padrao if u is not None else None)
+        pid = self.perfil.currentData()
+        if cad is None or pid is None:
+            return None
+        return next((p for p in cad.perfis if p.id == pid), None)
+
+    def perfil_da_unidade(self) -> tuple[perfis.Perfil | None, str]:
+        return perfis.padrao(self.obter_cadastros(), self.obter_unidade())
 
     def ocultas(self) -> frozenset[str]:
         return etapas.ocultas(self.obter_cadastros(), self.obter_unidade())
@@ -245,7 +268,10 @@ class PainelPreparacao(QWidget):
         self.lista.blockSignals(True)
         self.lista.clear()
         ocultas = self._ocultas_lista = self.ocultas()
-        for eid in self.perfil_atual().etapas:
+        perfil = self.perfil_atual()
+        if perfil is None:
+            self.aviso.setText(perfis.SEM_PERFIL)
+        for eid in perfil.etapas if perfil is not None else ():
             if eid in ocultas:
                 continue  # sem papel da unidade: a lista pula da 9 para a 11 (ADR-057)
             item = QTreeWidgetItem([perfis.rotulo(eid), prep.ROTULO["nao_iniciado"], ""])
@@ -260,14 +286,19 @@ class PainelPreparacao(QWidget):
     def showEvent(self, evento: QShowEvent) -> None:
         super().showEvent(evento)
         if self.iniciado:
-            # Unidade ou cadastro mudou desde a última vez: a etapa 10 aparece ou some (ADR-057).
-            if not self.ocupado and self.ocultas() != self._ocultas_lista:
+            # Unidade ou cadastro mudou desde a última vez: os perfis e a etapa 10 mudam
+            # (ADR-057, ADR-060).
+            mudou = not self.ocupado and self._carregar_perfis()
+            if not self.ocupado and (mudou or self.ocultas() != self._ocultas_lista):
                 fora = tuple(e for e in self.desmarcadas() if e not in self._ocultas_lista)
                 self._montar_lista(fora)
             return
         self.iniciado = True
+        self._carregar_perfis()
         perfil, aviso = self.perfil_da_unidade()
-        self.perfil.setCurrentIndex(self.perfil.findData(perfil.id))
+        if perfil is not None:
+            self.perfil.setCurrentIndex(self.perfil.findData(perfil.id))
+        self._montar_lista()
         self.aviso.setText(aviso)
         self._carregar_alunos()
         self._ver_guardado()
@@ -299,7 +330,11 @@ class PainelPreparacao(QWidget):
             self.banner.hide()
             return
         quando = datetime.fromisoformat(self.guardado.criado_em).astimezone()
-        nome = perfis.POR_ID[self.guardado.perfil].nome
+        cad = self.obter_cadastros()
+        achado = (
+            next((p for p in cad.perfis if p.id == self.guardado.perfil), None) if cad else None
+        )
+        nome = achado.nome if achado is not None else f"{self.guardado.perfil}, fora do cadastro"
         self.banner_texto.setText(
             f"Há uma preparação ({nome}) iniciada em {quando:%d/%m %H:%M}, com "
             f"{self.guardado.reinicios} reinício(s). Continuar de onde parou?"
@@ -310,7 +345,14 @@ class PainelPreparacao(QWidget):
         g = self.guardado
         if g is None:
             return
-        self.perfil.setCurrentIndex(self.perfil.findData(g.perfil))
+        n = self.perfil.findData(g.perfil)
+        if n < 0:
+            self._aviso(
+                f"O perfil “{g.perfil}” da preparação guardada não está no cadastro desta "
+                "unidade. Confira a tabela Perfis e sincronize, ou descarte a preparação."
+            )
+            return
+        self.perfil.setCurrentIndex(n)
         self._montar_lista(g.desmarcadas)
         self.nome.setText(g.nome)
         self._carregar_alunos(g.alvos)
@@ -339,8 +381,12 @@ class PainelPreparacao(QWidget):
             self.etapas = etapas.montar(self.ctx)
 
     def ler(self) -> None:
+        perfil = self.perfil_atual()
+        if perfil is None:
+            self._linha(perfis.SEM_PERFIL)
+            return
         self._preparar_ctx()
-        self.andamento = prep.novo(self.perfil_atual(), self.desmarcadas())
+        self.andamento = prep.novo(perfil, self.desmarcadas())
         andamento, lista = self.andamento, self.etapas
         self._ocupar(True)
         self._linha("Lendo a situação das etapas…")
@@ -373,7 +419,7 @@ class PainelPreparacao(QWidget):
         self.pausar.clear()
         andamento, lista, pausar = self.andamento, self.etapas, self.pausar
         self._ocupar(True)
-        self._linha(f"Preparação ({perfis.POR_ID[andamento.perfil].nome}) iniciada.")
+        self._linha(f"Preparação ({andamento.nome or andamento.perfil}) iniciada.")
         tarefa.iniciar(
             lambda: prep.rodar(lista, andamento, pausar=pausar, avisar=self.sinais.etapa.emit),
             self._terminou,
@@ -436,8 +482,11 @@ class PainelPreparacao(QWidget):
             "Bench, entre e escolha Continuar.",
         ):
             return
+        perfil = self.perfil_atual()
+        if perfil is None:
+            return
         estado = retomada.novo(
-            self.perfil_atual().id,
+            perfil.id,
             self.desmarcadas(),
             self.ctx.nome,
             list(self.ctx.alvos),
@@ -472,7 +521,7 @@ class PainelPreparacao(QWidget):
         self.b_rodar.setEnabled(self.admin and not ocupado and pendentes > 0)
         if not self.admin:
             self.b_rodar.setToolTip("Precisa de administrador.")
-        self.b_ler.setEnabled(not ocupado)
+        self.b_ler.setEnabled(not ocupado and self.perfil.count() > 0)
         self.b_pausar.setEnabled(ocupado)
         self.perfil.setEnabled(not ocupado)
         self.nome.setEnabled(not ocupado and self.admin)

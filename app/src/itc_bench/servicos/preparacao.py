@@ -59,6 +59,7 @@ class Andamento:
     etapas: list[str]
     situacao: dict[str, Leitura] = field(default_factory=dict)
     reinicio: bool = False
+    nome: str = ""  # nome do perfil, para a tela (o perfil vem do cadastro, ADR-060)
 
     def feitas(self) -> int:
         return sum(
@@ -174,4 +175,6 @@ def rodar(
 def novo(perfil: perfis.Perfil, desmarcadas: Iterable[str] = ()) -> Andamento:
     fora = set(desmarcadas)
     etapas = [e for e in perfil.etapas if e not in fora]
-    return Andamento(perfil.id, etapas, {e: Leitura("nao_iniciado") for e in etapas})
+    return Andamento(
+        perfil.id, etapas, {e: Leitura("nao_iniciado") for e in etapas}, nome=perfil.nome
+    )

@@ -24,8 +24,10 @@ from typing import Any
 from itc_bench.nucleo import dpapi
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import api
+from itc_bench.servicos import perfis as perfis_mod
 from itc_bench.servicos.api import CHAVE_REGISTRO
 from itc_bench.servicos.executor import Sensivel
+from itc_bench.servicos.perfis import Perfil
 
 FORMATO = 1
 VALIDADE = timedelta(days=7)
@@ -105,6 +107,7 @@ class Cadastros:
     unidades: tuple[Unidade, ...]
     descartados: dict[str, list[Any]] = field(default_factory=dict)
     projetos: tuple[Projeto, ...] = ()  # ADR-059; cache antigo sem a chave = nenhum
+    perfis: tuple[Perfil, ...] = ()  # ADR-060; cache antigo sem a chave = nenhum
 
     def servidor(self, servico: str, papel: str) -> Servidor | None:
         return next((s for s in self.servidores if s.servico == servico and s.papel == papel), None)
@@ -193,7 +196,29 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
             Projeto(int(p["id"]), str(p["sigla"]), str(p["nome"]))
             for p in dados.get("projetos") or ()
         ),
+        perfis=_perfis(dados.get("perfis") or ()),
     )
+
+
+def _perfis(linhas: Any) -> tuple[Perfil, ...]:
+    """Perfis do cadastro (ADR-060). Linha com número fora de 1 a 14 é ignorada (a API já
+    descarta; aqui é a segunda trava, para um cache mexido)."""
+    saida = []
+    for p in linhas:
+        etapas = perfis_mod.etapas_dos_numeros(p.get("etapas") or ())
+        if etapas is None:
+            log.warning("Cadastros: perfil Id %s ignorado (etapas fora de 1 a 14).", p.get("id"))
+            continue
+        saida.append(
+            Perfil(
+                str(p["codigo"]),
+                str(p.get("nome") or p["codigo"]),
+                str(p.get("descricao") or ""),
+                etapas,
+                str(p.get("projeto") or ""),
+            )
+        )
+    return tuple(saida)
 
 
 class Armazem:
