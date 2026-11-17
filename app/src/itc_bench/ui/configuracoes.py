@@ -32,9 +32,12 @@ SEM_UNIDADE = "— bancada (todas as unidades)"
 MODOS = (("Claro", "claro"), ("Escuro", "escuro"))
 
 AJUDA = (
-    "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores e "
-    "unidades (uma aba para cada). Eles vêm do cadastro central (NocoDB) pela API, depois do "
-    "login online.\n\n"
+    "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores, "
+    "unidades e projetos (uma aba para cada). Eles vêm do cadastro central (NocoDB) pela API, "
+    "depois do login online.\n\n"
+    "• Projetos: cada unidade aponta para o projeto dela pela sigla (coluna Projeto em "
+    "Unidades). A aba Projetos mostra as unidades de cada um; unidade sem projeto aparece com "
+    "—. Por enquanto o projeto só organiza: não muda perfil, papel de parede nem diagnóstico.\n\n"
     "• Para mudar um cadastro, edite no NocoDB; aqui é só leitura. A mudança chega na próxima "
     "sincronização (a cada 30 min ou em Sincronizar agora, que só funciona depois do login "
     "online).\n"
@@ -98,11 +101,15 @@ class PainelConfiguracoes(QWidget):
         self.servidores = self._tabela(["Serviço", "Papel", "Valor", "Versão", "Observação"])
         self.wifi = self._tabela(["SSID", "Unidade", "Categoria", "Senha", "Atualizado em"])
         self.instaladores = self._tabela(["Programa", "Versão", "Arquivo", "SHA-256", "Link"])
-        self.unidades = self._tabela(["Código", "Nome", "UF", "Perfil padrão"])  # ADR-067
+        self.unidades = self._tabela(
+            ["Código", "Nome", "Projeto", "UF", "Perfil padrão"]  # ADR-059, ADR-067
+        )
+        self.projetos = self._tabela(["Sigla", "Nome", "Unidades"])
         self.abas.addTab(self.servidores, "Servidores")
         self.abas.addTab(self.wifi, "Wi-Fi")
         self.abas.addTab(self.instaladores, "Instaladores")
         self.abas.addTab(self.unidades, "Unidades")
+        self.abas.addTab(self.projetos, "Projetos")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -188,10 +195,25 @@ class PainelConfiguracoes(QWidget):
                 [
                     u.codigo,
                     u.nome,
+                    u.projeto or "—",
                     u.uf,
                     u.perfil_padrao,
                 ]
                 for u in c.unidades
+            ]
+            if c
+            else [],
+            {},
+        )
+        self._preencher(
+            self.projetos,
+            [
+                [
+                    p.sigla,
+                    p.nome,
+                    ", ".join(u.codigo for u in c.unidades if u.projeto == p.sigla) or "—",
+                ]
+                for p in c.projetos
             ]
             if c
             else [],

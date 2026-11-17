@@ -99,7 +99,7 @@ NocoDB é a fonte da verdade; a API não grava nada lá e não copia nada para o
 |---|---|---|
 | `NOCODB_URL` | a mesma do espelho | |
 | `NOCODB_CADASTROS_TOKEN` | token do usuário de leitura | Usuário próprio, **Viewer só na base "ITC Bench"**. Nunca o `NOCODB_TOKEN` do espelho |
-| `NOCODB_TABELA_SERVIDORES` | id da tabela (`m...`) | Idem para `NOCODB_TABELA_INSTALADORES`, `NOCODB_TABELA_WIFI`, `NOCODB_TABELA_UNIDADES` |
+| `NOCODB_TABELA_SERVIDORES` | id da tabela (`m...`) | Idem para `NOCODB_TABELA_INSTALADORES`, `NOCODB_TABELA_WIFI`, `NOCODB_TABELA_UNIDADES`. `NOCODB_TABELA_PROJETOS` é opcional (TA-ADR-036): vazio, a API não lê Projetos nem `Unidades.Projeto` |
 | `NOCODB_CADASTROS_TIMEOUT_SECONDS` | `5` | Por requisição; máximo 15. A leitura inteira tem teto de 30 s |
 | `NOCODB_CADASTROS_TTL_SECONDS` | `60` | Validade da cópia em memória |
 | `BENCH_CADASTROS_ETAG_KEY` | aleatória | Chave do HMAC da versão; vazia = aleatória por processo |

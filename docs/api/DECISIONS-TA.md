@@ -1223,3 +1223,33 @@ pede as colunas pelo nome no `fields=`; com a coluna apagada, a leitura da tabel
 - **Ordem:** publicar a API com este TA-ADR **antes** de apagar as colunas no NocoDB. A API
   anterior ainda pede as colunas.
 - O GLPI Agent passa a ser instalado sem `TAG=` (como já era com a coluna vazia).
+
+## TA-ADR-036 — Tabela Projetos (opcional) e `Unidades.Projeto`
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-059; emenda ao TA-ADR-027)
+
+**Context**
+O responsável quer as unidades agrupadas por projeto: tabela Projetos no NocoDB e cada unidade
+apontando para a sua.
+
+**Decision**
+- Tabela nova Projetos (`Sigla` display, `Nome`, `Ativo`), id em `NOCODB_TABELA_PROJETOS`.
+  **Opcional:** vazio, a API não lê Projetos nem a coluna `Projeto` de Unidades, e entrega
+  `projetos: []` e `unidades[].projeto: ""`. `configurado()` não exige essa tabela.
+- Com a tabela: Unidades lê também `Projeto` (texto com a sigla, sem link do NocoDB, como
+  `WiFi.Unidade`). Sigla que não é de um Projeto ativo deixa a unidade **sem projeto** (não
+  descarta a unidade), com `projeto_invalido` e só o Id no log.
+- `GET /v1/bench/cadastros` ganha `projetos` (id, sigla, nome) e `unidades[].projeto`.
+
+**Alternatives considered**
+- Campo Link do NocoDB entre as tabelas: a API leria ids em vez de texto e o padrão do WiFi
+  deixaria de valer; o texto com sigla é igual ao resto dos cadastros.
+- Descartar a unidade com projeto inválido: tiraria Wi-Fi e papel de parede da unidade por erro
+  de digitação num campo que, por enquanto, só organiza.
+
+**Consequences**
+- **Ordem do deploy:** criar a tabela Projetos e a coluna `Projeto` em Unidades no NocoDB,
+  **depois** preencher `NOCODB_TABELA_PROJETOS` no `.env` do servidor. Sem a variável, nada muda.
+- Bench antigo ignora as chaves novas.

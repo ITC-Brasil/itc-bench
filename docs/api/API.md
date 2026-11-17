@@ -234,6 +234,8 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
   "instaladores": [{"id": 1, "programa": "...", "versao": "...", "arquivo": "...", "sha256": "<hex minúsculo>", "link": "https://...", "observacao": "", "tipo": "instalador", "categoria": "Programas", "identificador": "", "argumentos": "", "deteccao": "", "modo": "quiosque"}],
   "wifi": [{"id": 10, "ssid": "...", "senha": "...", "unidade": "UM-01", "categoria": "Carreta", "atualizado_em": "..."}],
   "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "", "uf": "..", "tag_glpi": "", "perfil_padrao": "..."}],
+  "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "...", "uf": "..", "tag_glpi": "...", "perfil_padrao": "...", "projeto": ""}],
+  "projetos": [{"id": 1, "sigla": "ABC", "nome": "..."}],
   "descartados": {"wifi": [12]}
 }
 ```

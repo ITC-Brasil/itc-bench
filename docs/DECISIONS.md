@@ -3290,3 +3290,35 @@ vazia) fica para depois.
 **Consequences**
 - O responsável cadastra as duas linhas `Conta Gestão` (senha só direto no NocoDB).
 - Roteiro de máquina real 8.8e.
+
+## ADR-059 — Projetos no cadastro: as unidades apontam para o seu projeto
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (com o TA-ADR-036)
+
+**Context**
+O "projeto" (BSBIA, QDFM, SEDET…) só existia como campo vazio no diagnóstico e numa lista fixa no
+texto da IA do laudo. O responsável quer uma tabela Projetos no NocoDB, com cada unidade apontando
+para o seu projeto.
+
+**Decision**
+1. NocoDB: tabela Projetos (`Sigla`, `Nome`, `Ativo`) e coluna `Unidades.Projeto` com a sigla
+   (TA-ADR-036). A API valida e entrega `projetos` e `unidades[].projeto`.
+2. Bench: `cadastros.Projeto` (id, sigla, nome), `Cadastros.projetos`, `Unidade.projeto` e
+   `Cadastros.projeto_por_sigla`. Cache antigo sem as chaves = nenhum projeto.
+3. Configurações: coluna Projeto na aba Unidades ("—" sem projeto) e aba nova Projetos com sigla,
+   nome e as unidades de cada um.
+4. **Por enquanto só organiza.** Perfil padrão, papel de parede, campo `projeto` do diagnóstico e
+   política de limpeza do laudo não mudam; cada uso entra com ADR próprio quando o responsável
+   decidir.
+
+**Alternatives considered**
+- Coluna `Projeto` em Unidades sem tabela própria: o responsável preferiu a tabela, para o projeto
+  ter dados próprios depois.
+- Projeto tirado das letras do código (`BSBIA01` → `BSBIA`): quebra com código fora do padrão.
+
+**Consequences**
+- Usos possíveis, a decidir: perfil padrão por projeto, papel de parede por projeto quando a
+  unidade não tem o seu, e o diagnóstico enviando o projeto (com a política de limpeza vinda da
+  tabela em vez da lista fixa do prompt).

@@ -81,6 +81,14 @@ class Unidade:
     uf: str
     tag_glpi: str
     perfil_padrao: str
+    projeto: str = ""  # sigla de Projetos (ADR-059); vazio = sem projeto
+
+
+@dataclass(frozen=True)
+class Projeto:
+    id: int
+    sigla: str
+    nome: str
 
 
 @dataclass(frozen=True)
@@ -95,6 +103,7 @@ class Cadastros:
     redes: tuple[Rede, ...]
     unidades: tuple[Unidade, ...]
     descartados: dict[str, list[Any]] = field(default_factory=dict)
+    projetos: tuple[Projeto, ...] = ()  # ADR-059; cache antigo sem a chave = nenhum
 
     def servidor(self, servico: str, papel: str) -> Servidor | None:
         return next((s for s in self.servidores if s.servico == servico and s.papel == papel), None)
@@ -104,6 +113,9 @@ class Cadastros:
 
     def unidade_por_codigo(self, codigo: str | None) -> Unidade | None:
         return next((u for u in self.unidades if u.codigo == codigo), None)
+
+    def projeto_por_sigla(self, sigla: str | None) -> Projeto | None:
+        return next((p for p in self.projetos if p.sigla == sigla), None) if sigla else None
 
 
 def _de_dados(registro: dict[str, Any]) -> Cadastros:
@@ -170,10 +182,15 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(u["uf"]),
                 str(u.get("tag_glpi") or ""),  # ADR-067: não vem mais
                 str(u["perfil_padrao"]),
+                str(u.get("projeto") or ""),
             )
             for u in dados["unidades"]
         ),
         descartados=dict(dados.get("descartados") or {}),
+        projetos=tuple(
+            Projeto(int(p["id"]), str(p["sigla"]), str(p["nome"]))
+            for p in dados.get("projetos") or ()
+        ),
     )
 
 

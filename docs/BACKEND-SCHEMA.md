@@ -79,6 +79,18 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 | `Nome` | SingleLineText | |
 | `UF` | SingleLineText | |
 | `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
+| `Projeto` | SingleLineText | Sigla de `Projetos.Sigla` (sem link, como `WiFi.Unidade`). Vazio = sem projeto; sigla que não é Projeto ativo vira vazio, com aviso no log da API. Só lida com `NOCODB_TABELA_PROJETOS` configurado. ADR-059, TA-ADR-036 |
+| `Ativo` | Checkbox | |
+
+### Projetos
+
+Opcional: só lida com `NOCODB_TABELA_PROJETOS` preenchido (ADR-059, TA-ADR-036). Por enquanto
+só organiza as unidades; nenhum comportamento do Bench depende do projeto.
+
+| Coluna | Tipo NocoDB | Observação |
+|---|---|---|
+| `Sigla` | SingleLineText, display | Única, maiúsculas (ex. fictício: `ABC`). É o que `Unidades.Projeto` cita |
+| `Nome` | SingleLineText | Nome por extenso |
 | `Ativo` | Checkbox | |
 
 `Cidade` e `TagGLPI` saíram (ADR-067, TA-ADR-039): a API não as pede mais e manda

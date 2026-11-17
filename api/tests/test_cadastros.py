@@ -51,6 +51,7 @@ def linhas():
             {"Id": 2, "Codigo": "UM-02", "Nome": "Unidade Dois", "Ativo": True},
             {"Id": 3, "Codigo": "UM-03", "Nome": "Unidade Tres", "Ativo": False},
         ],
+        "mPro": [],
     }
 
 
@@ -459,6 +460,36 @@ def test_unidades_sem_cidade_e_tagglpi(settings, fake):
     dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(handler))
     assert pedidos and all("Cidade" not in p and "TagGLPI" not in p for p in pedidos)
     assert {(u["cidade"], u["tag_glpi"]) for u in dados["unidades"]} == {("", "")}
+def test_projetos_opcional_e_unidade_aponta_pela_sigla(settings, fake, caplog):
+    """TA-ADR-036: without the setting nothing changes; with it, Unidades.Projeto is read and an
+    unknown sigla leaves the unit without a project (logged by Id only)."""
+    fake.dados["mPro"] = [
+        {"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True},
+        {"Id": 2, "Sigla": "DEF", "Nome": "Projeto Def", "Ativo": False},
+    ]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    fake.dados["mUni"][1]["Projeto"] = "DEF"  # projeto inativo
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert sem["projetos"] == [] and {u["projeto"] for u in sem["unidades"]} == {""}
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro"), httpx.MockTransport(fake.handler)
+        )
+    assert com["projetos"] == [{"id": 1, "sigla": "ABC", "nome": "Projeto Abc"}]
+    assert [u["projeto"] for u in com["unidades"]] == ["ABC", ""]
+    assert "Id 2: projeto_invalido" in caplog.text
+
+
+def test_cadastros_entrega_projetos(settings, fake):
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    s = configurar(settings, nocodb_tabela_projetos="mPro")
+    criar_sessao(s)
+    app = create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(fake.handler)})
+    with TestClient(app) as c:
+        corpo = c.get("/v1/bench/cadastros", headers=AUT).json()
+    assert corpo["projetos"] == [{"id": 1, "sigla": "ABC", "nome": "Projeto Abc"}]
+    assert corpo["unidades"][0]["projeto"] == "ABC"
 
 
 def test_wifi_le_categoria_pelo_titulo(settings, fake):

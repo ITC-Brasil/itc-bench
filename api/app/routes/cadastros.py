@@ -114,6 +114,7 @@ def cadastros(
             "instaladores": dados["instaladores"],
             "wifi": wifi,
             "unidades": dados["unidades"],
+            "projetos": dados.get("projetos", []),
         }
     )
     canonico = json.dumps(conteudo, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()

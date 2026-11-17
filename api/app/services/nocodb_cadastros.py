@@ -50,7 +50,11 @@ TABELAS = {
         ("Id", "Codigo", "Nome", "UF", "PerfilPadrao", "Ativo"),
         "Codigo",
     ),
+    # TA-ADR-036: optional. Only read when nocodb_tabela_projetos is set; then Unidades also
+    # reads its Projeto column (the sigla of a Projetos row).
+    "projetos": ("nocodb_tabela_projetos", ("Id", "Sigla", "Nome", "Ativo"), "Sigla"),
 }
+OPCIONAIS = ("projetos",)
 
 
 class NocodbIndisponivel(Exception):
@@ -63,7 +67,7 @@ class NocodbIndisponivel(Exception):
 
 def configurado(settings) -> bool:
     token = settings.nocodb_cadastros_token.get_secret_value().strip()
-    ids = all(getattr(settings, tabela[0]).strip() for tabela in TABELAS.values())
+    ids = all(getattr(settings, TABELAS[nome][0]).strip() for nome in TABELAS if nome not in OPCIONAIS)
     return bool(settings.nocodb_url and ids and token not in ("", "changeme"))
 
 
@@ -82,7 +86,13 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
     inicio = time.monotonic()
     headers = {"xc-token": settings.nocodb_cadastros_token.get_secret_value().strip()}
     with httpx.Client(timeout=settings.nocodb_cadastros_timeout_seconds, transport=transport) as client:
+        com_projetos = bool(settings.nocodb_tabela_projetos.strip())
         for nome, (id_setting, campos, _) in TABELAS.items():
+            if nome in OPCIONAIS and not getattr(settings, id_setting).strip():
+                brutos[nome] = []
+                continue
+            if nome in ("unidades",) and com_projetos:
+                campos = (*campos, "Projeto")
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
                 brutos[nome] = paginas(client, url, headers, campos, inicio)
@@ -125,7 +135,7 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
     validos: dict[str, list[dict]] = {}
     for nome, (_, _, exibicao) in TABELAS.items():
         validos[nome] = []
-        for linha in brutos[nome]:
+        for linha in brutos.get(nome, []):
             motivo = None if marcado(linha.get("Ativo")) else "inativo"
             if motivo is None and not texto(linha.get(exibicao)):
                 motivo = "sem_" + exibicao.lower()
@@ -137,6 +147,15 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
                 continue
             validos[nome].append(linha)
 
+    projetos = [projeto(linha) for linha in validos["projetos"]]
+    siglas = {p["sigla"] for p in projetos}
+    unidades = [unidade(linha) for linha in validos["unidades"]]
+    for u in unidades:
+        # TA-ADR-036: an unknown sigla keeps the unit, without a project, and is logged.
+        if u["projeto"] and u["projeto"] not in siglas:
+            log.warning("cadastro unidades Id %s: projeto_invalido", u["id"])
+            u["projeto"] = ""
+    codigos = {u["codigo"] for u in unidades}
     instaladores = []
     for linha in validos["instaladores"]:
         motivo = motivo_instalador(linha)
@@ -146,8 +165,6 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
             continue
         instaladores.append(instalador(linha))
 
-    unidades = [unidade(linha) for linha in validos["unidades"]]
-    codigos = {u["codigo"] for u in unidades}
     wifi = []
     for linha in validos["wifi"]:
         if texto(linha.get("Unidade")) not in codigos:
@@ -160,6 +177,7 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
         "instaladores": instaladores,
         "wifi": wifi,
         "unidades": unidades,
+        "projetos": projetos,
         "descartados": descartados,
     }
 
@@ -246,4 +264,13 @@ def unidade(linha: dict) -> dict:
         "uf": texto(linha.get("UF")),
         "tag_glpi": "",  # TA-ADR-039: idem; the GLPI Agent goes without TAG
         "perfil_padrao": texto(linha.get("PerfilPadrao")),
+        "projeto": texto(linha.get("Projeto")),
+    }
+
+
+def projeto(linha: dict) -> dict:
+    return {
+        "id": linha.get("Id"),
+        "sigla": texto(linha.get("Sigla")),
+        "nome": texto(linha.get("Nome")),
     }
