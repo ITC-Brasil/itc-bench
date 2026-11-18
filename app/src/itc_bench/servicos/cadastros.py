@@ -348,6 +348,42 @@ class Sincronizacao:
 
     estado: str
     cadastros: Cadastros | None
+    motivo: str = ""  # sem_central: tabela e erro mandados pela API (TA-ADR-040)
+
+
+TABELA_MOTIVO = {
+    "servidores": "Servidores",
+    "instaladores": "Instaladores",
+    "wifi": "WiFi",
+    "unidades": "Unidades",
+    "projetos": "Projetos",
+    "perfis": "Perfis",
+}
+
+
+def explicar_motivo(motivo: str) -> str:
+    """Texto para a tela a partir do `motivo` do 503 (TA-ADR-040); "" sem motivo."""
+    if motivo == "nao_configurado":
+        return "a API não tem as tabelas do NocoDB configuradas (api/.env do servidor)"
+    tabela, _, erro = motivo.partition(":")
+    if tabela not in TABELA_MOTIVO or not erro:
+        return ""
+    nome = TABELA_MOTIVO[tabela]
+    if erro in ("http_400", "http_422"):
+        causa = "o NocoDB recusou a leitura: coluna que falta ou com nome diferente"
+    elif erro == "http_404":
+        causa = "tabela não encontrada: id errado no api/.env do servidor ou tabela apagada"
+    elif erro in ("http_401", "http_403"):
+        causa = "o token da API não tem acesso a essa tabela"
+    elif erro == "timeout":
+        causa = "o NocoDB demorou demais para responder"
+    elif erro == "resposta_invalida":
+        causa = "o NocoDB respondeu fora do formato"
+    elif erro == "indisponivel":
+        causa = "o NocoDB não respondeu"
+    else:
+        causa = f"erro no NocoDB ({erro.replace('_', ' ')})"
+    return f"tabela {nome}: {causa}"
 
 
 def sincronizar(
@@ -361,8 +397,9 @@ def sincronizar(
         log.info("Cadastros sem sincronizar (%s); usando o cache.", erro)
         if unidade is not None and atual is not None and atual.unidade != unidade:
             atual = armazem.filtrar(unidade)  # unidade trocada sem rede: só o Wi-Fi dela fica
-        sem_central = isinstance(erro, api.CadastrosIndisponivel)
-        return Sincronizacao("sem_central" if sem_central else "offline", atual)
+        if isinstance(erro, api.CadastrosIndisponivel):
+            return Sincronizacao("sem_central", atual, erro.motivo)
+        return Sincronizacao("offline", atual)
     except api.Recusado as erro:
         log.warning("Cadastros recusados pela API (%s).", erro.codigo)
         return Sincronizacao("sessao" if erro.status == 401 else erro.codigo, atual)

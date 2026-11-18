@@ -24,12 +24,13 @@ COUNT_USE = (
 class Refusal(Exception):
     """Short answer with a stable code and no internal detail."""
 
-    def __init__(self, status: int, code: str, headers: dict | None = None):
-        self.status, self.code, self.headers = status, code, headers
+    def __init__(self, status: int, code: str, headers: dict | None = None, extra: dict | None = None):
+        # extra: short, already-sanitized fields only (e.g. TA-ADR-040 motivo); never internal text.
+        self.status, self.code, self.headers, self.extra = status, code, headers, extra or {}
 
 
 async def refusal_handler(request: Request, exc: Refusal) -> JSONResponse:
-    return JSONResponse({"erro": exc.code}, exc.status, headers=exc.headers)
+    return JSONResponse({**exc.extra, "erro": exc.code}, exc.status, headers=exc.headers)
 
 
 def utcnow() -> datetime:

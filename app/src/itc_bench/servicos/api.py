@@ -11,6 +11,7 @@ Endereço: `HKLM\SOFTWARE\ITC\Bench`, valor `ApiUrl` (instalador, ADR-008); em `
 
 import json
 import os
+import re
 import ssl
 import urllib.error
 import urllib.request
@@ -70,11 +71,24 @@ class IaFalhou(Exception):
         self.codigo = codigo
 
 
+# TA-ADR-040: formas aceitas do `motivo` do 503; qualquer outra coisa vira "".
+MOTIVO_CADASTROS = re.compile(
+    r"nao_configurado|indisponivel|"
+    r"(?:servidores|instaladores|wifi|unidades|projetos|perfis):"
+    r"(?:timeout|indisponivel|resposta_invalida|http_[1-5][0-9]{2})"
+)
+
+
 class CadastrosIndisponivel(Exception):
     """`503 cadastros_indisponivel`: a API está no ar, o NocoDB não (ADR-014).
 
     Não é `SemConexao`: não libera nada do login e não mexe na sessão; o Bench fica com o cache.
+    `motivo` (TA-ADR-040): tabela e tipo de erro, ex. `wifi:http_400`; "" quando a API não mandou.
     """
+
+    def __init__(self, codigo: str, motivo: str = "") -> None:
+        super().__init__(f"{codigo}: {motivo}" if motivo else codigo)
+        self.motivo = motivo
 
 
 @dataclass(frozen=True)
@@ -234,7 +248,8 @@ def cadastros(
     if status == 422 and erro == "unidade_invalida":
         raise Recusado(422, erro)
     if status == 503 and erro == "cadastros_indisponivel":
-        raise CadastrosIndisponivel(erro)
+        motivo = str((dados or {}).get("motivo") or "")
+        raise CadastrosIndisponivel(erro, motivo if MOTIVO_CADASTROS.fullmatch(motivo) else "")
     if status in STATUS_SEM_SERVIDOR:
         raise SemConexao(erro or f"http_{status}")
     raise ErroApi(f"Resposta inesperada do servidor ({status}).")

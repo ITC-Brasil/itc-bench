@@ -104,7 +104,10 @@ NocoDB é a fonte da verdade; a API não grava nada lá e não copia nada para o
 | `NOCODB_CADASTROS_TTL_SECONDS` | `60` | Validade da cópia em memória |
 | `BENCH_CADASTROS_ETAG_KEY` | aleatória | Chave do HMAC da versão; vazia = aleatória por processo |
 
-Sem o token ou um dos ids, a API sobe e a rota responde `503 cadastros_indisponivel`.
+Sem o token ou um dos ids, a API sobe e a rota responde `503 cadastros_indisponivel` com
+`motivo: nao_configurado`. Se a leitura falhar, o `motivo` diz a tabela e o erro
+(ex.: `wifi:http_400` = coluna que falta; `perfis:http_404` = id errado), e o Bench mostra
+isso em Configurações (TA-ADR-040).
 
 **Tokens separados.** O NocoDB não tem escopo por token: o token herda o papel do usuário em cada
 base. Por isso dois usuários: o do espelho (**Editor** só na base dos relatórios, que fica
