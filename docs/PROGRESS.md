@@ -16,7 +16,7 @@
   **Pendente com o responsável:** senha da Suporte/Gestão quando vazia (Gestão, ADR-036);
   McAfee assistido (MCPR cadastrado, desmarcar o Ativo até lá); USB por `USBSTOR`; revisão
   do NocoDB de 18/11 (Wi-Fi pela unidade, vários projetos por perfil, perfil padrão vazio,
-  tirar `Cidade` e `TagGLPI`, MCPR fora de Programas).
+  tirar `Cidade` e `TagGLPI`). MCPR já fora de Programas (ADR-066).
 - **18/11/2026: branch `feat/sem-tabelas`, saindo da `develop`.** Só o que não depende de
   tabela nova no NocoDB nem de variável no servidor, para subir antes: etapas da Preparação
   numeradas (ADR-056), Remover programas só com os removíveis (ADR-058), Windows Terminal e
