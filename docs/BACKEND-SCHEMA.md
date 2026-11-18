@@ -53,7 +53,10 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 - **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
   opcional: `Link` `https://` do `.ico`, `Arquivo` `.ico` e `SHA256` opcional.
 - Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não
-  aparecem em Programas. Duplicada (mesmo tipo e ID/URL, ou mesmo `Programa` entre
+  aparecem em Programas. A linha `MCPR` (ferramenta de remoção do McAfee, ADR-066) também não:
+  não é programa a instalar e a Preparação não a executa. Ela é usada só pelo botão Remover
+  McAfee com o MCPR, na tela Remover programas (ADR-068): precisa ficar **ativa**, com
+  `Arquivo` `.exe`, `Versao` e `Link` `https://`. Duplicada (mesmo tipo e ID/URL, ou mesmo `Programa` entre
   instaladores): nenhuma das duas instala.
 
 ### WiFi
@@ -72,13 +75,15 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 
 | Coluna | Tipo NocoDB | Observação |
 |---|---|---|
-| `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,8})$`, até 8 (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
+| `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,15})$`: com número até 8; só letras até 15, o limite do nome do computador (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
 | `Nome` | SingleLineText | |
-| `Cidade` | SingleLineText | |
 | `UF` | SingleLineText | |
-| `TagGLPI` | SingleLineText | Tag do GLPI Agent |
 | `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
 | `Ativo` | Checkbox | |
+
+`Cidade` e `TagGLPI` saíram (ADR-067, TA-ADR-039): a API não as pede mais e manda
+`cidade` e `tag_glpi` vazios. As colunas só podem ser apagadas no NocoDB **depois** que a
+API com o TA-ADR-039 estiver publicada.
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
 `Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o
@@ -93,6 +98,11 @@ Contrato da conta Suporte (ADR-017): `Servico = "Conta Suporte"`, `Papel = "usua
 conta, `Publico` marcado) e `Papel = "senha"` (`Publico` desmarcado). Uma linha ativa de cada;
 duplicada, o Bench recusa. Sem `usuario`, o nome é `Suporte`.
 
+Contrato da conta Gestão (ADR-069), opcional e no mesmo formato: `Servico = "Conta Gestão"`,
+`Papel = "usuario"` (`Gestão`, `Publico` marcado; outro nome é recusado) e
+`Papel = "senha"` (`Publico` desmarcado). Sem nenhuma linha `Conta Gestão`, o Bench não mexe
+na conta Gestão.
+
 Contrato do acesso remoto (ADR-019), uma linha ativa por par: `GLPI Agent`/`servidor` (URL
 `http(s)://`, público), `RustDesk`/`servidor` (host sem porta, público), `RustDesk`/`chave`,
 `RustDesk`/`senha` e `AnyDesk`/`senha` (não públicos). Opcional (ADR-030): `RustDesk`/`api`
@@ -101,7 +111,7 @@ campo. Ausente (as obrigatórias), vazia, duplicada ou com `Publico` trocado: o 
 aquele programa e diz o par. Instaladores: `Programa` igual a
 `GLPI Agent`, `RustDesk` ou `AnyDesk`, `SHA256` vazio ou de 64 hexadecimais (ADR-028; preencher
 fixa o arquivo), `Link` `https://` e
-`Arquivo` com `.msi`, `.msi`, `.exe`. `Unidades.TagGLPI` é opcional (sem ela, o agente vai sem
+`Arquivo` com `.msi`, `.msi`, `.exe`. O GLPI Agent vai sem tag: `Unidades.TagGLPI` não é mais lida (ADR-067; antes, sem ela o agente ia sem
 `TAG=`).
 
 ## API (rotas)

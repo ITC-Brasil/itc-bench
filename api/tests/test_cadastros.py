@@ -444,6 +444,23 @@ def test_papel_de_parede(settings, fake, caplog):
     assert "papel_invalido" in caplog.text and link not in caplog.text
 
 
+def test_unidades_sem_cidade_e_tagglpi(settings, fake):
+    """TA-ADR-039: a API não pede Cidade nem TagGLPI (as colunas podem sumir do NocoDB) e manda
+    as chaves vazias, que o Bench 0.19.0 ainda espera."""
+    pedidos = []
+    original = fake.handler
+
+    def handler(request):
+        if request.url.path.split("/")[-2] == "mUni":
+            pedidos.append(request.url.params["fields"].split(","))
+        return original(request)
+
+    fake.dados["mUni"][0].update({"Cidade": "Brasília", "TagGLPI": "tag-velha"})
+    dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(handler))
+    assert pedidos and all("Cidade" not in p and "TagGLPI" not in p for p in pedidos)
+    assert {(u["cidade"], u["tag_glpi"]) for u in dados["unidades"]} == {("", "")}
+
+
 def test_wifi_le_categoria_pelo_titulo(settings, fake):
     """NocoDB `fields=` uses the column title (`Categoria`); `categoria` came back absent."""
     dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))

@@ -67,7 +67,7 @@ def test_failed_migration_leaves_nothing_applied(tmp_path):
 def test_transaction_control_in_migration_is_refused(tmp_path, sql):
     migrations = tmp_path / "migrations"
     migrations.mkdir()
-    (migrations / "0001_20260928_tx.sql").write_text(sql)
+    (migrations / "0001_20260928_tx.sql").write_text(sql, encoding="utf-8")
     database = str(tmp_path / "t.db")
 
     with pytest.raises(ValueError, match="transaction control"):

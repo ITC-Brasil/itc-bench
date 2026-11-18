@@ -3028,3 +3028,265 @@ a identificação pelo nome do computador (ADR-048), que deixaria `INESQ-EST03` 
   `DESKTOP-K2FI5PV`) passam a ter formato de código, mas só escolhem unidade se existirem no
   cadastro (ADR-048, item 3). Nada muda para essas máquinas enquanto não houver tal unidade.
 - A API não muda. Roteiro de máquina real 11.9 vale também para `INESQ-EST01`.
+
+**Revisão (17/11/2026, pedido do responsável)**
+A unidade `ITCBRASIL` tem 9 letras e não era reconhecida pelo nome do computador. O código
+só de letras passa a aceitar de 2 a 15 (`[A-Z]{2,15}`), o limite do nome do computador no
+Windows: `ITCBRASIL-EST01` → `ITCBRASIL`. O código com número continua até 8. Nomes como
+`QUALIFICA-EST` passam a ter formato de código, mas, como no item de Consequências acima,
+só escolhem unidade se `QUALIFICA` existir no cadastro.
+
+## ADR-056 — Etapas da Preparação completa numeradas (número fixo)
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-023; primeiro passo da revisão dos perfis)
+
+**Context**
+O responsável vai mexer nos perfis da Preparação completa (ADR-023) e pediu, para começar, que as
+14 etapas sejam numeradas, para facilitar falar delas e montar perfis.
+
+**Decision**
+1. Cada etapa tem um número fixo pela ordem do ADR-023, item 2 (`perfis.NUMERO`): 1.
+   Identificação, 2. Contas, 3. Wi-Fi, 4. Acesso remoto, 5. Programas, 6. Remover
+   pré-instalados, 7. Políticas, 8. USB, 9. Proteção do login, 10. Papel de parede, 11. Mouse e
+   teclado, 12. Energia, 13. Limpeza, 14. Diagnóstico.
+2. O número não muda com o perfil: o Administrativo mostra 1 a 5 e 9 a 14.
+3. `perfis.rotulo(etapa)` ("2. Contas") é o nome usado na lista da tela Preparação, na
+   confirmação, no log ao vivo e no motivo de bloqueio ("depende de 2. Contas"). Os ids das
+   etapas, a ordem e o andamento guardado não mudam.
+
+**Alternatives considered**
+- Numerar de novo dentro de cada perfil (1 a 11 no Administrativo): o mesmo número apontaria para
+  etapas diferentes conforme o perfil.
+
+**Consequences**
+- Etapa nova entra no fim ou exige renumerar com ADR; o número é a referência para os próximos
+  pedidos sobre perfis.
+
+## ADR-058 — Remover programas mostra só os removíveis por padrão
+
+**Status:** Accepted
+**Date:** 2026-11-16 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-020)
+
+**Context**
+A tela Remover programas lista tudo o que está instalado. Os itens que o Bench não remove
+(protegidos, recusados, sem desinstalador) aparecem sem caixa de marcar e ocupam boa parte da
+lista (drivers e runtimes).
+
+**Decision**
+1. Por padrão a lista mostra só os itens removíveis (`Entrada.selecionavel`: silencioso ou
+   interativo).
+2. A caixa "Mostrar também os que não podem ser removidos", desmarcada a cada abertura, traz os
+   outros de volta, com o motivo como antes.
+3. Ao lado, o aviso "N oculto(s): protegidos, recusados ou sem desinstalador." e, com busca,
+   "N com esse nome está(ão) oculto(s).", para o técnico não achar que o programa não está
+   instalado.
+4. Só a tela muda: `servicos/desinstalar.py` (plano, recusas e proteção) não muda.
+
+**Alternatives considered**
+- Esconder de vez: o técnico não saberia que o programa existe e foi recusado, nem veria a
+  orientação de remover pelo Painel de Controle.
+
+**Consequences**
+- Roteiro de máquina real 8.8a.
+
+## ADR-061 — Windows Terminal e PowerShell ISE na etapa 6 (Remover pré-instalados)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-023, item 3, e ao ADR-020)
+
+**Context**
+A etapa 6 remove uma lista fechada de apps Appx da Microsoft. O Windows Terminal só saía pela
+tela Remover programas, e o PowerShell ISE não saía. O responsável pediu os dois na etapa 6.
+
+**Decision**
+1. `Microsoft.WindowsTerminal` entra em `desinstalar.APPX_PREINSTALADOS`: sai pelo mesmo trecho
+   dos outros Appx (todas as contas e o provisionado, com as mesmas recusas). A tela Remover
+   programas continua oferecendo o Terminal à parte.
+2. PowerShell ISE: é recurso opcional do Windows (Capability), não Appx. Trecho próprio
+   `recursos/programas/ise.ps1`, com o nome fixo `Microsoft.Windows.PowerShell.ISE~~~~0.0.1.0`
+   e `Remove-WindowsCapability -Online`; `desinstalar.ise_instalado` e `desinstalar.remover_ise`.
+   A etapa 6 o inclui na leitura ("N apps a remover"), na confirmação e no aplicar.
+3. **Só o ISE.** O `powershell.exe` (Windows PowerShell 5.1) continua: o próprio Bench roda os
+   trechos por ele. Microsoft Store, App Installer (winget, etapa 5), Edge, Calculadora e Bloco
+   de Notas continuam fora da lista (teste que trava isso).
+
+**Alternatives considered**
+- Remover o PowerShell inteiro: quebraria o Bench e ferramentas de suporte.
+- ISE pela política de bloqueio de programas (DisallowRun): esconde, mas deixa instalado; o
+  pedido é remover.
+
+**Consequences**
+- Na conta do aluno, o atalho "Terminal" some do menu; o Windows volta a abrir o console
+  clássico quando precisa.
+- `Remove-WindowsCapability` pode pedir reinício; a etapa avisa ("Vale depois de reiniciar").
+- Roteiro de máquina real 10.18.
+
+## ADR-063 — Office que vem de fábrica em Remover pré-instalados
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; sem o McAfee)
+**Module:** Pós-16 (emenda ao ADR-061)
+
+**Context**
+Notebooks novos vêm com o Microsoft 365 (Click-to-Run) pré-instalado. O responsável quer
+removê-lo em Remover pré-instalados. A etapa Programas pode instalar Office: remover
+"qualquer Office" desfaria a Programas numa segunda passada.
+
+**Decision**
+1. Lista fechada no código (`desinstalar.OFFICE_PRE_INSTALADO`): `O365HomePremRetail` (o
+   "Microsoft 365" de fábrica) e `OneNoteFreeRetail`. Office corporativo (ProPlus, Business,
+   Volume) e qualquer outro produto ficam fora.
+2. Trecho `recursos/programas/office.ps1`: lê as entradas de desinstalação (HKLM, 64 e 32 bits)
+   cujo executável é o `OfficeClickToRun.exe` de Program Files (`GetFolderPath('ProgramFiles')`)
+   e cujo produto está na lista; refaz os argumentos só com chave=valor conhecidas (`scenario`,
+   `scenariosubtype`, `sourceplatform`, `productstoremove`, `culture`, `version.16`) e acrescenta
+   `DisplayLevel=False forceappshutdown=True`. Nada é baixado.
+3. Uma chamada por produto (todas as línguas dele); recusa fora da lista no Python e no trecho;
+   cancela entre produtos. A etapa Remover pré-instalados lista "Microsoft 365 pré-instalado" e "OneNote
+   pré-instalado" na leitura e na confirmação.
+4. McAfee fica para depois: depende da ferramenta oficial de remoção cadastrada em Instaladores
+   pelo responsável.
+
+**Alternatives considered**
+- Office Deployment Tool com `Remove All`: exige baixar o `setup.exe` e remove todo Office,
+  inclusive o corporativo.
+- Remover todo produto Click-to-Run: desfaria a etapa Programas.
+
+**Consequences**
+- `forceappshutdown=True` fecha Word/Excel abertos durante a etapa (máquina nova, sem uso).
+- Produto de fábrica com outro nome (outra edição OEM) não sai até entrar na lista.
+- Roteiro de máquina real 10.21.
+
+## ADR-066 — MCPR (remoção do McAfee) fora da lista de Programas
+
+**Status:** Accepted
+**Date:** 2026-11-18 (revisão do NocoDB com o responsável)
+**Module:** Pós-16 (emenda ao ADR-020; primeiro passo da remoção assistida do McAfee)
+
+**Context**
+O responsável cadastrou o MCPR (McAfee Consumer Product Removal) em Instaladores como
+`Tipo = instalador`, `Categoria = Programas`, ativo, para a futura remoção do McAfee. Do jeito que
+o Bench lê Instaladores, ele viraria um programa: apareceria na tela Programas e a etapa
+Programas da Preparação o baixaria e executaria em toda máquina.
+
+**Decision**
+1. `programas.FERRAMENTAS = ("MCPR",)` e `programas.ferramenta(linha)`: linha `instalador` cujo
+   `Programa` é `MCPR`, sem diferenciar maiúscula nem espaço nas pontas.
+2. `programas.listar` tira essas linhas, como já tira GLPI Agent, RustDesk e AnyDesk: não aparecem
+   na tela Programas e a etapa Programas não as instala. `programas.validar` diz "É ferramenta de
+   remoção (McAfee), não programa a instalar".
+3. A linha continua no cadastro para a etapa assistida de remoção do McAfee (próximo passo).
+
+**Alternatives considered**
+- Só desmarcar `Ativo` no NocoDB: resolve hoje, mas um `Ativo` marcado por engano voltaria a
+  executar o MCPR em toda máquina. Recomendado só até o ADR-068: agora a linha precisa
+  ficar ativa.
+- Uma `Categoria` nova (ex.: `Ferramentas`): exigiria mudar a lista fechada de categorias na API.
+
+**Consequences**
+- Atalho web (`webapp`) chamado MCPR continua sendo programa; só o instalador é ferramenta.
+- Roteiro de máquina real 8.8b.
+
+## ADR-067 — Unidades sem Cidade e Tag do GLPI
+
+**Status:** Accepted
+**Date:** 2026-11-18 (revisão do NocoDB com o responsável)
+**Module:** Pós-16 (com o TA-ADR-039; emenda ao ADR-019)
+
+**Context**
+O responsável não usa `Cidade` nem `TagGLPI` em Unidades e quer apagar as colunas.
+
+**Decision**
+1. A API deixa de pedir as duas colunas e manda os campos vazios (TA-ADR-039).
+2. O Bench lê `cidade` e `tag_glpi` como opcionais (cache sem as chaves é aceito).
+3. Configurações › Unidades mostra Código, Nome, UF e Perfil padrão (sem Cidade e sem Tag GLPI).
+4. Acesso remoto: o GLPI Agent é instalado sem tag; a ajuda da tela diz isso.
+
+**Alternatives considered**
+- Manter as colunas e ignorar: o responsável preferiu tirar do banco.
+
+**Consequences**
+- Apagar as colunas só depois de publicar a API (TA-ADR-039).
+- Roteiro de máquina real 8.8c.
+
+## ADR-068 — Remoção assistida do McAfee pelo MCPR
+
+**Status:** Accepted
+**Date:** 2026-11-18 (pedido do responsável)
+**Module:** Pós-16 (com o ADR-066; emenda ao ADR-020 e ao ADR-061)
+
+**Context**
+Notebooks vêm com McAfee de fábrica e a Configuração tem que removê-lo. A ferramenta oficial é
+o MCPR (McAfee Consumer Product Removal), já cadastrado em Instaladores (ADR-066). O MCPR não
+tem modo silencioso: depois de Next e Agree ele mostra um código de validação que uma pessoa
+tem que digitar. Essa tela existe para que um programa não desligue o antivírus sozinho.
+
+**Decision**
+1. `servicos/mcafee.py`: `encontrados()` procura "McAfee" no `DisplayName` dos programas
+   instalados (a mesma leitura do registro de Programas); `linha_mcpr(cadastros)` acha a linha
+   do MCPR (`programas.ferramenta`) e diz o que falta (nenhuma, duplicada, arquivo que não é
+   `.exe`, sem versão ou link); `remover()` baixa e confere o MCPR como os outros instaladores,
+   abre sem argumentos, espera fechar (até 1 hora, sem encerrar no tempo esgotado) e procura o
+   McAfee de novo.
+2. Tela Remover programas: com McAfee instalado, aparecem o aviso McAfee encontrado e o botão
+   Remover McAfee com o MCPR. Sem a linha MCPR válida, o botão fica desativado e o aviso diz o
+   que falta. A confirmação explica o passo a passo (Next, Agree, código, não reiniciar antes de
+   fechar). No fim: "McAfee removido. Reinicie a máquina" ou o que ainda sobrou.
+3. Etapa 6 da Preparação (Remover pré-instalados): não roda o MCPR. Com McAfee presente, a
+   leitura fica pendente com o aviso e o resultado é `parcial` ("remova em Remover programas"),
+   que não bloqueia as etapas seguintes.
+4. O Bench nunca digita nem tenta passar o código de validação.
+
+**Alternatives considered**
+- Rodar o MCPR sozinho, preenchendo o código ou por parâmetros internos não documentados:
+  contorna uma proteção do fabricante, é frágil entre versões e sem suporte. Recusado.
+- Desinstalar pelo `UninstallString` do registro: o desinstalador do McAfee doméstico também é
+  interativo e deixa restos; o fabricante indica o MCPR.
+- Remoção em massa sem técnico: só com ferramenta empresarial (McAfee/Trellix) ou máquina sem
+  McAfee de fábrica. Fora do Bench.
+
+**Consequences**
+- A linha `MCPR` em Instaladores precisa ficar ativa (revoga a recomendação do ADR-066 de
+  desmarcar `Ativo`).
+- O técnico gasta cerca de 30 segundos no MCPR e reinicia a máquina no fim.
+- O log recebe o Id da linha, o código de saída e quantos produtos McAfee sobraram; nunca o Link.
+- Roteiro de máquina real 8.8d.
+
+## ADR-069 — Conta Gestão aplicada como a Suporte (provisório)
+
+**Status:** Accepted
+**Date:** 2026-11-18 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-036; com o ADR-017)
+
+**Context**
+A Gestão é uma conta administradora fixa que o Bench só protegia (ADR-036): nunca a criava nem
+trocava a senha. O responsável quer, por enquanto, tratá-la como a Suporte, com linhas
+próprias em Servidores. A regra definitiva (por exemplo, definir a senha só quando estiver
+vazia) fica para depois.
+
+**Decision**
+1. Servidores ganha o contrato opcional `Conta Gestão` (`usuario` = `Gestão`, público; `senha`,
+   não pública), no formato da `Conta Suporte`.
+2. `contas.gestao_do_cadastro`, `gestao_cadastrada`, `gestao_ok` e `aplicar_gestao`: o mesmo
+   trecho `suporte.ps1` da Suporte (cria se faltar; senão troca a senha, ativa e torna
+   administradora). O nome tem que ser `Gestão` (ou `Gestao`): é o que as outras ações já
+   protegem.
+3. Tela Contas: botão Aplicar conta Gestão, com a mesma confirmação da Suporte.
+4. Etapa Contas da Preparação: com as linhas cadastradas e a Gestão faltando (ou desativada,
+   ou sem administrador), aplica a Gestão depois da Suporte. Gestão já certa não é reaplicada.
+   Sem as linhas, nada muda na Gestão.
+5. Fora de Aplicar conta Gestão, a Gestão continua restrita (ADR-036): nada de lote, senha,
+   exclusão ou criação de outra com esse nome.
+
+**Alternatives considered**
+- Tornar as linhas obrigatórias, como a Suporte: bloquearia a etapa Contas nas unidades em que
+  o responsável ainda não cadastrou a Gestão.
+- Definir a senha só quando vazia: decisão adiada pelo responsável.
+
+**Consequences**
+- O responsável cadastra as duas linhas `Conta Gestão` (senha só direto no NocoDB).
+- Roteiro de máquina real 8.8e.

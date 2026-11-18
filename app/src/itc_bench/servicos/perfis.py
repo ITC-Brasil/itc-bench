@@ -26,6 +26,15 @@ ETAPAS: tuple[tuple[str, str], ...] = (
 )
 NOMES = dict(ETAPAS)
 ORDEM = tuple(e for e, _ in ETAPAS)
+# Número fixo de cada etapa pela ordem acima (ADR-056): igual em todo perfil, mesmo quando o
+# perfil pula etapas (Administrativo mostra 1 a 5, depois 9 a 14).
+NUMERO = {e: i for i, e in enumerate(ORDEM, start=1)}
+
+
+def rotulo(etapa: str) -> str:
+    """`contas` → `2. Contas`: o nome que aparece na tela, no log e na confirmação."""
+    return f"{NUMERO[etapa]}. {NOMES[etapa]}"
+
 
 # Etapas que usam as contas como alvo: sem a etapa Contas em ordem, ficam bloqueadas.
 DEPENDE: dict[str, tuple[str, ...]] = {

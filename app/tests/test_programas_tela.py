@@ -94,3 +94,28 @@ def test_remover_trava_protegido_e_confirma_modo(qtbot, monkeypatch):
     assert "interativo, unins000.exe (abre a janela do fabricante)" in texto
     assert "Program Files" not in texto
     assert "todos os usuários" in texto
+
+
+def test_remover_mostra_so_removiveis_e_conta_ocultos(qtbot, monkeypatch):
+    """ADR-058: por padrão só os removíveis; a caixa traz os outros; o aviso conta os ocultos."""
+    monkeypatch.setattr(tela.tarefa, "iniciar", lambda *a: None)
+    p = tela.PainelRemover(True)
+    qtbot.addWidget(p)
+    exe = r"C:\Program Files\X\unins000.exe"
+    p._recebeu(
+        [
+            des.Entrada("Alfa", "programa", "silencioso", (exe,)),
+            des.Entrada("Driver Y", "programa", "protegido", motivo="Driver."),
+            des.Entrada("Velho", "programa", "ausente", motivo="Desinstalador ausente."),
+            des.Entrada("Script Z", "programa", "recusado", motivo="Interpretador."),
+        ]
+    )
+    assert not p.todos.isChecked()
+    assert [p.tabela.isRowHidden(r) for r in range(4)] == [False, True, True, True]
+    assert p.ocultos.text() == "3 oculto(s): protegidos, recusados ou sem desinstalador."
+    p.busca.setText("driver")
+    assert all(p.tabela.isRowHidden(r) for r in range(4))
+    assert "1 com esse nome está(ão) oculto(s)." in p.ocultos.text()
+    p.todos.setChecked(True)
+    assert [p.tabela.isRowHidden(r) for r in range(4)] == [True, False, True, True]
+    assert p.ocultos.text() == ""

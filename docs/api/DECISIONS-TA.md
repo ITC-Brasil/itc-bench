@@ -1200,3 +1200,26 @@ SHA256 opcional em Instaladores.
 
 **Consequences**
 O Bench baixa o papel sem hash pelo mesmo fluxo do ADR-028. Os riscos aceitos estão no ADR-028.
+
+## TA-ADR-039 — Unidades sem `Cidade` e `TagGLPI`
+
+**Status:** Accepted
+**Date:** 2026-11-18 (revisão do NocoDB com o responsável)
+**Module:** Bench pós-16 (ADR-067; emenda ao TA-ADR-027)
+
+**Context**
+O responsável não vai usar `Cidade` nem `TagGLPI` em Unidades e quer apagar as colunas. A API
+pede as colunas pelo nome no `fields=`; com a coluna apagada, a leitura da tabela pode falhar.
+
+**Decision**
+- `Cidade` e `TagGLPI` saem do `fields=` de Unidades.
+- `unidades[].cidade` e `unidades[].tag_glpi` continuam na resposta, sempre vazios: o Bench
+  0.19.0 instalado lê essas chaves e quebraria sem elas.
+
+**Alternatives considered**
+- Tirar as chaves da resposta: quebraria o Bench que está nas máquinas.
+
+**Consequences**
+- **Ordem:** publicar a API com este TA-ADR **antes** de apagar as colunas no NocoDB. A API
+  anterior ainda pede as colunas.
+- O GLPI Agent passa a ser instalado sem `TAG=` (como já era com a coluna vazia).

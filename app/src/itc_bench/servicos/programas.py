@@ -131,6 +131,17 @@ def argumentos(linha: Instalador) -> list[str]:
     return itens
 
 
+# Ferramentas que ficam em Instaladores mas não são programas a instalar (ADR-066): o MCPR
+# remove o McAfee e só roda na etapa própria dele. Comparação sem diferenciar maiúscula.
+FERRAMENTAS: tuple[str, ...] = ("MCPR",)
+
+
+def ferramenta(linha: Instalador) -> bool:
+    return linha.tipo == "instalador" and linha.programa.strip().casefold() in {
+        f.casefold() for f in FERRAMENTAS
+    }
+
+
 def tem_icone(linha: Instalador) -> bool:
     return any(x.strip() for x in (linha.link, linha.sha256, linha.arquivo))
 
@@ -140,6 +151,8 @@ def validar(linha: Instalador) -> str:
     if linha.tipo == "instalador":
         if linha.programa in remoto.PROGRAMAS:
             return "É do Acesso remoto."
+        if ferramenta(linha):
+            return "É ferramenta de remoção (McAfee), não programa a instalar."
         ext = PurePath(linha.arquivo.strip()).suffix.lower()
         motivo = instaladores.validar(linha, ext if ext in (".msi", ".exe") else ".msi/.exe")
         if motivo:
@@ -182,13 +195,15 @@ def chave_duplicata(linha: Instalador) -> tuple[str, str]:
 
 
 def listar(cadastros: Cadastros | None) -> list[Item]:
-    """Linhas de Programas (sem as do Acesso remoto), com o bloqueio de cada uma."""
+    """Linhas de Programas (sem as do Acesso remoto nem as ferramentas, como o MCPR), com o
+    bloqueio de cada uma."""
     if cadastros is None:
         return []
     linhas = [
         i
         for i in cadastros.instaladores
         if not (i.tipo == "instalador" and i.programa in remoto.PROGRAMAS)
+        and not ferramenta(i)  # MCPR: só na remoção do McAfee (ADR-066)
         and i.tipo != "papel"  # papel de parede é da tela Aparência (ADR-022)
     ]
     contagem = Counter(chave_duplicata(i) for i in linhas)

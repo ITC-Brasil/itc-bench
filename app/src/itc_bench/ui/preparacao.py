@@ -32,14 +32,29 @@ from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
 
 AJUDA = (
-    "Roda as etapas do perfil em ordem: Identificação, Contas, Wi-Fi, Acesso remoto, "
-    "Programas, Remover pré-instalados, Políticas, USB, Proteção do login, Papel de parede, "
-    "Mouse e teclado, Energia, Limpeza e Diagnóstico. Cada etapa usa as mesmas regras da tela"
-    " dela.\n"
+    "Roda as etapas do perfil em ordem, cada uma com número fixo: 1. Identificação, "
+    "2. Contas, 3. Wi-Fi, 4. Acesso remoto, 5. Programas, 6. Remover pré-instalados, "
+    "7. Políticas, 8. USB, 9. Proteção do login, 10. Papel de parede, 11. Mouse e teclado, "
+    "12. Energia, 13. Limpeza e 14. Diagnóstico. O número não muda com o perfil: o "
+    "Administrativo, que pula 6, 7 e 8, mostra 1 a 5 e depois 9 a 14. Cada etapa usa as "
+    "mesmas regras da tela dela.\n"
+    "\n"
+    "Remover pré-instalados (6)\n"
+    "Remove, para todas as contas e para as contas novas, os apps da Microsoft de uma lista "
+    "fechada: Clipchamp, Notícias, Clima, Xbox e Game Bar, Obter Ajuda, Dicas, Microsoft 365 "
+    "(hub), Paciência, Realidade Misturada, Pessoas, Power Automate, Skype, To Do, Hub de "
+    "Comentários, Mapas, Vincular ao Celular, Groove Música, Filmes e TV e o Windows Terminal. "
+    "Também tira o PowerShell ISE (recurso opcional do Windows; o PowerShell continua) e o "
+    "Office que vem de fábrica (Microsoft 365 e OneNote pré-instalados); Office corporativo e "
+    "o que a etapa 5 (Programas) instala não são tocados. Se houver McAfee, a etapa avisa e "
+    "segue: ele sai pela tela Remover programas, com o MCPR e o técnico (pede um código de "
+    "validação digitado na tela). Não "
+    "mexe na Microsoft Store, no Edge, na Calculadora, no Bloco de Notas nem no App Installer "
+    "(winget).\n"
     "\n"
     "Perfis\n"
-    "Sala de aula: todas as etapas. Administrativo: sem Políticas, USB e Remover pré-"
-    "instalados. Só diagnóstico: só a coleta.\n"
+    "Sala de aula: todas as etapas (1 a 14). Administrativo: sem 6. Remover pré-instalados, "
+    "7. Políticas e 8. USB. Só diagnóstico: só 14. Diagnóstico.\n"
     "\n"
     "Como usar\n"
     "1. Escolha o perfil (vem marcado o da unidade). Desmarque etapas que não quer agora.\n"
@@ -53,7 +68,9 @@ AJUDA = (
     "\n"
     "Contas\n"
     "Aplica a conta Suporte e tira administrador de todas as outras, inclusive da conta em "
-    "uso (vale na próxima entrada; depois o UAC pede a Suporte). A Gestão continua "
+    "uso (vale na próxima entrada; depois o UAC pede a Suporte). Com as linhas Conta Gestão "
+    "em Servidores, também aplica a conta Gestão (cria se faltar, ativa e torna "
+    "administradora), como a Suporte; sem elas, não mexe na Gestão. A Gestão continua "
     "administradora. O Administrador nativo não é alterado: se estiver ativo, desative-o pelo"
     " Windows.\n"
     "\n"
@@ -64,7 +81,7 @@ AJUDA = (
     "\n"
     "Falha e bloqueio\n"
     "Etapa que falha não para as outras; as que dependem dela (Políticas, USB, papel e mouse "
-    "dependem de Contas) ficam bloqueadas. Veja o motivo na linha e no Registro.\n"
+    "dependem de 2. Contas) ficam bloqueadas. Veja o motivo na linha e no Registro.\n"
     "\n"
     "Reinício\n"
     "Trocar o nome e alguns instaladores pedem reinício. O Bench não reinicia sozinho: use "
@@ -218,7 +235,7 @@ class PainelPreparacao(QWidget):
         self.lista.blockSignals(True)
         self.lista.clear()
         for eid in self.perfil_atual().etapas:
-            item = QTreeWidgetItem([perfis.NOMES[eid], prep.ROTULO["nao_iniciado"], ""])
+            item = QTreeWidgetItem([perfis.rotulo(eid), prep.ROTULO["nao_iniciado"], ""])
             item.setData(0, Qt.ItemDataRole.UserRole, eid)
             marcado = Qt.CheckState.Unchecked if eid in desmarcadas else Qt.CheckState.Checked
             item.setCheckState(0, marcado)
@@ -327,7 +344,7 @@ class PainelPreparacao(QWidget):
             detalhe = s.detalhe
             if eid == "contas":
                 detalhe = etapas.Contas(self.ctx).mudancas()
-            linhas.append(f"• {perfis.NOMES[eid]}: {detalhe or 'aplicar'}")
+            linhas.append(f"• {perfis.rotulo(eid)}: {detalhe or 'aplicar'}")
         return "Rodar a preparação?\n\n" + "\n".join(linhas)
 
     def _rodar(self) -> None:
@@ -385,7 +402,7 @@ class PainelPreparacao(QWidget):
             item.setToolTip(2, txt.dica(s.detalhe))
             item.setForeground(1, QColor(tema.cor_situacao(COR[s.situacao])))
             if s.situacao in ("feito", "falhou", "bloqueada", "aguardando_reinicio"):
-                self._linha(f"{perfis.NOMES[eid]}: {prep.ROTULO[s.situacao]}. {s.detalhe}".strip())
+                self._linha(f"{perfis.rotulo(eid)}: {prep.ROTULO[s.situacao]}. {s.detalhe}".strip())
 
     def _reiniciar(self) -> None:
         anterior = self.guardado
