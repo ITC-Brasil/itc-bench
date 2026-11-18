@@ -3278,7 +3278,7 @@ tem que digitar. Essa tela existe para que um programa não desligue o antivíru
    Remover McAfee com o MCPR. Sem a linha MCPR válida, o botão fica desativado e o aviso diz o
    que falta. A confirmação explica o passo a passo (Next, Agree, código, não reiniciar antes de
    fechar). No fim: "McAfee removido. Reinicie a máquina" ou o que ainda sobrou.
-3. Etapa 6 da Preparação (Remover pré-instalados): não roda o MCPR. Com McAfee presente, a
+3. Etapa Remover pré-instalados (2 da Configuração, ADR-062): não roda o MCPR. Com McAfee presente, a
    leitura fica pendente com o aviso e o resultado é `parcial` ("remova em Remover programas"),
    que não bloqueia as etapas seguintes.
 4. O Bench nunca digita nem tenta passar o código de validação.

@@ -27,7 +27,7 @@
   (ADR-066), primeiro passo da remoção assistida do McAfee. E **Unidades sem Cidade e
   TagGLPI** (ADR-067, TA-ADR-039): apagar as colunas só depois de publicar a API. E a
   **remoção assistida do McAfee** (ADR-068): botão Remover McAfee com o MCPR em Remover
-  programas; a etapa 6 avisa e segue. A linha `MCPR` precisa ficar ativa. E a **conta
+  programas; a etapa Remover pré-instalados avisa e segue. A linha `MCPR` precisa ficar ativa. E a **conta
   Gestão igual à Suporte** (ADR-069, provisório): linhas `Conta Gestão` em Servidores,
   botão Aplicar conta Gestão e a etapa Contas aplica a que faltar.
 - **16/11/2026 (tarde): branch `feat/unidades-sem-numero`, saindo da `develop`.** Unidades sem

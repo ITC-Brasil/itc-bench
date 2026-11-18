@@ -80,6 +80,8 @@ def test_unidades_sem_cidade_nem_tag(qtbot, monkeypatch, tmp_path):
     }
     u = cadastros._de_dados(registro).unidades[0]
     assert (u.cidade, u.tag_glpi, u.uf) == ("", "", "DF")
+
+
 def test_aba_projetos_e_projeto_da_unidade(qtbot, monkeypatch, tmp_path):
     """ADR-059: Projetos numa aba, com as unidades de cada; a unidade mostra a sigla."""
 
