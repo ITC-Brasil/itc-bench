@@ -63,7 +63,7 @@ def test_unidades_sem_cidade_nem_tag(qtbot, monkeypatch, tmp_path):
     j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
     p = j.configuracoes
     titulos = [p.unidades.horizontalHeaderItem(k).text() for k in range(p.unidades.columnCount())]
-    assert titulos == ["Código", "Nome", "UF", "Perfil padrão"]
+    assert titulos == ["Código", "Nome", "Projeto", "UF", "Perfil padrão"]
     registro = {
         "versao": "v",
         "sincronizado_em": "2026-11-18T10:00:00+00:00",

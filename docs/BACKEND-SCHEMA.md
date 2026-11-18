@@ -84,8 +84,6 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 | `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,15})$`: com número até 8; só letras até 15, o limite do nome do computador (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
 | `Nome` | SingleLineText | |
 | `UF` | SingleLineText | |
-| `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
-| `TagGLPI` | SingleLineText | Tag do GLPI Agent |
 | `PerfilPadrao` | SingleLineText | `Codigo` de um perfil da tabela Perfis (ADR-060). Vazio = o primeiro perfil disponível; desconhecido = o primeiro, com aviso |
 | `Projeto` | SingleLineText | Sigla de `Projetos.Sigla` (sem link, como `WiFi.Unidade`). Vazio = sem projeto; sigla que não é Projeto ativo vira vazio, com aviso no log da API. Só lida com `NOCODB_TABELA_PROJETOS` configurado. ADR-059, TA-ADR-036 |
 | `Ativo` | Checkbox | |
@@ -116,9 +114,7 @@ do código.
 | `Projeto` | SingleLineText | Opcional: sigla de Projetos; o perfil só aparece nas unidades desse projeto. Vazio = todas |
 | `Descricao` | SingleLineText | Opcional |
 | `Ativo` | Checkbox | |
-Números das etapas (ADR-056): 1 Identificação, 2 Contas, 3 Wi-Fi, 4 Acesso remoto, 5 Programas,
-6 Remover pré-instalados, 7 Políticas, 8 USB, 9 Proteção do login, 10 Papel de parede, 11 Mouse
-e teclado, 12 Energia, 13 Limpeza, 14 Diagnóstico. 7, 8, 10 e 11 dependem de 2.
+
 Números das etapas da Configuração (ADR-062): 1 Energia: nunca desligar, 2 Remover
 pré-instalados, 3 Wi-Fi, 4 Papel de parede, 5 Acesso remoto, 6 Programas, 7 Políticas, 8 USB,
 9 Proteção do login, 10 Energia: planos finais, 11 Contas, 12 Diagnóstico. Sem dependência
