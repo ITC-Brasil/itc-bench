@@ -2,6 +2,21 @@
 
 ## ESTADO ATUAL
 
+- **18/11/2026: duas branches locais, sem push, uma em cima da outra.**
+  - `feat/sem-tabelas` (sobre a `develop`): ADR-056, 058, 061, 055 revisado e 063. Não
+    depende de tabela nova nem de variável no servidor: pode subir e ir para a `main` antes.
+  - `feat/com-tabelas` (sobre a `feat/sem-tabelas`): Projetos (ADR-059), papel por projeto
+    (ADR-057), Perfis pelo NocoDB (ADR-060), Configuração 1–12 e Manutenção (ADR-062),
+    limpeza de usuários e Steam (ADR-064), Wi-Fi por projeto e perfil (ADR-065). Só sobe
+    para a `main` com as tabelas Projetos e Perfis no NocoDB e `NOCODB_TABELA_PROJETOS` e
+    `NOCODB_TABELA_PERFIS` no servidor (`nocodb-teste/PENDENCIAS-NOCODB-E-SERVIDOR.md`,
+    fora do repositório).
+  As branches antigas `feat/numerar-etapas` e `feat/configuracao-manutencao` têm o mesmo
+  conteúdo em outra ordem e ficam como cópia local até as novas subirem.
+  **Pendente com o responsável:** senha da Suporte/Gestão quando vazia (Gestão, ADR-036);
+  McAfee assistido (MCPR cadastrado, desmarcar o Ativo até lá); USB por `USBSTOR`; revisão
+  do NocoDB de 18/11 (Wi-Fi pela unidade, vários projetos por perfil, perfil padrão vazio,
+  tirar `Cidade` e `TagGLPI`, MCPR fora de Programas).
 - **18/11/2026: branch `feat/sem-tabelas`, saindo da `develop`.** Só o que não depende de
   tabela nova no NocoDB nem de variável no servidor, para subir antes: etapas da Preparação
   numeradas (ADR-056), Remover programas só com os removíveis (ADR-058), Windows Terminal e
