@@ -36,7 +36,9 @@ from itc_bench.ui.contas import _rotulo, confirmar
 
 AJUDA = (
     "Instala programas, pacotes do winget e atalhos web (Web Apps e jogos) a partir da lista "
-    "Instaladores do cadastro. GLPI Agent, RustDesk e AnyDesk ficam em Acesso remoto.\n\n"
+    "Instaladores do cadastro. GLPI Agent, RustDesk e AnyDesk ficam em Acesso remoto. O MCPR "
+    "(ferramenta de remoção do McAfee) não aparece aqui nem é instalado na Preparação: ele "
+    "só serve para remover o McAfee.\n\n"
     "Instalar\n"
     "1. Filtre pelas abas ou pela busca e marque os itens.\n"
     "2. Clique em Instalar. A confirmação mostra, item a item, a origem, o modo (silencioso ou "

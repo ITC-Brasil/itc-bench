@@ -53,7 +53,8 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 - **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
   opcional: `Link` `https://` do `.ico`, `Arquivo` `.ico` e `SHA256` opcional.
 - Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não
-  aparecem em Programas. Duplicada (mesmo tipo e ID/URL, ou mesmo `Programa` entre
+  aparecem em Programas. A linha `MCPR` (ferramenta de remoção do McAfee, ADR-066) também não:
+  não é programa a instalar e a Preparação não a executa. Duplicada (mesmo tipo e ID/URL, ou mesmo `Programa` entre
   instaladores): nenhuma das duas instala.
 
 ### WiFi

@@ -3160,3 +3160,32 @@ removê-lo em Remover pré-instalados. A etapa Programas pode instalar Office: r
 - `forceappshutdown=True` fecha Word/Excel abertos durante a etapa (máquina nova, sem uso).
 - Produto de fábrica com outro nome (outra edição OEM) não sai até entrar na lista.
 - Roteiro de máquina real 10.21.
+
+## ADR-066 — MCPR (remoção do McAfee) fora da lista de Programas
+
+**Status:** Accepted
+**Date:** 2026-11-18 (revisão do NocoDB com o responsável)
+**Module:** Pós-16 (emenda ao ADR-020; primeiro passo da remoção assistida do McAfee)
+
+**Context**
+O responsável cadastrou o MCPR (McAfee Consumer Product Removal) em Instaladores como
+`Tipo = instalador`, `Categoria = Programas`, ativo, para a futura remoção do McAfee. Do jeito que
+o Bench lê Instaladores, ele viraria um programa: apareceria na tela Programas e a etapa
+Programas da Preparação o baixaria e executaria em toda máquina.
+
+**Decision**
+1. `programas.FERRAMENTAS = ("MCPR",)` e `programas.ferramenta(linha)`: linha `instalador` cujo
+   `Programa` é `MCPR`, sem diferenciar maiúscula nem espaço nas pontas.
+2. `programas.listar` tira essas linhas, como já tira GLPI Agent, RustDesk e AnyDesk: não aparecem
+   na tela Programas e a etapa Programas não as instala. `programas.validar` diz "É ferramenta de
+   remoção (McAfee), não programa a instalar".
+3. A linha continua no cadastro para a etapa assistida de remoção do McAfee (próximo passo).
+
+**Alternatives considered**
+- Só desmarcar `Ativo` no NocoDB: resolve hoje, mas um `Ativo` marcado por engano voltaria a
+  executar o MCPR em toda máquina. Recomendado também, até a etapa do McAfee existir.
+- Uma `Categoria` nova (ex.: `Ferramentas`): exigiria mudar a lista fechada de categorias na API.
+
+**Consequences**
+- Atalho web (`webapp`) chamado MCPR continua sendo programa; só o instalador é ferramenta.
+- Roteiro de máquina real 8.8b.

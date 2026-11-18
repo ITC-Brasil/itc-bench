@@ -136,6 +136,16 @@ def test_listar_tira_acesso_remoto_e_marca_duplicados() -> None:
     assert pg.listar(None) == []
 
 
+def test_mcpr_fica_fora_de_programas() -> None:
+    """ADR-066: o MCPR (remoção do McAfee) não é programa a instalar, com qualquer maiúscula."""
+    linhas = (inst(1), inst(2, "MCPR", "MCPR.exe"), inst(3, " mcpr ", "MCPR.exe"))
+    assert {i.id for i in pg.listar(cadastros(*linhas))} == {1}
+    assert "remoção" in pg.validar(inst(2, "MCPR", "MCPR.exe"))
+    assert pg.ferramenta(inst(2, "MCPR")) and not pg.ferramenta(inst(1))
+    # só como instalador: um atalho web chamado MCPR continua programa
+    assert not pg.ferramenta(webapp(4, programa="MCPR"))
+
+
 # ---------------------------------------------------------------- detecção
 
 
