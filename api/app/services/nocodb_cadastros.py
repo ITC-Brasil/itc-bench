@@ -50,7 +50,21 @@ TABELAS = {
         ("Id", "Codigo", "Nome", "UF", "PerfilPadrao", "Ativo"),
         "Codigo",
     ),
+    # TA-ADR-036: optional. Only read when nocodb_tabela_projetos is set; then Unidades and
+    # Instaladores also read their Projeto column (the sigla of a Projetos row, TA-ADR-035).
+    "projetos": ("nocodb_tabela_projetos", ("Id", "Sigla", "Nome", "Ativo"), "Sigla"),
+    # TA-ADR-037: optional. Configuração profiles: which of the 12 numbered steps run.
+    "perfis": (
+        "nocodb_tabela_perfis",
+        ("Id", "Codigo", "Nome", "Etapas", "Descricao", "Ativo"),
+        "Codigo",
+    ),
 }
+OPCIONAIS = ("projetos", "perfis")
+# Steps of the Bench Configuração, numbered 1..12 (ADR-062; was 1..14, ADR-056). The API only
+# checks the range; the Bench maps numbers to steps.
+TOTAL_ETAPAS = 12
+CODIGO_PERFIL = re.compile(r"[a-z0-9_]{1,32}")
 
 
 class NocodbIndisponivel(Exception):
@@ -63,7 +77,7 @@ class NocodbIndisponivel(Exception):
 
 def configurado(settings) -> bool:
     token = settings.nocodb_cadastros_token.get_secret_value().strip()
-    ids = all(getattr(settings, tabela[0]).strip() for tabela in TABELAS.values())
+    ids = all(getattr(settings, TABELAS[nome][0]).strip() for nome in TABELAS if nome not in OPCIONAIS)
     return bool(settings.nocodb_url and ids and token not in ("", "changeme"))
 
 
@@ -82,7 +96,16 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
     inicio = time.monotonic()
     headers = {"xc-token": settings.nocodb_cadastros_token.get_secret_value().strip()}
     with httpx.Client(timeout=settings.nocodb_cadastros_timeout_seconds, transport=transport) as client:
+        com_projetos = bool(settings.nocodb_tabela_projetos.strip())
         for nome, (id_setting, campos, _) in TABELAS.items():
+            if nome in OPCIONAIS and not getattr(settings, id_setting).strip():
+                brutos[nome] = []
+                continue
+            if nome in ("unidades", "instaladores", "perfis", "wifi") and com_projetos:
+                campos = (*campos, "Projeto")
+            # TA-ADR-038: WiFi.Perfis only exists together with the Perfis table.
+            if nome == "wifi" and settings.nocodb_tabela_perfis.strip():
+                campos = (*campos, "Perfis")
             url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
                 brutos[nome] = paginas(client, url, headers, campos, inicio)
@@ -125,7 +148,7 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
     validos: dict[str, list[dict]] = {}
     for nome, (_, _, exibicao) in TABELAS.items():
         validos[nome] = []
-        for linha in brutos[nome]:
+        for linha in brutos.get(nome, []):
             motivo = None if marcado(linha.get("Ativo")) else "inativo"
             if motivo is None and not texto(linha.get(exibicao)):
                 motivo = "sem_" + exibicao.lower()
@@ -137,22 +160,35 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
                 continue
             validos[nome].append(linha)
 
+    projetos = [projeto(linha) for linha in validos["projetos"]]
+    siglas = {p["sigla"] for p in projetos}
+    unidades = [unidade(linha) for linha in validos["unidades"]]
+    for u in unidades:
+        # TA-ADR-036: an unknown sigla keeps the unit, without a project, and is logged.
+        if u["projeto"] and u["projeto"] not in siglas:
+            log.warning("cadastro unidades Id %s: projeto_invalido", u["id"])
+            u["projeto"] = ""
+    codigos = {u["codigo"] for u in unidades}
     instaladores = []
     for linha in validos["instaladores"]:
         motivo = motivo_instalador(linha)
+        # TA-ADR-035: a papel row names its project; an unknown sigla drops the row.
+        if not motivo and papel_projeto(linha) not in siglas | {""}:
+            motivo = "projeto_invalido"
         if motivo:
             descartados.setdefault("instaladores", []).append(linha.get("Id"))
             log.warning("cadastro instaladores Id %s descartado: %s", linha.get("Id"), motivo)
             continue
         instaladores.append(instalador(linha))
 
-    unidades = [unidade(linha) for linha in validos["unidades"]]
-    codigos = {u["codigo"] for u in unidades}
+    perfis_ = perfis(validos["perfis"], siglas, descartados)
+    codigos_perfil = {p["codigo"] for p in perfis_}
     wifi = []
     for linha in validos["wifi"]:
-        if texto(linha.get("Unidade")) not in codigos:
+        motivo = motivo_rede(linha, siglas, codigos, codigos_perfil)
+        if motivo:
             descartados.setdefault("wifi", []).append(linha.get("Id"))
-            log.warning("cadastro wifi Id %s descartado: unidade_invalida", linha.get("Id"))
+            log.warning("cadastro wifi Id %s descartado: %s", linha.get("Id"), motivo)
             continue
         wifi.append(rede(linha))
     return {
@@ -160,6 +196,8 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
         "instaladores": instaladores,
         "wifi": wifi,
         "unidades": unidades,
+        "projetos": projetos,
+        "perfis": perfis_,
         "descartados": descartados,
     }
 
@@ -223,7 +261,14 @@ def instalador(linha: dict) -> dict:
         "argumentos": texto(linha.get("Argumentos")),
         "deteccao": texto(linha.get("Deteccao")),
         "modo": texto(linha.get("Modo")) or "quiosque",
+        "projeto": papel_projeto(linha),
     }
+
+
+def papel_projeto(linha: dict) -> str:
+    """Projeto of a papel row (TA-ADR-035): empty = none. Other Tipos ignore the column."""
+    tipo = texto(linha.get("Tipo")) or "instalador"
+    return texto(linha.get("Projeto")) if tipo == "papel" else ""
 
 
 def rede(linha: dict) -> dict:
@@ -232,9 +277,33 @@ def rede(linha: dict) -> dict:
         "ssid": texto(linha.get("SSID")),
         "senha": SecretStr(texto(linha.get("Senha"))),
         "unidade": texto(linha.get("Unidade")),
+        "projeto": texto(linha.get("Projeto")),
+        "perfis": lista_perfis(linha),
         "categoria": texto(linha.get("Categoria")),
         "atualizado_em": texto(linha.get("AtualizadoEm")),
     }
+
+
+def lista_perfis(linha: dict) -> list[str]:
+    """WiFi.Perfis (TA-ADR-038): Perfis codes split by comma, semicolon or space, lowercase,
+    sorted and unique. Empty = every profile."""
+    partes = re.split(r"[,;\s]+", texto(linha.get("Perfis")).lower())
+    return sorted({p for p in partes if p})
+
+
+def motivo_rede(linha: dict, siglas: set[str], codigos: set[str], perfis_: set[str]) -> str:
+    """TA-ADR-038: with Projeto the project rules (Unidade is just a note); without it, the old
+    rule (an active Unidade). An unknown profile drops the network: giving it to everyone would
+    be worse."""
+    projeto_ = texto(linha.get("Projeto"))
+    if projeto_:
+        if projeto_ not in siglas:
+            return "projeto_invalido"
+    elif texto(linha.get("Unidade")) not in codigos:
+        return "unidade_invalida"
+    if any(p not in perfis_ for p in lista_perfis(linha)):
+        return "perfil_invalido"
+    return ""
 
 
 def unidade(linha: dict) -> dict:
@@ -246,4 +315,58 @@ def unidade(linha: dict) -> dict:
         "uf": texto(linha.get("UF")),
         "tag_glpi": "",  # TA-ADR-039: idem; the GLPI Agent goes without TAG
         "perfil_padrao": texto(linha.get("PerfilPadrao")),
+        "projeto": texto(linha.get("Projeto")),
     }
+
+
+def projeto(linha: dict) -> dict:
+    return {
+        "id": linha.get("Id"),
+        "sigla": texto(linha.get("Sigla")),
+        "nome": texto(linha.get("Nome")),
+    }
+
+
+def perfis(linhas: list[dict], siglas: set[str], descartados: dict) -> list[dict]:
+    """TA-ADR-037: Codigo [a-z0-9_]{1,32} and unique; Etapas = numbers 1..12 (comma, semicolon or
+    space); Projeto empty or an active sigla. A bad row is dropped, logged by Id only."""
+    saida, vistos = [], {}
+    for linha in linhas:
+        codigo = texto(linha.get("Codigo")).lower()
+        numeros = etapas(texto(linha.get("Etapas")))
+        projeto_ = texto(linha.get("Projeto"))
+        motivo = (
+            "codigo_invalido" if not CODIGO_PERFIL.fullmatch(codigo)
+            else "etapas_invalidas" if numeros is None
+            else "projeto_invalido" if projeto_ and projeto_ not in siglas
+            else None
+        )
+        if motivo:
+            descartados.setdefault("perfis", []).append(linha.get("Id"))
+            log.warning("cadastro perfis Id %s descartado: %s", linha.get("Id"), motivo)
+            continue
+        vistos[codigo] = vistos.get(codigo, 0) + 1
+        saida.append(
+            {
+                "id": linha.get("Id"),
+                "codigo": codigo,
+                "nome": texto(linha.get("Nome")) or codigo,
+                "etapas": numeros,
+                "projeto": projeto_,
+                "descricao": texto(linha.get("Descricao")),
+            }
+        )
+    # Two rows with the same Codigo: neither is used (which one would Unidades.PerfilPadrao mean?).
+    for p in saida:
+        if vistos[p["codigo"]] > 1:
+            descartados.setdefault("perfis", []).append(p["id"])
+            log.warning("cadastro perfis Id %s descartado: codigo_duplicado", p["id"])
+    return [p for p in saida if vistos[p["codigo"]] == 1]
+
+
+def etapas(valor: str) -> list[int] | None:
+    """"1, 2,3;12" -> [1, 2, 3, 12] (sorted, unique). None if empty or any part is not 1..12."""
+    partes = [p for p in re.split(r"[,;\s]+", valor) if p]
+    if not partes or not all(p.isdigit() and 1 <= int(p) <= TOTAL_ETAPAS for p in partes):
+        return None
+    return sorted({int(p) for p in partes})

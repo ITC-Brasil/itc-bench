@@ -3064,6 +3064,48 @@ O responsável vai mexer nos perfis da Preparação completa (ADR-023) e pediu, 
 - Etapa nova entra no fim ou exige renumerar com ADR; o número é a referência para os próximos
   pedidos sobre perfis.
 
+## ADR-057 — Papel de parede por projeto; etapa 10 some sem papel
+
+**Status:** Accepted
+**Date:** 2026-11-16, revisado em 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-022 e ao ADR-023; com o TA-ADR-035 e o ADR-059)
+
+**Context**
+Cada projeto tem o seu papel de parede, que vale para todas as unidades dele. A etapa 10 da
+Preparação exigia uma e só uma imagem ativa no cadastro inteiro.
+
+**Decision**
+1. A linha de papel em Instaladores (`Tipo = papel`) ganha a coluna `Projeto`, com a sigla de
+   Projetos (ADR-059), ao lado de `Link`, `Arquivo` e o resto. A API entrega
+   `instaladores[].projeto` (TA-ADR-035). `Instalador.projeto` no Bench; cache antigo sem o campo
+   = sem projeto.
+2. `papel_de_parede.da_unidade(cadastros, unidade)`: as linhas de papel cujo `Projeto` é o
+   projeto da unidade da máquina (`Unidades.Projeto`). Sem unidade (bancada), unidade sem
+   projeto ou projeto sem papel: nada.
+3. **Etapa 10 some** (`etapas.ocultas`): com cadastro e sem papel, a Preparação não mostra a
+   etapa e não a roda; a lista pula da 9 para a 11 (o número fica, ADR-056). Sem cadastro nenhum,
+   a etapa continua aparecendo, bloqueada pedindo o cadastro. Duas imagens ativas do mesmo projeto
+   bloqueiam a etapa.
+4. A lista se refaz ao voltar para a tela quando a unidade ou o cadastro mudaram.
+5. Tela Tela e papel de parede: cada imagem mostra o projeto ("— projeto ABC" ou "— sem
+   projeto"); na primeira leitura vem marcada a do projeto da unidade da máquina. Aplicar à mão
+   continua aceitando qualquer imagem.
+6. O arquivo guardado continua com o hash no nome (ADR-022): imagens de projetos diferentes
+   convivem na pasta, e a troca de imagem não esbarra no cache do Windows.
+
+**Alternatives considered**
+- Papel por unidade (primeira versão deste ADR), e por unidade como exceção ao do projeto:
+  obrigava repetir a imagem em cada unidade; o responsável preferiu só por projeto.
+- Coluna `PapelDeParede` em Projetos apontando para a imagem pelo nome: o responsável preferiu o
+  projeto na própria linha do papel; o vínculo por nome quebraria ao renomear.
+- Papel padrão do Grupo (linha sem projeto) para quem não tem o seu: o responsável preferiu que
+  a etapa não apareça.
+
+**Consequences**
+- Papel sem `Projeto` não entra na Preparação (só pela tela, à mão). A coluna `Projeto` do papel
+  só é lida com a tabela Projetos configurada (TA-ADR-036).
+- Roteiro de máquina real 10.16.
+
 ## ADR-058 — Remover programas mostra só os removíveis por padrão
 
 **Status:** Accepted
@@ -3236,7 +3278,7 @@ tem que digitar. Essa tela existe para que um programa não desligue o antivíru
    Remover McAfee com o MCPR. Sem a linha MCPR válida, o botão fica desativado e o aviso diz o
    que falta. A confirmação explica o passo a passo (Next, Agree, código, não reiniciar antes de
    fechar). No fim: "McAfee removido. Reinicie a máquina" ou o que ainda sobrou.
-3. Etapa 6 da Preparação (Remover pré-instalados): não roda o MCPR. Com McAfee presente, a
+3. Etapa Remover pré-instalados (2 da Configuração, ADR-062): não roda o MCPR. Com McAfee presente, a
    leitura fica pendente com o aviso e o resultado é `parcial` ("remova em Remover programas"),
    que não bloqueia as etapas seguintes.
 4. O Bench nunca digita nem tenta passar o código de validação.
@@ -3290,3 +3332,207 @@ vazia) fica para depois.
 **Consequences**
 - O responsável cadastra as duas linhas `Conta Gestão` (senha só direto no NocoDB).
 - Roteiro de máquina real 8.8e.
+
+## ADR-059 — Projetos no cadastro: as unidades apontam para o seu projeto
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (com o TA-ADR-036)
+
+**Context**
+O "projeto" (BSBIA, QDFM, SEDET…) só existia como campo vazio no diagnóstico e numa lista fixa no
+texto da IA do laudo. O responsável quer uma tabela Projetos no NocoDB, com cada unidade apontando
+para o seu projeto.
+
+**Decision**
+1. NocoDB: tabela Projetos (`Sigla`, `Nome`, `Ativo`) e coluna `Unidades.Projeto` com a sigla
+   (TA-ADR-036). A API valida e entrega `projetos` e `unidades[].projeto`.
+2. Bench: `cadastros.Projeto` (id, sigla, nome), `Cadastros.projetos`, `Unidade.projeto` e
+   `Cadastros.projeto_por_sigla`. Cache antigo sem as chaves = nenhum projeto.
+3. Configurações: coluna Projeto na aba Unidades ("—" sem projeto) e aba nova Projetos com sigla,
+   nome e as unidades de cada um.
+4. **Por enquanto só organiza.** Perfil padrão, papel de parede, campo `projeto` do diagnóstico e
+   política de limpeza do laudo não mudam; cada uso entra com ADR próprio quando o responsável
+   decidir.
+
+**Alternatives considered**
+- Coluna `Projeto` em Unidades sem tabela própria: o responsável preferiu a tabela, para o projeto
+  ter dados próprios depois.
+- Projeto tirado das letras do código (`BSBIA01` → `BSBIA`): quebra com código fora do padrão.
+
+**Consequences**
+- Usos possíveis, a decidir: perfil padrão por projeto, papel de parede por projeto quando a
+  unidade não tem o seu, e o diagnóstico enviando o projeto (com a política de limpeza vinda da
+  tabela em vez da lista fixa do prompt).
+
+## ADR-060 — Perfis da Preparação só pelo cadastro (tabela Perfis)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Pós-16 (revoga o item 1 do ADR-023 na parte "perfis fechados no código"; com o
+TA-ADR-037)
+
+**Context**
+Os perfis (Sala de aula, Administrativo, Só diagnóstico) eram fixos no código. O responsável quer
+criar perfis como Aluno, Professor, Atendente e Administrativo, e outros por projeto, sem nova
+versão do Bench: todos pelo NocoDB.
+
+**Decision**
+1. Sai do código a lista de perfis (`PERFIS`, `POR_ID`, `PADRAO`, `do_cadastro`). Os perfis vêm
+   **só** da tabela Perfis do NocoDB (TA-ADR-037): `Codigo`, `Nome`, `Etapas`, `Projeto`,
+   `Descricao`, `Ativo`.
+2. **O cadastro só escolhe etapas.** `Etapas` são os números de 1 a 14 (ADR-056); a ordem, o que
+   cada etapa faz e todos os parâmetros (políticas, tempos de energia, itens da limpeza, Appx)
+   continuam fechados no código. É o mesmo poder que o técnico já tinha ao desmarcar etapas.
+   Número fora de 1 a 14 descarta o perfil, na API e de novo no Bench.
+3. `Projeto` (sigla, opcional): o perfil só aparece nas unidades desse projeto. Vazio = todas.
+4. `Unidades.PerfilPadrao` cita o `Codigo`. Vazio: o primeiro perfil disponível. Desconhecido:
+   o primeiro, com aviso. Os ids antigos (`sala_de_aula`…) só valem se existirem na tabela.
+5. **Sem perfil no cadastro** (tabela não configurada, sem sincronizar ou vazia), a Preparação
+   não lê nem roda e diz para cadastrar e sincronizar. As telas de cada etapa continuam
+   funcionando.
+6. Retomada depois do reinício: guarda o código; se o perfil sumiu do cadastro, a tela avisa e
+   não continua (o técnico descarta).
+7. Configurações ganha a aba Perfis (código, nome, etapas, projeto).
+
+**Alternatives considered**
+- Perfis no código mais extras no cadastro (proposta anterior): o responsável preferiu um lugar
+  só.
+- Parâmetros por perfil no cadastro (qual política, qual tempo): abriria texto livre para
+  regra de segurança; ficam no código.
+
+**Consequences**
+- Quem edita a tabela Perfis decide quais etapas rodam em cada máquina, inclusive tirar as
+  Políticas de um perfil de aluno. É uma decisão de cadastro, auditável no NocoDB.
+- Sem a tabela configurada no servidor, a Preparação completa fica parada (as telas avulsas não).
+  Ordem de implantação no TA-ADR-037.
+- Roteiro de máquina real 10.17 (perfis do cadastro).
+
+## ADR-062 — Preparação separada em Configuração (com perfil) e Manutenção (sem perfil)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; parte 1 de várias)
+**Module:** Pós-16 (revisa o ADR-023, itens 1 e 2, e o ADR-056)
+
+**Context**
+A Preparação completa misturava o que se faz numa máquina nova e o que se faz numa máquina em
+uso. O responsável definiu dois roteiros: Configuração (com perfil) e Manutenção (sem perfil),
+com uma ordem nova.
+
+**Decision**
+1. **Configuração** (a tela que era Preparação completa, item `prep`): 12 etapas, número fixo:
+   1 Energia: nunca desligar, 2 Remover pré-instalados, 3 Wi-Fi, 4 Papel de parede, 5 Acesso
+   remoto, 6 Programas, 7 Políticas, 8 USB, 9 Proteção do login, 10 Energia: planos finais,
+   11 Contas, 12 Diagnóstico. Perfis do cadastro (ADR-060) passam a usar 1 a 12.
+2. **Saem da Configuração:** Identificação (nome do computador) e Mouse e teclado; continuam nas
+   telas deles. Limpeza também sai (vai para a Manutenção, em outra parte).
+3. **Sem dependência entre etapas** (`perfis.DEPENDE` vazio): Contas foi para o fim e as
+   políticas, o USB e o papel valem para as contas de aluno marcadas sem precisar da Suporte
+   aplicada antes. Uma etapa que falha não bloqueia outra.
+4. **Energia em duas etapas:** a 1 deixa tela e suspensão em Nunca (tomada e bateria) para a
+   máquina não dormir no meio; a 10 aplica os planos finais, iguais para todo perfil: tela em
+   30 min e suspensão em 1 h, na tomada e na bateria (`perfis.ENERGIA_INICIO` e `ENERGIA`,
+   valores da lista fechada de `energia.TEMPOS`).
+5. **Manutenção** (item novo `manut`, mesma classe de tela com `manutencao=True`): sem perfil, sem
+   contas de aluno e sem retomada; todas as etapas marcadas. Números fixos: 2 Wi-Fi: atualizar
+   senhas e 3 Diagnóstico; o 1 fica reservado para a limpeza de arquivos das contas (próxima
+   parte).
+6. **Wi-Fi da Manutenção** (`etapas.WifiSenhas`): só as redes do cadastro da unidade que já estão
+   na máquina e diferem (`wifi.situacao` = `diferente`) são regravadas; rede ausente não é
+   instalada.
+7. A retomada guardada continua só da Configuração.
+
+**Alternatives considered**
+- Uma tela com seletor Configuração/Manutenção, ou um tipo no perfil: o responsável quis a
+  Manutenção sem perfil; duas entradas no menu deixam isso claro.
+
+**Consequences**
+- Perfis já cadastrados com números de 1 a 14 precisam ser revistos (TA-ADR-037 revisado).
+- O menu passa a ter 21 itens.
+- Próximas partes: etapa 11 só define senha da Suporte/Gestão quando vazia; limpeza de arquivos
+  na Manutenção; McAfee e Office pré-instalado na etapa 2; Wi-Fi e Programas por perfil.
+- Roteiro de máquina real 10.19 e 10.20.
+
+## ADR-064 — Manutenção: limpeza de usuários (1) e Remover Steam (4)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; parte 3 da ADR-062)
+**Module:** Pós-16 (emenda ao ADR-042 e ao ADR-062; revisa o ADR-023 sobre apagar arquivos
+pessoais)
+
+**Context**
+Os notebooks em uso acumulam arquivos pesados nas contas de aluno e jogos da Steam. O
+responsável pediu, na Manutenção, apagar o que pesa sem mexer em políticas e configurações, e
+desinstalar a Steam.
+
+**Decision**
+1. **Etapa 1, Limpeza de usuários** (`etapas.LimpezaUsuarios`): reusa a limpeza de contas do
+   ADR-042 (`recursos/limpeza/contas.ps1`), com as mesmas recusas (Administrador nativo,
+   Suporte, Gestão, a conta do Bench, conta com sessão aberta ou sem perfil), sem seguir links e
+   com log só de números. Só nas contas de aluno marcadas na tela.
+2. Três categorias novas, só para a Manutenção (`limpeza.CATEGORIAS_MANUTENCAO`):
+   - `desktop`: Área de Trabalho, **menos atalhos** (`.lnk` e `.url`);
+   - `arquivos`: Documentos, Downloads, Imagens, Vídeos e Jogos salvos (sem Músicas);
+   - `chrome`: `AppData\Local\Google\Chrome\User Data` inteiro (contas conectadas, senhas,
+     cookies, histórico, favoritos e extensões; o Chrome abre como novo).
+   O trecho passa a receber `ITC_CATEGORIAS`; vazio = as quatro categorias da tela Limpeza, que
+   não muda.
+3. Apagar é definitivo (a lixeira não vale para arquivos de outra conta). Ler situação mostra o
+   total; a confirmação mostra por conta. Registro da conta (NTUSER.DAT), políticas e o resto
+   do perfil ficam.
+4. **Etapa 4, Remover Steam** (`servicos/steam.py`, `etapas.Steam`): da máquina, não da conta.
+   Só aceita o `uninstall.exe` da pasta padrão (`Program Files (x86)\Steam`), lido da chave de
+   desinstalação; roda `/S` e espera a chave sumir (até 15 min). Leva os jogos da biblioteca
+   padrão e os usuários salvos. A etapa só aparece com a Steam instalada
+   (`etapas.ocultas_manutencao`).
+5. A tela da Manutenção passa a mostrar as contas de aluno (para a etapa 1).
+
+**Alternatives considered**
+- Só desconectar a conta Google no Chrome: deixaria senhas e cookies de outros sites para o
+  próximo aluno.
+- Steam dentro da limpeza de usuários: é da máquina e pede o desinstalador dela.
+
+**Consequences**
+- Jogos da Steam em outra biblioteca (outro disco) não são apagados.
+- Steam aberta pode impedir a remoção; a etapa falha com "não saiu a tempo".
+- Roteiro de máquina real 10.22 e 10.23.
+
+## ADR-065 — Wi-Fi por projeto e perfil; etapa 3 some sem rede
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável; parte 5 da ADR-062)
+**Module:** Pós-16 (emenda ao ADR-014 e ao ADR-018; com o TA-ADR-038)
+
+**Context**
+Algumas redes são só para um perfil (ex.: "Notebooks" para aluno, "Coordenação" para pedagogo)
+e alguns projetos (ex.: Brasil.IA) põem as redes de todas as unidades em todos os notebooks. O
+responsável pediu as redes como o papel de parede: por projeto, com os perfis que as recebem.
+
+**Decision**
+1. `Rede.projeto` e `Rede.perfis` no Bench (TA-ADR-038); cache antigo sem os campos = sem
+   projeto, todos os perfis.
+2. `Cadastros.redes_para(unidade, perfil)`: as redes cujo `projeto` é o projeto da unidade
+   (de qualquer unidade dele) e as antigas, sem projeto, da própria unidade; com perfil, só as de
+   `perfis` vazio ou que o contêm. **Máquina em bancada (sem unidade): nenhuma rede** (decisão do
+   responsável, pela recomendação).
+3. Configuração, etapa 3: usa o perfil escolhido (`Contexto.perfil`). Sem rede para o projeto e
+   o perfil, ou em bancada, a etapa **some** (`etapas.ocultas`, como a 4).
+4. Manutenção, etapa 2: sem perfil, considera todas as redes do projeto da unidade e continua só
+   atualizando as que já estão na máquina.
+5. Tela Wi-Fi: abre **sempre** no filtro "Projeto desta máquina" (as redes do projeto da
+   unidade), a cada vez que a tela aparece; as outras redes só em "Todas". Em bancada, fica no
+   projeto e avisa para escolher a unidade ou usar Todas. A coluna mostra o projeto (rede antiga:
+   a unidade). Cache offline ao trocar de unidade: guarda as do projeto dela. Configurações ›
+   Wi-Fi mostra Projeto e Perfis.
+6. `Perfis` usa o **código** do perfil (não o nome): não quebra com acento, maiúscula ou troca
+   de nome, e é o mesmo do `Unidades.PerfilPadrao`.
+
+**Alternatives considered**
+- Coluna "Wi-Fi do projeto" em Projetos, com as redes por unidade: o responsável preferiu o
+  projeto na própria rede, como no papel de parede.
+- Bancada recebendo todas as redes: o notebook sairia com senhas de outros projetos.
+
+**Consequences**
+- Rede cadastrada com `Projeto` vai para todas as unidades do projeto; rede só de uma unidade
+  fica sem `Projeto` (regra antiga).
+- Roteiro de máquina real 10.24.

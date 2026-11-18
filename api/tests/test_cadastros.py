@@ -51,6 +51,8 @@ def linhas():
             {"Id": 2, "Codigo": "UM-02", "Nome": "Unidade Dois", "Ativo": True},
             {"Id": 3, "Codigo": "UM-03", "Nome": "Unidade Tres", "Ativo": False},
         ],
+        "mPro": [],
+        "mPer": [],
     }
 
 
@@ -459,6 +461,136 @@ def test_unidades_sem_cidade_e_tagglpi(settings, fake):
     dados = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(handler))
     assert pedidos and all("Cidade" not in p and "TagGLPI" not in p for p in pedidos)
     assert {(u["cidade"], u["tag_glpi"]) for u in dados["unidades"]} == {("", "")}
+def test_projetos_opcional_e_unidade_aponta_pela_sigla(settings, fake, caplog):
+    """TA-ADR-036: without the setting nothing changes; with it, Unidades.Projeto is read and an
+    unknown sigla leaves the unit without a project (logged by Id only)."""
+    fake.dados["mPro"] = [
+        {"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True},
+        {"Id": 2, "Sigla": "DEF", "Nome": "Projeto Def", "Ativo": False},
+    ]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    fake.dados["mUni"][1]["Projeto"] = "DEF"  # projeto inativo
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert sem["projetos"] == [] and {u["projeto"] for u in sem["unidades"]} == {""}
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro"), httpx.MockTransport(fake.handler)
+        )
+    assert com["projetos"] == [{"id": 1, "sigla": "ABC", "nome": "Projeto Abc"}]
+    assert [u["projeto"] for u in com["unidades"]] == ["ABC", ""]
+    assert "Id 2: projeto_invalido" in caplog.text
+
+
+def test_papel_por_projeto(settings, fake, caplog):
+    """TA-ADR-035: papel row with Projeto (read only with the Projetos table); unknown sigla
+    drops the row; other Tipos ignore the column."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    base = {"Programa": "Papel", "Tipo": "papel", "Arquivo": "p.jpg", "Link": "https://exemplo.invalid/p.jpg", "Ativo": True}
+    fake.dados["mIns"] += [
+        {**base, "Id": 2, "Projeto": "ABC"},
+        {**base, "Id": 3, "Projeto": "XYZ"},
+        {**base, "Id": 4},
+        {"Id": 5, "Programa": "Pacote", "Tipo": "winget", "Identificador": "Exemplo.Pacote", "Projeto": "XYZ", "Ativo": True},
+    ]
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert {i["id"]: i["projeto"] for i in sem["instaladores"]} == {1: "", 2: "", 3: "", 4: "", 5: ""}
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro"), httpx.MockTransport(fake.handler)
+        )
+    assert {i["id"]: i["projeto"] for i in com["instaladores"]} == {1: "", 2: "ABC", 4: "", 5: ""}
+    assert "Id 3 descartado: projeto_invalido" in caplog.text
+
+
+def test_perfis_validados(settings, fake, caplog):
+    """TA-ADR-037: Codigo, Etapas 1..12 and Projeto checked; duplicates and bad rows dropped."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
+    fake.dados["mPer"] = [
+        {"Id": 1, "Codigo": "Aluno", "Nome": "Aluno", "Etapas": "12, 1;2 2 3", "Ativo": True},
+        {"Id": 2, "Codigo": "prof", "Etapas": "1,2", "Projeto": "ABC", "Ativo": True},
+        {"Id": 3, "Codigo": "ruim", "Etapas": "1,13", "Ativo": True},
+        {"Id": 4, "Codigo": "com espaco", "Etapas": "1", "Ativo": True},
+        {"Id": 5, "Codigo": "outro", "Etapas": "1", "Projeto": "XYZ", "Ativo": True},
+        {"Id": 6, "Codigo": "dup", "Etapas": "1", "Ativo": True},
+        {"Id": 7, "Codigo": "dup", "Etapas": "2", "Ativo": True},
+        {"Id": 8, "Codigo": "vazio", "Etapas": "", "Ativo": True},
+        {"Id": 9, "Codigo": "inativo", "Etapas": "1", "Ativo": False},
+    ]
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(fake.handler))
+    assert sem["perfis"] == []
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer"),
+            httpx.MockTransport(fake.handler),
+        )
+    assert com["perfis"] == [
+        {"id": 1, "codigo": "aluno", "nome": "Aluno", "etapas": [1, 2, 3, 12], "projeto": "", "descricao": ""},
+        {"id": 2, "codigo": "prof", "nome": "prof", "etapas": [1, 2], "projeto": "ABC", "descricao": ""},
+    ]
+    assert sorted(com["descartados"]["perfis"]) == [3, 4, 5, 6, 7, 8]
+    for motivo in ("etapas_invalidas", "codigo_invalido", "projeto_invalido", "codigo_duplicado"):
+        assert motivo in caplog.text
+
+
+def test_wifi_por_projeto_e_perfis(settings, fake, caplog):
+    """TA-ADR-038: com Projeto vale o projeto; Perfis por código; desconhecido descarta."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    fake.dados["mPer"] = [
+        {"Id": 1, "Codigo": "aluno", "Etapas": "1", "Ativo": True},
+        {"Id": 2, "Codigo": "pedagogo", "Etapas": "1", "Ativo": True},
+    ]
+    base = {"Senha": MARCADOR_WIFI, "Categoria": "Carreta", "Ativo": True}
+    fake.dados["mWif"] = [
+        {**base, "Id": 20, "SSID": "Rede-Projeto", "Projeto": "ABC", "Unidade": "UM-99"},
+        {**base, "Id": 21, "SSID": "Rede-Coord", "Projeto": "ABC", "Perfis": "Pedagogo; aluno"},
+        {**base, "Id": 22, "SSID": "Rede-Antiga", "Unidade": "UM-02"},
+        {**base, "Id": 23, "SSID": "Rede-X", "Projeto": "XYZ"},
+        {**base, "Id": 24, "SSID": "Rede-Y", "Projeto": "ABC", "Perfis": "fantasma"},
+    ]
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        dados = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer"),
+            httpx.MockTransport(fake.handler),
+        )
+    por_id = {r["id"]: r for r in dados["wifi"]}
+    assert set(por_id) == {20, 21, 22}
+    assert (por_id[20]["projeto"], por_id[20]["perfis"]) == ("ABC", [])
+    assert por_id[21]["perfis"] == ["aluno", "pedagogo"]
+    assert sorted(dados["descartados"]["wifi"]) == [23, 24]
+    assert "projeto_invalido" in caplog.text and "perfil_invalido" in caplog.text
+    assert "Rede-X" not in caplog.text
+
+
+def test_cadastros_filtra_wifi_pelo_projeto_da_unidade(settings, fake):
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    base = {"Senha": MARCADOR_WIFI, "Categoria": "Carreta", "Ativo": True}
+    fake.dados["mWif"] = [
+        {**base, "Id": 20, "SSID": "Rede-Projeto", "Projeto": "ABC", "Unidade": "UM-02"},
+        {**base, "Id": 21, "SSID": "Rede-Antiga-UM01", "Unidade": "UM-01"},
+        {**base, "Id": 22, "SSID": "Rede-Antiga-UM02", "Unidade": "UM-02"},
+    ]
+    s = configurar(settings, nocodb_tabela_projetos="mPro")
+    criar_sessao(s)
+    app = create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(fake.handler)})
+    with TestClient(app) as c:
+        um01 = c.get("/v1/bench/cadastros?unidade=UM-01", headers=AUT).json()
+        um02 = c.get("/v1/bench/cadastros?unidade=UM-02", headers=AUT).json()
+    assert sorted(r["id"] for r in um01["wifi"]) == [20, 21]  # projeto ABC + a antiga da UM-01
+    assert sorted(r["id"] for r in um02["wifi"]) == [22]  # UM-02 sem projeto: só a antiga
+
+
+def test_cadastros_entrega_projetos(settings, fake):
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "ABC"
+    s = configurar(settings, nocodb_tabela_projetos="mPro")
+    criar_sessao(s)
+    app = create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(fake.handler)})
+    with TestClient(app) as c:
+        corpo = c.get("/v1/bench/cadastros", headers=AUT).json()
+    assert corpo["projetos"] == [{"id": 1, "sigla": "ABC", "nome": "Projeto Abc"}]
+    assert corpo["unidades"][0]["projeto"] == "ABC"
 
 
 def test_wifi_le_categoria_pelo_titulo(settings, fake):

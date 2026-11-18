@@ -24,8 +24,10 @@ from typing import Any
 from itc_bench.nucleo import dpapi
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import api
+from itc_bench.servicos import perfis as perfis_mod
 from itc_bench.servicos.api import CHAVE_REGISTRO
 from itc_bench.servicos.executor import Sensivel
+from itc_bench.servicos.perfis import Perfil
 
 FORMATO = 1
 VALIDADE = timedelta(days=7)
@@ -60,6 +62,7 @@ class Instalador:
     argumentos: str = ""
     deteccao: str = ""
     modo: str = "quiosque"
+    projeto: str = ""  # só no papel (ADR-057): sigla do projeto; vale para as unidades dele
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,8 @@ class Rede:
     unidade: str
     categoria: str
     atualizado_em: str
+    projeto: str = ""  # ADR-065: sigla de Projetos; com ela, a Unidade é só anotação
+    perfis: tuple[str, ...] = ()  # ADR-065: códigos de Perfis; vazio = todos os perfis
 
 
 @dataclass(frozen=True)
@@ -81,6 +86,14 @@ class Unidade:
     uf: str
     tag_glpi: str
     perfil_padrao: str
+    projeto: str = ""  # sigla de Projetos (ADR-059); vazio = sem projeto
+
+
+@dataclass(frozen=True)
+class Projeto:
+    id: int
+    sigla: str
+    nome: str
 
 
 @dataclass(frozen=True)
@@ -95,15 +108,38 @@ class Cadastros:
     redes: tuple[Rede, ...]
     unidades: tuple[Unidade, ...]
     descartados: dict[str, list[Any]] = field(default_factory=dict)
+    projetos: tuple[Projeto, ...] = ()  # ADR-059; cache antigo sem a chave = nenhum
+    perfis: tuple[Perfil, ...] = ()  # ADR-060; cache antigo sem a chave = nenhum
 
     def servidor(self, servico: str, papel: str) -> Servidor | None:
         return next((s for s in self.servidores if s.servico == servico and s.papel == papel), None)
 
     def redes_da_unidade(self, codigo: str | None) -> tuple[Rede, ...]:
-        return self.redes if codigo is None else tuple(r for r in self.redes if r.unidade == codigo)
+        """Tela Wi-Fi: sem unidade, todas; com unidade, as do projeto dela (ADR-065)."""
+        return self.redes if codigo is None else self.redes_para(codigo)
+
+    def redes_para(self, unidade: str | None, perfil: str | None = None) -> tuple[Rede, ...]:
+        """Redes desta máquina (ADR-065): as do projeto da unidade (e as antigas, sem
+        projeto, da própria unidade); com `perfil`, só as que valem para ele (`perfis`
+        vazio = todos). Sem unidade (bancada), nenhuma."""
+        if not unidade:
+            return ()
+        u = self.unidade_por_codigo(unidade)
+        projeto = u.projeto if u is not None else ""
+        saida = [
+            r
+            for r in self.redes
+            if (r.projeto and r.projeto == projeto) or (not r.projeto and r.unidade == unidade)
+        ]
+        if perfil:
+            saida = [r for r in saida if not r.perfis or perfil in r.perfis]
+        return tuple(saida)
 
     def unidade_por_codigo(self, codigo: str | None) -> Unidade | None:
         return next((u for u in self.unidades if u.codigo == codigo), None)
+
+    def projeto_por_sigla(self, sigla: str | None) -> Projeto | None:
+        return next((p for p in self.projetos if p.sigla == sigla), None) if sigla else None
 
 
 def _de_dados(registro: dict[str, Any]) -> Cadastros:
@@ -147,6 +183,7 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(i.get("argumentos") or ""),
                 str(i.get("deteccao") or ""),
                 str(i.get("modo") or "quiosque"),
+                str(i.get("projeto") or ""),
             )
             for i in dados["instaladores"]
         ),
@@ -158,6 +195,8 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(w["unidade"]),
                 str(w["categoria"]),
                 str(w["atualizado_em"]),
+                str(w.get("projeto") or ""),
+                tuple(str(p) for p in w.get("perfis") or ()),
             )
             for w in dados["wifi"]
         ),
@@ -170,11 +209,38 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(u["uf"]),
                 str(u.get("tag_glpi") or ""),  # ADR-067: não vem mais
                 str(u["perfil_padrao"]),
+                str(u.get("projeto") or ""),
             )
             for u in dados["unidades"]
         ),
         descartados=dict(dados.get("descartados") or {}),
+        projetos=tuple(
+            Projeto(int(p["id"]), str(p["sigla"]), str(p["nome"]))
+            for p in dados.get("projetos") or ()
+        ),
+        perfis=_perfis(dados.get("perfis") or ()),
     )
+
+
+def _perfis(linhas: Any) -> tuple[Perfil, ...]:
+    """Perfis do cadastro (ADR-060). Linha com número fora de 1 a 14 é ignorada (a API já
+    descarta; aqui é a segunda trava, para um cache mexido)."""
+    saida = []
+    for p in linhas:
+        etapas = perfis_mod.etapas_dos_numeros(p.get("etapas") or ())
+        if etapas is None:
+            log.warning("Cadastros: perfil Id %s ignorado (etapas fora de 1 a 14).", p.get("id"))
+            continue
+        saida.append(
+            Perfil(
+                str(p["codigo"]),
+                str(p.get("nome") or p["codigo"]),
+                str(p.get("descricao") or ""),
+                etapas,
+                str(p.get("projeto") or ""),
+            )
+        )
+    return tuple(saida)
 
 
 class Armazem:
@@ -218,7 +284,8 @@ class Armazem:
         return cadastros
 
     def filtrar(self, unidade: str | None) -> Cadastros | None:
-        """Troca de unidade sem rede: só o Wi-Fi dela fica no cache (o resto já é global)."""
+        """Troca de unidade sem rede: só o Wi-Fi do projeto dela fica no cache (o resto já é
+        global)."""
         registro = self._ler()
         atual = self.carregar() if registro is not None else None
         if registro is None or atual is None:
@@ -226,7 +293,16 @@ class Armazem:
         if unidade is None:
             return atual  # sem rede não há como trazer as outras unidades de volta
         dados = dict(registro["dados"])
-        dados["wifi"] = [w for w in dados["wifi"] if w.get("unidade") == unidade]
+        # ADR-065: as redes do projeto da unidade e as antigas (sem projeto) dela.
+        projeto = next(
+            (u.get("projeto") or "" for u in dados["unidades"] if u.get("codigo") == unidade), ""
+        )
+        dados["wifi"] = [
+            w
+            for w in dados["wifi"]
+            if (w.get("projeto") and w["projeto"] == projeto)
+            or (not w.get("projeto") and w.get("unidade") == unidade)
+        ]
         # versão vazia: a próxima sincronização baixa de novo em vez de receber um 304
         novo = {**registro, "dados": dados, "unidade": unidade, "versao": ""}
         novo.pop("formato", None)

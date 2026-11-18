@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from itc_bench.servicos import perfis
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.executor import Sensivel
 from itc_bench.ui import tema
@@ -32,9 +33,18 @@ SEM_UNIDADE = "— bancada (todas as unidades)"
 MODOS = (("Claro", "claro"), ("Escuro", "escuro"))
 
 AJUDA = (
-    "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores e "
-    "unidades (uma aba para cada). Eles vêm do cadastro central (NocoDB) pela API, depois do "
-    "login online.\n\n"
+    "Mostra os cadastros centrais que este Bench usa: servidores, redes Wi-Fi, instaladores, "
+    "unidades, projetos e perfis (uma aba para cada). Eles vêm do cadastro central (NocoDB) "
+    "pela API, depois do login online.\n\n"
+    "• Projetos: cada unidade aponta para o projeto dela pela sigla (coluna Projeto em "
+    "Unidades). A aba Projetos mostra as unidades de cada um; unidade sem projeto aparece com "
+    "—. O papel de parede e as redes Wi-Fi da Configuração são os do projeto da unidade.\n\n"
+    "• Wi-Fi: cada rede diz o projeto (coluna Projeto) e, se quiser, os perfis que a recebem "
+    "(coluna Perfis, pelo código; todos = qualquer perfil). Rede antiga, sem projeto, vale só "
+    "na unidade dela.\n\n"
+    "• Perfis: os perfis da Configuração (tabela Perfis). Cada um diz quais etapas rodam, "
+    "pelos números de 1 a 14; Projeto diz em que unidades ele aparece (todos = em todas). O que "
+    "cada etapa faz não vem do cadastro.\n\n"
     "• Para mudar um cadastro, edite no NocoDB; aqui é só leitura. A mudança chega na próxima "
     "sincronização (a cada 30 min ou em Sincronizar agora, que só funciona depois do login "
     "online).\n"
@@ -96,13 +106,21 @@ class PainelConfiguracoes(QWidget):
 
         self.abas = QTabWidget()
         self.servidores = self._tabela(["Serviço", "Papel", "Valor", "Versão", "Observação"])
-        self.wifi = self._tabela(["SSID", "Unidade", "Categoria", "Senha", "Atualizado em"])
+        self.wifi = self._tabela(
+            ["SSID", "Unidade", "Categoria", "Senha", "Atualizado em", "Projeto", "Perfis"]
+        )
         self.instaladores = self._tabela(["Programa", "Versão", "Arquivo", "SHA-256", "Link"])
-        self.unidades = self._tabela(["Código", "Nome", "UF", "Perfil padrão"])  # ADR-067
+        self.unidades = self._tabela(
+            ["Código", "Nome", "Projeto", "UF", "Perfil padrão"]  # ADR-059, ADR-067
+        )
+        self.projetos = self._tabela(["Sigla", "Nome", "Unidades"])
+        self.perfis = self._tabela(["Código", "Nome", "Etapas", "Projeto"])
         self.abas.addTab(self.servidores, "Servidores")
         self.abas.addTab(self.wifi, "Wi-Fi")
         self.abas.addTab(self.instaladores, "Instaladores")
         self.abas.addTab(self.unidades, "Unidades")
+        self.abas.addTab(self.projetos, "Projetos")
+        self.abas.addTab(self.perfis, "Perfis")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -167,7 +185,18 @@ class PainelConfiguracoes(QWidget):
         )
         self._preencher(
             self.wifi,
-            [[r.ssid, r.unidade, r.categoria, r.senha, r.atualizado_em] for r in c.redes]
+            [
+                [
+                    r.ssid,
+                    r.unidade,
+                    r.categoria,
+                    r.senha,
+                    r.atualizado_em,
+                    r.projeto or "—",
+                    ", ".join(r.perfis) or "todos",
+                ]
+                for r in c.redes
+            ]
             if c
             else [],
             {},
@@ -188,10 +217,40 @@ class PainelConfiguracoes(QWidget):
                 [
                     u.codigo,
                     u.nome,
+                    u.projeto or "—",
                     u.uf,
                     u.perfil_padrao,
                 ]
                 for u in c.unidades
+            ]
+            if c
+            else [],
+            {},
+        )
+        self._preencher(
+            self.projetos,
+            [
+                [
+                    p.sigla,
+                    p.nome,
+                    ", ".join(u.codigo for u in c.unidades if u.projeto == p.sigla) or "—",
+                ]
+                for p in c.projetos
+            ]
+            if c
+            else [],
+            {},
+        )
+        self._preencher(
+            self.perfis,
+            [
+                [
+                    p.id,
+                    p.nome,
+                    ", ".join(str(perfis.NUMERO[e]) for e in p.etapas),
+                    p.projeto or "todos",
+                ]
+                for p in c.perfis
             ]
             if c
             else [],

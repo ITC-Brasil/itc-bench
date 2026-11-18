@@ -39,6 +39,7 @@ marcada como obrigatória nem única: validação fica na API.
 | `Argumentos` | LongText | Só instalador: um argumento por linha (MSI: `PROPRIEDADE=valor`). Vazio em `.exe` = instalação interativa |
 | `Deteccao` | SingleLineText | Opcional: começo do nome em "Aplicativos instalados" quando é diferente de `Programa` |
 | `Modo` | SingleSelect: `quiosque`, `app` | Só webapp; vazio = `quiosque` |
+| `Projeto` | SingleLineText | Só papel (ADR-057, TA-ADR-035): sigla de `Projetos.Sigla`; vale para todas as unidades do projeto. Sigla que não é Projeto ativo descarta a linha. Lida só com `NOCODB_TABELA_PROJETOS` configurado |
 
 Contrato de Programas (ADR-020, TA-ADR-029):
 - **instalador:** `Programa`, `Versao`, `Arquivo` `.msi`/`.exe`, `Link` `https://`; `SHA256`
@@ -49,7 +50,10 @@ Contrato de Programas (ADR-020, TA-ADR-029):
   referência. `Link`, `SHA256` e `Arquivo` vazios.
 - **papel** (ADR-022, TA-ADR-030): `Programa` (nome na tela), `Arquivo` `.jpg`/`.jpeg`/`.png`,
   `Link` `https://` e `SHA256` opcional (TA-ADR-034). JPG ou PNG de até 20 MB, de 640x480 a 7680x4320. Guardado em
-  `%ProgramData%\ITC\Bench\papel\` e aplicado pela tela Tela e papel de parede.
+  `%ProgramData%\ITC\Bench\papel\` e aplicado pela tela Tela e papel de parede. `Projeto`
+  diz de qual projeto é a imagem (ADR-057): a etapa 10 da Preparação usa a do projeto da
+  unidade da máquina; sem ela (ou com a máquina em bancada), a etapa 10 não aparece. Uma imagem
+  por projeto; duas ativas do mesmo projeto bloqueiam a etapa.
 - **webapp:** `Programa` (vira o nome do atalho), `Identificador` (`https://`), `Modo`. Ícone
   opcional: `Link` `https://` do `.ico`, `Arquivo` `.ico` e `SHA256` opcional.
 - Linhas `GLPI Agent`, `RustDesk` e `AnyDesk` do tipo instalador são do Acesso remoto e não
@@ -65,7 +69,9 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 |---|---|---|
 | `SSID` | SingleLineText, display | **Sensível para log**: visível na tela, nunca no log (o log usa `Id`) |
 | `Senha` | SingleLineText | **Sensível**, nunca exibida na UI. Obrigatória: WPA2-Personal, 8–63 caracteres comuns ou 64 hexadecimais; vazia ou fora disso, o Bench não instala (ADR-018) |
-| `Unidade` | SingleLineText | Texto livre, casa com `Unidades.Codigo` (sem link) |
+| `Unidade` | SingleLineText | Código de `Unidades.Codigo` (sem link). Com `Projeto` preenchido, é só anotação (ADR-065); sem `Projeto`, a rede vale só nessa unidade (regra antiga) |
+| `Projeto` | SingleLineText | Sigla de `Projetos.Sigla` (ADR-065, TA-ADR-038): a rede vale em **todas** as unidades do projeto. Sigla que não é Projeto ativo descarta a rede. Lida só com `NOCODB_TABELA_PROJETOS` |
+| `Perfis` | SingleLineText | Códigos de `Perfis.Codigo` separados por vírgula (ex.: `aluno,pedagogo`). Vazio = todos os perfis. Código desconhecido descarta a rede. Lida só com `NOCODB_TABELA_PERFIS` |
 | `categoria` | SingleLineText | Ex.: Carreta, Roteador 4G, Parceiro local |
 | `Ativo` | Checkbox | |
 | `AtualizadoPor` | SingleLineText | Técnico |
@@ -78,12 +84,45 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 | `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,15})$`: com número até 8; só letras até 15, o limite do nome do computador (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
 | `Nome` | SingleLineText | |
 | `UF` | SingleLineText | |
-| `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
+| `PerfilPadrao` | SingleLineText | `Codigo` de um perfil da tabela Perfis (ADR-060). Vazio = o primeiro perfil disponível; desconhecido = o primeiro, com aviso |
+| `Projeto` | SingleLineText | Sigla de `Projetos.Sigla` (sem link, como `WiFi.Unidade`). Vazio = sem projeto; sigla que não é Projeto ativo vira vazio, com aviso no log da API. Só lida com `NOCODB_TABELA_PROJETOS` configurado. ADR-059, TA-ADR-036 |
+| `Ativo` | Checkbox | |
+
+### Projetos
+
+Opcional: só lida com `NOCODB_TABELA_PROJETOS` preenchido (ADR-059, TA-ADR-036). O papel de
+parede da etapa 10 (ADR-057) e os perfis por projeto (ADR-060) dependem dele.
+
+| Coluna | Tipo NocoDB | Observação |
+|---|---|---|
+| `Sigla` | SingleLineText, display | Única, maiúsculas (ex. fictício: `ABC`). É o que `Unidades.Projeto` cita |
+| `Nome` | SingleLineText | Nome por extenso |
 | `Ativo` | Checkbox | |
 
 `Cidade` e `TagGLPI` saíram (ADR-067, TA-ADR-039): a API não as pede mais e manda
 `cidade` e `tag_glpi` vazios. As colunas só podem ser apagadas no NocoDB **depois** que a
 API com o TA-ADR-039 estiver publicada.
+### Perfis
+Opcional: só lida com `NOCODB_TABELA_PERFIS` preenchido (ADR-060, TA-ADR-037). **Sem ela, a
+Configuração não roda.** O perfil só escolhe quais etapas rodam; o que cada etapa faz é
+do código.
+| Coluna | Tipo NocoDB | Observação |
+|---|---|---|
+| `Codigo` | SingleLineText, display | Minúsculas, números e `_`, até 32 (ex.: `aluno`, `professor`). Único. É o que `Unidades.PerfilPadrao` cita |
+| `Nome` | SingleLineText | Nome na tela (vazio = o código) |
+| `Etapas` | SingleLineText | Números de 1 a 12 separados por vírgula (ex.: `1,3,4,5,6,9,10,11,12`) |
+| `Projeto` | SingleLineText | Opcional: sigla de Projetos; o perfil só aparece nas unidades desse projeto. Vazio = todas |
+| `Descricao` | SingleLineText | Opcional |
+| `Ativo` | Checkbox | |
+
+Números das etapas da Configuração (ADR-062): 1 Energia: nunca desligar, 2 Remover
+pré-instalados, 3 Wi-Fi, 4 Papel de parede, 5 Acesso remoto, 6 Programas, 7 Políticas, 8 USB,
+9 Proteção do login, 10 Energia: planos finais, 11 Contas, 12 Diagnóstico. Sem dependência
+entre elas. A Manutenção não usa perfil.
+
+**Regra de Wi-Fi por projeto (ADR-065):** a etapa 3 da Configuração instala as redes cujo
+`Projeto` é o projeto da unidade da máquina e cujo `Perfis` está vazio ou contém o perfil
+escolhido; rede sem `Projeto` vale só na sua `Unidade`; máquina em bancada não recebe rede.
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
 `Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o

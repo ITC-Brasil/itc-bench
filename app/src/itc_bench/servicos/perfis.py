@@ -1,48 +1,89 @@
-"""Perfis da Preparação completa (ADR-023), sem Qt: fechados no código.
+"""Etapas e perfis da Configuração e da Manutenção (ADR-023, ADR-060, ADR-062), sem Qt.
 
-Perfil = id, nome e tupla ordenada de ids de etapa. Os parâmetros das etapas vêm só das listas
-fechadas abaixo ou das linhas ativas do cadastro; nada de texto livre, caminho ou comando.
-`Unidades.PerfilPadrao` escolhe o perfil pelo id.
+As etapas, a ordem e os parâmetros de cada uma são fechados aqui. Os perfis (só da
+Configuração) vêm do cadastro (tabela Perfis, ADR-060): cada um diz quais etapas rodam, pelos
+números de 1 a 12; nada de texto livre, caminho ou comando. `Unidades.PerfilPadrao` escolhe o
+perfil pelo código. A Manutenção não usa perfil.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-# Ordem fixa da preparação (ADR-023, item 2).
-ETAPAS: tuple[tuple[str, str], ...] = (
-    ("identificacao", "Identificação"),
-    ("contas", "Contas"),
-    ("wifi", "Wi-Fi"),
-    ("remoto", "Acesso remoto"),
-    ("programas", "Programas"),
-    ("preinstalados", "Remover pré-instalados"),
-    ("politicas", "Políticas"),
-    ("usb", "USB"),
-    ("protecao", "Proteção do login"),
-    ("papel", "Papel de parede"),
-    ("mouse", "Mouse e teclado"),
-    ("energia", "Energia"),
-    ("limpeza", "Limpeza"),
-    ("diagnostico", "Diagnóstico"),
+if TYPE_CHECKING:
+    from itc_bench.servicos.cadastros import Cadastros
+
+
+@dataclass(frozen=True)
+class Fluxo:
+    """Lista de etapas de uma tela, com número fixo de cada uma (ADR-056, ADR-062)."""
+
+    id: str
+    nome: str
+    etapas: tuple[tuple[int, str, str], ...]  # (número, id, nome)
+
+    @property
+    def ordem(self) -> tuple[str, ...]:
+        return tuple(e for _, e, _ in self.etapas)
+
+    @property
+    def numero(self) -> dict[str, int]:
+        return {e: n for n, e, _ in self.etapas}
+
+    @property
+    def nomes(self) -> dict[str, str]:
+        return {e: nome for _, e, nome in self.etapas}
+
+    def rotulo(self, etapa: str) -> str:
+        """`wifi` → `3. Wi-Fi`: o nome que aparece na tela, no log e na confirmação."""
+        return f"{self.numero[etapa]}. {self.nomes[etapa]}"
+
+
+# Configuração (ADR-062): máquina nova, com perfil. Ordem e números fixos.
+CONFIGURACAO = Fluxo(
+    "configuracao",
+    "Configuração",
+    (
+        (1, "energia_inicio", "Energia: nunca desligar"),
+        (2, "preinstalados", "Remover pré-instalados"),
+        (3, "wifi", "Wi-Fi"),
+        (4, "papel", "Papel de parede"),
+        (5, "remoto", "Acesso remoto"),
+        (6, "programas", "Programas"),
+        (7, "politicas", "Políticas"),
+        (8, "usb", "USB"),
+        (9, "protecao", "Proteção do login"),
+        (10, "energia", "Energia: planos finais"),
+        (11, "contas", "Contas"),
+        (12, "diagnostico", "Diagnóstico"),
+    ),
 )
-NOMES = dict(ETAPAS)
-ORDEM = tuple(e for e, _ in ETAPAS)
-# Número fixo de cada etapa pela ordem acima (ADR-056): igual em todo perfil, mesmo quando o
-# perfil pula etapas (Administrativo mostra 1 a 5, depois 9 a 14).
-NUMERO = {e: i for i, e in enumerate(ORDEM, start=1)}
+# Manutenção (ADR-062, ADR-064): máquina em uso, sem perfil.
+MANUTENCAO = Fluxo(
+    "manutencao",
+    "Manutenção",
+    (
+        (1, "limpeza_usuarios", "Limpeza de usuários"),
+        (2, "wifi_senhas", "Wi-Fi: atualizar senhas"),
+        (3, "diagnostico", "Diagnóstico"),
+        (4, "steam", "Remover Steam"),
+    ),
+)
+
+# Atalhos da Configuração, usados pelos perfis (os números do cadastro são os dela).
+ETAPAS: tuple[tuple[str, str], ...] = tuple((e, nome) for _, e, nome in CONFIGURACAO.etapas)
+NOMES = CONFIGURACAO.nomes
+ORDEM = CONFIGURACAO.ordem
+NUMERO = CONFIGURACAO.numero
 
 
-def rotulo(etapa: str) -> str:
-    """`contas` → `2. Contas`: o nome que aparece na tela, no log e na confirmação."""
-    return f"{NUMERO[etapa]}. {NOMES[etapa]}"
+def rotulo(etapa: str, fluxo: Fluxo = CONFIGURACAO) -> str:
+    return fluxo.rotulo(etapa)
 
 
-# Etapas que usam as contas como alvo: sem a etapa Contas em ordem, ficam bloqueadas.
-DEPENDE: dict[str, tuple[str, ...]] = {
-    "politicas": ("contas",),
-    "usb": ("contas",),
-    "papel": ("contas",),
-    "mouse": ("contas",),
-}
+# Sem dependência entre etapas desde o ADR-062: Contas foi para o fim e as políticas valem para
+# as contas de aluno marcadas, sem precisar da Suporte aplicada antes.
+DEPENDE: dict[str, tuple[str, ...]] = {}
 
 # ---------------------------------------------------------------- parâmetros fechados
 
@@ -52,12 +93,20 @@ POLITICAS_MAQUINA = ("compartilhamento", "wifidirect", "ics")
 POLITICA_USB = "usb"
 # Opções de servicos.aparencia.CATALOGO (ADR-022): o aluno não liga as Teclas de aderência.
 MOUSE: dict[str, str] = {"atalho_shift": "desligado"}
-# (ajuste, fonte) → segundos da lista fechada de servicos.energia.TEMPOS.
-ENERGIA: dict[tuple[str, str], int] = {
-    ("tela", "ac"): 900,
-    ("tela", "dc"): 600,
+# (ajuste, fonte) → segundos da lista fechada de servicos.energia.TEMPOS (ADR-062).
+# Etapa 1: nada desliga durante a configuração.
+ENERGIA_INICIO: dict[tuple[str, str], int] = {
+    ("tela", "ac"): 0,
+    ("tela", "dc"): 0,
     ("suspensao", "ac"): 0,
-    ("suspensao", "dc"): 1800,
+    ("suspensao", "dc"): 0,
+}
+# Etapa 10: vídeo em 30 min e suspensão em 1 h, na tomada e na bateria, para todo perfil.
+ENERGIA: dict[tuple[str, str], int] = {
+    ("tela", "ac"): 1800,
+    ("tela", "dc"): 1800,
+    ("suspensao", "ac"): 3600,
+    ("suspensao", "dc"): 3600,
 }
 ESTILO_PAPEL = "preencher"
 # Itens de servicos.limpeza.ITENS usados na preparação; a lixeira fica só na tela Limpeza.
@@ -66,35 +115,54 @@ LIMPEZA = ("temp_sistema", "temp_usuarios", "windows_update", "relatorios_erro")
 
 @dataclass(frozen=True)
 class Perfil:
-    id: str
+    """Perfil da Configuração (ADR-060): vem só do cadastro (tabela Perfis do NocoDB). O
+    cadastro escolhe quais das 12 etapas rodam; o que cada etapa faz continua fechado acima."""
+
+    id: str  # Perfis.Codigo
     nome: str
     descricao: str
-    etapas: tuple[str, ...]
+    etapas: tuple[str, ...]  # ids, sempre na ordem de ORDEM
+    projeto: str = ""  # vazio = vale para todas as unidades
 
 
-PERFIS: tuple[Perfil, ...] = (
-    Perfil("sala_de_aula", "Sala de aula", "Notebook de aluno: todas as etapas.", ORDEM),
-    Perfil(
-        "administrativo",
-        "Administrativo",
-        "Notebook da equipe: sem Políticas, USB e Remover pré-instalados.",
-        tuple(e for e in ORDEM if e not in ("preinstalados", "politicas", "usb")),
-    ),
-    Perfil("so_diagnostico", "Só diagnóstico", "Só a coleta do diagnóstico.", ("diagnostico",)),
-)
-POR_ID = {p.id: p for p in PERFIS}
-PADRAO = PERFIS[0]
+SEM_PERFIL = "Nenhum perfil no cadastro (tabela Perfis). Cadastre no NocoDB e sincronize."
 
 
-def do_cadastro(texto: str | None) -> tuple[Perfil, str]:
-    """Perfil pelo `Unidades.PerfilPadrao`; texto desconhecido cai no padrão, com aviso."""
-    chave = (texto or "").strip().lower()
+def etapas_dos_numeros(numeros: Iterable[Any]) -> tuple[str, ...] | None:
+    """[12, 1, 3] → ("energia_inicio", "wifi", "diagnostico"); None se algum número não for
+    uma etapa da Configuração (1 a 12) ou se não houver nenhum."""
+    try:
+        conjunto = {int(n) for n in numeros}
+    except (TypeError, ValueError):
+        return None
+    if not conjunto or not conjunto <= set(NUMERO.values()):
+        return None
+    return tuple(e for e in ORDEM if NUMERO[e] in conjunto)
+
+
+def disponiveis(cadastros: "Cadastros | None", unidade: str | None) -> list[Perfil]:
+    """Perfis que valem para a unidade: os sem projeto e os do projeto dela."""
+    if cadastros is None:
+        return []
+    u = cadastros.unidade_por_codigo(unidade)
+    projeto = u.projeto if u is not None else ""
+    return [p for p in cadastros.perfis if not p.projeto or p.projeto == projeto]
+
+
+def padrao(cadastros: "Cadastros | None", unidade: str | None) -> tuple[Perfil | None, str]:
+    """Perfil que vem marcado: o `Unidades.PerfilPadrao` da unidade; sem ele (ou desconhecido),
+    o primeiro disponível, com aviso. Nenhum perfil: (None, aviso)."""
+    lista = disponiveis(cadastros, unidade)
+    if not lista:
+        return None, SEM_PERFIL
+    u = cadastros.unidade_por_codigo(unidade) if cadastros is not None else None
+    chave = (u.perfil_padrao if u is not None else "").strip().lower()
     if not chave:
-        return PADRAO, ""
-    perfil = POR_ID.get(chave)
-    if perfil is None:
-        return PADRAO, "Perfil padrão da unidade desconhecido; usando Sala de aula."
-    return perfil, ""
+        return lista[0], ""
+    achado = next((p for p in lista if p.id == chave), None)
+    if achado is None:
+        return lista[0], f"Perfil padrão da unidade desconhecido; usando {lista[0].nome}."
+    return achado, ""
 
 
 def dependencias(etapa: str) -> tuple[str, ...]:

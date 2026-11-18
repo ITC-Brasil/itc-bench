@@ -35,8 +35,10 @@ AJUDA = (
     "usuários do notebook. A senha nunca aparece na tela.\n"
     "\n"
     "Instalar\n"
-    "1. Escolha o filtro: Esta unidade (a escolhida em Configurações ou identificada pelo "
-    "nome do computador), Todas, ou Instaladas no Windows (só consulta).\n"
+    "1. A tela abre sempre em Projeto desta máquina: as redes do projeto da unidade escolhida "
+    "em Configurações ou identificada pelo nome do computador (rede antiga, sem projeto, só "
+    "na unidade dela). Para ver as outras, escolha Todas; Instaladas no Windows só consulta. "
+    "Em bancada (sem unidade), escolha a unidade ou use Todas.\n"
     "2. Confira a situação: Não instalada, Senha ou segurança diferente (a senha da rede "
     "mudou no cadastro), Instalada (igual), Instalada (senha não conferida) ou Cadastro "
     "inválido (não pode ser marcada).\n"
@@ -58,7 +60,8 @@ AJUDA = (
     "Sem administrador (modo de teste), a tela só mostra as redes, sem conferir a senha."
 )
 
-FILTROS = ("Esta unidade", "Todas", "Instaladas no Windows")
+# ADR-065: a tela abre sempre no projeto desta máquina; as outras redes, só em "Todas".
+FILTROS = ("Projeto desta máquina", "Todas", "Instaladas no Windows")
 
 
 @dataclass(frozen=True)
@@ -125,7 +128,7 @@ class PainelWifi(QWidget):
             v.addWidget(_rotulo("Sem administrador: só leitura, sem conferir a senha."))
 
         self.tabela = QTableWidget(0, 4)
-        self.tabela.setHorizontalHeaderLabels(["Rede", "Unidade", "Categoria", "Situação"])
+        self.tabela.setHorizontalHeaderLabels(["Rede", "Projeto", "Categoria", "Situação"])
         self.tabela.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabela.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabela.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -150,11 +153,18 @@ class PainelWifi(QWidget):
 
     def showEvent(self, evento: QShowEvent) -> None:
         super().showEvent(evento)
+        if not self.ocupado:
+            self.filtro.setCurrentIndex(0)  # sempre volta para o projeto (ADR-065)
         if self.leitura is None and not self.ocupado:
-            self.filtro.setCurrentIndex(0 if self.obter_unidade() else 1)
             self.carregar()
 
     # ------------------------------------------------------------ dados
+
+    def _projeto(self) -> str:
+        """Projeto da unidade da máquina, para o aviso; sem projeto, o código da unidade."""
+        cadastros, unidade = self.obter_cadastros(), self.obter_unidade()
+        u = cadastros.unidade_por_codigo(unidade) if cadastros is not None else None
+        return (u.projeto if u is not None else "") or (unidade or "")
 
     def _redes(self) -> tuple[Rede, ...]:
         cadastros = self.obter_cadastros()
@@ -201,7 +211,9 @@ class PainelWifi(QWidget):
                 situacao = wifi.ROTULOS[linha.situacao]
                 if linha.motivo:
                     situacao += f": {linha.motivo}"
-                valores = (linha.rede.ssid, linha.rede.unidade, linha.rede.categoria, situacao)
+                # rede antiga, sem projeto: mostra a unidade dela (ADR-065)
+                dono = linha.rede.projeto or linha.rede.unidade
+                valores = (linha.rede.ssid, dono, linha.rede.categoria, situacao)
                 for j, valor in enumerate(valores):
                     item = QTableWidgetItem(valor)
                     item.setData(Qt.ItemDataRole.UserRole, linha.rede.id)
@@ -227,7 +239,12 @@ class PainelWifi(QWidget):
                 "em Configurações."
             )
         elif self.filtro.currentIndex() == 0 and not self.obter_unidade():
-            self.estado.setText("A unidade da máquina não foi escolhida em Configurações.")
+            self.estado.setText(
+                "Máquina em bancada: escolha a unidade em Configurações para ver as redes do "
+                "projeto, ou escolha Todas."
+            )
+        elif self.filtro.currentIndex() == 0:
+            self.estado.setText(f"{self.tabela.rowCount()} rede(s) do projeto {self._projeto()}.")
         else:
             self.estado.setText(f"{self.tabela.rowCount()} rede(s).")
 

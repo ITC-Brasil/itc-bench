@@ -50,6 +50,21 @@ def linhas(cadastros: Cadastros | None) -> list[Instalador]:
     return [i for i in (cadastros.instaladores if cadastros else ()) if i.tipo == "papel"]
 
 
+def da_unidade(cadastros: Cadastros | None, unidade: str | None) -> list[Instalador]:
+    """Papel de parede da unidade (ADR-057): as linhas de papel cujo `Projeto` é o projeto da
+    unidade. Sem unidade (bancada), unidade sem projeto ou projeto sem papel: lista vazia, e a
+    Preparação não mostra a etapa."""
+    u = cadastros.unidade_por_codigo(unidade) if cadastros is not None and unidade else None
+    if u is None or not u.projeto:
+        return []
+    return [i for i in linhas(cadastros) if i.projeto == u.projeto]
+
+
+def dono(linha: Instalador) -> str:
+    """Para a tela: de qual projeto é a imagem."""
+    return f"projeto {linha.projeto}" if linha.projeto else "sem projeto"
+
+
 def extensao(linha: Instalador) -> str:
     return PurePath(linha.arquivo.strip()).suffix.lower()
 

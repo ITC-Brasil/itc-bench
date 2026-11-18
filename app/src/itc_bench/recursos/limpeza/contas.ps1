@@ -1,5 +1,7 @@
 # Limpeza de contas (ADR-042). ITC_ACAO: previa | limpar. ITC_SIDS: SIDs separados por vírgula.
 # ITC_PROTEGIDAS: nomes da Suporte em minúsculas, separados por vírgula.
+# ITC_CATEGORIAS: categorias a varrer, separadas por vírgula (ADR-064); vazio = as quatro da
+# tela Limpeza. Categoria desconhecida é ignorada.
 # Só pastas fixas dentro do perfil; nunca o registro da conta (NTUSER.DAT), nunca segue reparse
 # point (o link é removido como link) e cada caminho é conferido contra a raiz. A conta tem de
 # estar sem sessão (hive descarregado). Saída só com números por posição da conta, nunca SID,
@@ -27,7 +29,16 @@ $CATEGORIAS = [ordered]@{
         'AppData\Roaming\Microsoft\Teams\Cache', 'AppData\Roaming\Microsoft\Teams\Code Cache',
         'AppData\Roaming\Microsoft\Teams\GPUCache', 'AppData\Roaming\Microsoft\Teams\blob_storage')
     programas   = @('AppData\Local\Programs')
+    # Manutenção (ADR-064): Área de Trabalho sem atalhos, pastas pessoais sem Músicas, Chrome.
+    desktop     = @('Desktop')
+    arquivos    = @('Documents', 'Downloads', 'Pictures', 'Videos', 'Saved Games')
+    chrome      = @('AppData\Local\Google\Chrome\User Data')
 }
+$TELA = @('pessoais', 'temporarios', 'navegadores', 'programas')
+$pedidas = @($env:ITC_CATEGORIAS -split ',' | Where-Object { $CATEGORIAS.Contains($_) })
+if ($pedidas.Count -eq 0) { $pedidas = $TELA }
+# Na Área de Trabalho da manutenção os atalhos ficam (ADR-064).
+$ATALHOS = @('.lnk', '.url')
 
 function Eh-Reparse([string]$c) {
     $i = Get-Item -LiteralPath $c -Force -ErrorAction SilentlyContinue
@@ -53,7 +64,7 @@ function Raizes([string]$perfil, [string]$rel) {
     return $atuais
 }
 
-function Varrer([string]$raiz, $acc) {
+function Varrer([string]$raiz, $acc, [bool]$manterAtalhos = $false) {
     $di = New-Object IO.DirectoryInfo $raiz
     if (-not $di.Exists) { return }
     if (($di.Attributes -band $RP) -ne 0) { $acc.codigo = 'reparse'; return }
@@ -75,6 +86,7 @@ function Varrer([string]$raiz, $acc) {
             }
             if ($i -is [IO.DirectoryInfo]) { $pilha.Push($i); [void]$dirs.Add($i); continue }
             if ($i.Name -ieq 'desktop.ini') { continue }  # nome e ícone da pasta no Explorer
+            if ($manterAtalhos -and ($ATALHOS -contains $i.Extension.ToLowerInvariant())) { continue }
             $acc.arquivos++
             $acc.bytes += $i.Length
             if ($apagar) {
@@ -119,11 +131,11 @@ foreach ($sid in @($env:ITC_SIDS -split ',' | Where-Object { $_ })) {
         continue
     }
     $perfil = [Environment]::ExpandEnvironmentVariables([string](Get-Item -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $sid)).GetValue('ProfileImagePath'))
-    foreach ($cat in $CATEGORIAS.Keys) {
+    foreach ($cat in $pedidas) {
         $acc = @{ n = $n; categoria = $cat; arquivos = 0; bytes = [int64]0; em_uso = 0; codigo = '' }
         try {
             foreach ($rel in $CATEGORIAS[$cat]) {
-                foreach ($raiz in @(Raizes $perfil $rel)) { Varrer $raiz $acc }
+                foreach ($raiz in @(Raizes $perfil $rel)) { Varrer $raiz $acc ($cat -eq 'desktop') }
             }
         } catch {
             $acc.codigo = 'erro_' + $_.Exception.GetType().Name

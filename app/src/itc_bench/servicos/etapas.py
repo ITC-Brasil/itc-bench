@@ -24,6 +24,7 @@ from itc_bench.servicos import (
     programas,
     protecao,
     remoto,
+    steam,
     wifi,
 )
 from itc_bench.servicos.cadastros import Cadastros
@@ -45,6 +46,7 @@ class Contexto:
     unidade: str | None = None
     nome: str = ""  # nome pedido para o computador; vazio = não renomear
     alvos: tuple[str, ...] = ()  # SIDs das contas de aluno marcadas
+    perfil: str = ""  # código do perfil da Configuração (Wi-Fi por perfil, ADR-065)
     avisar: Callable[[str], None] = lambda _t: None
     diagnosticar: Callable[[threading.Event], Resultado] | None = None
     _lista: contas.Lista | None = field(default=None, repr=False)
@@ -101,7 +103,7 @@ def _falhas(itens: list[Any], ok: Callable[[Any], bool], msg: Callable[[Any], st
     return Resultado("falha", "; ".join(msg(i) for i in ruins[:3]), "parcial")
 
 
-# ---------------------------------------------------------------- 1 Identificação
+# ---------------------------------------------------------------- Identificação
 
 
 @dataclass
@@ -135,7 +137,7 @@ class Identificacao:
         )
 
 
-# ---------------------------------------------------------------- 2 Contas
+# ---------------------------------------------------------------- Contas
 
 
 def _admins_extra(lista: contas.Lista, prot: frozenset[str]) -> list[contas.Conta]:
@@ -211,7 +213,7 @@ class Contas:
         )
 
 
-# ---------------------------------------------------------------- 3 Wi-Fi
+# ---------------------------------------------------------------- Wi-Fi
 
 
 @dataclass
@@ -223,7 +225,7 @@ class Wifi:
     def _redes(self) -> list[Any]:
         if self.ctx.cadastros is None:
             return []
-        return list(self.ctx.cadastros.redes_da_unidade(self.ctx.unidade))
+        return list(self.ctx.cadastros.redes_para(self.ctx.unidade, self.ctx.perfil or None))
 
     def _abrir(self) -> Any:
         if self.cliente is not None:
@@ -237,7 +239,7 @@ class Wifi:
             return _bloq(motivo)
         redes = self._redes()
         if not redes:
-            return _bloq("nenhuma rede cadastrada para a unidade")
+            return _bloq("nenhuma rede cadastrada para o projeto e o perfil")
         try:
             with self._abrir() as c:
                 linhas = wifi.situacao(redes, c, admin=True)
@@ -256,10 +258,51 @@ class Wifi:
         return Resultado("ok")
 
     def mudancas(self) -> str:
-        return f"instalar as redes da unidade ({len(self._redes())})"
+        return f"instalar as redes do projeto e do perfil ({len(self._redes())})"
 
 
-# ---------------------------------------------------------------- 4 Acesso remoto
+@dataclass
+class WifiSenhas(Wifi):
+    """Manutenção (ADR-062): só as redes do cadastro que já estão na máquina com outra senha (ou
+    outra configuração) são regravadas. Rede ausente não é instalada."""
+
+    id: str = "wifi_senhas"
+
+    def _redes(self) -> list[Any]:
+        """Sem perfil: todas as redes do projeto da unidade (ADR-065)."""
+        if self.ctx.cadastros is None:
+            return []
+        return list(self.ctx.cadastros.redes_para(self.ctx.unidade))
+
+    def _diferentes(self) -> list[Any]:
+        with self._abrir() as c:
+            linhas = wifi.situacao(self._redes(), c, admin=True)
+        return [ln.rede for ln in linhas if ln.situacao == "diferente"]
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx, cadastro=True):
+            return _bloq(motivo)
+        if not self._redes():
+            return _bloq("nenhuma rede cadastrada para o projeto da unidade")
+        try:
+            n = len(self._diferentes())
+        except wifi.SemWifi:
+            return _bloq("sem adaptador Wi-Fi")
+        return Leitura("pendente", f"{n} rede(s) com senha a atualizar") if n else Leitura("feito")
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        diferentes = self._diferentes()
+        with self._abrir() as c:
+            r = wifi.instalar(diferentes, c, cancelar=cancelar)
+        if r.falhas:
+            return Resultado("falha", f"{len(r.falhas)} rede(s) não atualizada(s)", "wifi")
+        return Resultado("ok")
+
+    def mudancas(self) -> str:
+        return f"atualizar a senha das redes já instaladas ({len(self._diferentes())})"
+
+
+# ---------------------------------------------------------------- Acesso remoto
 
 
 def _remoto_ok(s: remoto.Situacao) -> bool:
@@ -313,7 +356,7 @@ class Remoto:
         return Resultado("ok")
 
 
-# ---------------------------------------------------------------- 5 Programas
+# ---------------------------------------------------------------- Programas
 
 
 @dataclass
@@ -357,7 +400,7 @@ class Programas:
         return f"instalar {len(self._falta())} programa(s)"
 
 
-# ---------------------------------------------------------------- 6 Remover pré-instalados
+# ---------------------------------------------------------------- Remover pré-instalados
 
 
 @dataclass
@@ -397,7 +440,7 @@ class Preinstalados:
         return "remover para todas as contas: " + ", ".join(self._presentes())
 
 
-# ---------------------------------------------------------------- 7 Políticas e 8 USB
+# ---------------------------------------------------------------- Políticas e USB
 
 
 @dataclass
@@ -449,7 +492,7 @@ class Politicas:
         return f"{len(self._ids())} políticas na máquina, em Contas futuras e em {n} conta(s)"
 
 
-# ---------------------------------------------------------------- 9 Proteção do login
+# ---------------------------------------------------------------- Proteção do login
 
 
 @dataclass
@@ -475,7 +518,7 @@ class Protecao:
         return Resultado("ok") if ok else Resultado("falha", msg, "atalho")
 
 
-# ---------------------------------------------------------------- 10 Papel de parede
+# ---------------------------------------------------------------- Papel de parede
 
 
 @dataclass
@@ -484,7 +527,7 @@ class Papel:
     id: str = "papel"
 
     def _linha(self) -> Any:
-        ls = papel_de_parede.linhas(self.ctx.cadastros)
+        ls = papel_de_parede.da_unidade(self.ctx.cadastros, self.ctx.unidade)
         return ls[0] if len(ls) == 1 else None
 
     def ler(self) -> Leitura:
@@ -492,7 +535,7 @@ class Papel:
             return _bloq(motivo)
         linha = self._linha()
         if linha is None:
-            return _bloq("cadastre uma (e só uma) imagem ativa de papel de parede")
+            return _bloq("cadastre uma (e só uma) imagem ativa de papel de parede da unidade")
         sit = papel_de_parede.ler(self.ctx.alvos_hive(), linha, descarregados=True)
         falta = [k for k, s in sit.items() if s.estado != "aplicado"]
         return Leitura("pendente", f"{len(falta)} alvo(s)") if falta else Leitura("feito")
@@ -513,7 +556,7 @@ class Papel:
         return _falhas(fs, lambda f: f.ok, lambda f: f"{f.alvo.rotulo}: {f.mensagem}")
 
 
-# ---------------------------------------------------------------- 11 Mouse e teclado
+# ---------------------------------------------------------------- Mouse e teclado
 
 
 @dataclass
@@ -542,27 +585,30 @@ class Mouse:
         return _falhas(fs, lambda f: f.ok, lambda f: f"{f.alvo.rotulo}: {f.mensagem}")
 
 
-# ---------------------------------------------------------------- 12 Energia
+# ---------------------------------------------------------------- Energia
 
 
 @dataclass
 class Energia:
+    """Etapa 10 (planos finais) e, com `ENERGIA_INICIO`, etapa 1 ("nunca desligar")."""
+
     ctx: Contexto
     id: str = "energia"
+    valores: dict[tuple[str, str], int] = field(default_factory=lambda: dict(perfis.ENERGIA))
 
     def ler(self) -> Leitura:
         if motivo := _sem(self.ctx):
             return _bloq(motivo)
         s = energia.situacao()
-        falta = [k for k, seg in perfis.ENERGIA.items() if s.valores[k].atual != seg]  # type: ignore[index]
+        falta = [k for k, seg in self.valores.items() if s.valores[k].atual != seg]  # type: ignore[index]
         return Leitura("pendente", f"{len(falta)} ajuste(s)") if falta else Leitura("feito")
 
     def aplicar(self, cancelar: threading.Event) -> Resultado:
-        fs = energia.tempos(perfis.ENERGIA, cancelar=cancelar)  # type: ignore[arg-type]
+        fs = energia.tempos(self.valores, cancelar=cancelar)  # type: ignore[arg-type]
         return _falhas(fs, lambda f: f.ok, lambda f: f.mensagem)
 
 
-# ---------------------------------------------------------------- 13 Limpeza e 14 Diagnóstico
+# ---------------------------------------------------------------- Limpeza e Diagnóstico
 
 
 @dataclass
@@ -608,24 +654,127 @@ class Diagnostico:
         return r
 
 
+def ocultas(cadastros: Cadastros | None, unidade: str | None, perfil: str = "") -> frozenset[str]:
+    """Etapas que a Preparação não mostra nem roda (ADR-057): 10. Papel de parede quando a
+    unidade da máquina não tem papel cadastrado. Sem cadastro, nada some (a etapa fica
+    bloqueada pedindo o cadastro, como antes)."""
+    fora = set()
+    if cadastros is not None and not papel_de_parede.da_unidade(cadastros, unidade):
+        fora.add("papel")
+    # ADR-065: sem rede para o projeto e o perfil (ou em bancada), a 3 também some.
+    if cadastros is not None and not cadastros.redes_para(unidade, perfil or None):
+        fora.add("wifi")
+    return frozenset(fora)
+
+
+def ocultas_manutencao() -> frozenset[str]:
+    """Manutenção: 4. Remover Steam só aparece com a Steam instalada (ADR-064)."""
+    return frozenset() if steam.instalada() else frozenset({"steam"})
+
+
+# ---------------------------------------------------------------- Limpeza de usuários e Steam
+
+
+@dataclass
+class LimpezaUsuarios:
+    """Manutenção, etapa 1 (ADR-064): arquivos que pesam nas contas de aluno marcadas, pelo
+    trecho da limpeza de contas (ADR-042). Configurações, políticas e o registro da conta
+    ficam."""
+
+    ctx: Contexto
+    id: str = "limpeza_usuarios"
+    _previa: list[Any] = field(default_factory=list, repr=False)
+
+    def _alvos(self) -> list[contas.Conta]:
+        por_sid = {c.sid: c for c in self.ctx.lista().contas}
+        return [por_sid[s] for s in self.ctx.alvos if s in por_sid]
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx):
+            return _bloq(motivo)
+        alvos_ = self._alvos()
+        if not alvos_:
+            return _bloq("marque as contas de aluno a limpar")
+        self._previa = limpeza.previa_contas(
+            alvos_, self.ctx.protegidas(), categorias=CATEGORIAS_LIMPEZA
+        )
+        total = sum(i.bytes for i in self._previa)
+        if not total:
+            return Leitura("feito")
+        n = len({i.sid for i in self._previa if i.bytes})
+        return Leitura("pendente", f"{limpeza.tamanho(total)} em {n} conta(s)")
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        itens = limpeza.limpar_contas(
+            self._alvos(), self.ctx.protegidas(), categorias=CATEGORIAS_LIMPEZA
+        )
+        recusadas = [i for i in itens if i.codigo]
+        em_uso = sum(i.em_uso for i in itens)
+        if recusadas:
+            return Resultado("falha", "; ".join(i.motivo for i in recusadas[:3]), "parcial")
+        if em_uso:
+            return Resultado("falha", f"{em_uso} arquivo(s) em uso ficaram", "parcial")
+        return Resultado("ok")
+
+    def mudancas(self) -> str:
+        nomes = {c.sid: c.nome for c in self._alvos()}
+        por_conta: dict[str, int] = {}
+        for i in self._previa:
+            por_conta[i.sid] = por_conta.get(i.sid, 0) + i.bytes
+        partes = [f"{nomes.get(s, '?')} {limpeza.tamanho(b)}" for s, b in por_conta.items() if b]
+        return "apagar para sempre (sem lixeira): " + (", ".join(partes) or "nada")
+
+
+CATEGORIAS_LIMPEZA = tuple(c for c, _ in limpeza.CATEGORIAS_MANUTENCAO)
+
+
+@dataclass
+class Steam:
+    """Manutenção, etapa 4 (ADR-064): desinstala a Steam com os jogos, se estiver instalada."""
+
+    ctx: Contexto
+    id: str = "steam"
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx):
+            return _bloq(motivo)
+        if steam.instalada():
+            return Leitura("pendente", "Steam e jogos instalados")
+        return Leitura("feito")
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        ok, mensagem = steam.remover(cancelar=cancelar)
+        return Resultado("ok") if ok else Resultado("falha", mensagem, "steam")
+
+    def mudancas(self) -> str:
+        return "desinstalar a Steam, com todos os jogos e usuários dela"
+
+
 def montar(ctx: Contexto) -> list[Etapa]:
-    """Todas as etapas, na ordem de `perfis.ORDEM`; o andamento diz quais rodam."""
+    """Configuração (ADR-062): todas as etapas, na ordem de `perfis.CONFIGURACAO`; o andamento
+    diz quais rodam. Identificação, Mouse e teclado e Limpeza ficam só nas telas delas."""
     lista: list[Etapa] = [
-        Identificacao(ctx),
-        Contas(ctx),
+        Energia(ctx, id="energia_inicio", valores=dict(perfis.ENERGIA_INICIO)),
+        Preinstalados(ctx),
         Wifi(ctx),
+        Papel(ctx),
         Remoto(ctx),
         Programas(ctx),
-        Preinstalados(ctx),
         Politicas(ctx),
         Politicas(ctx, usb=True),
         Protecao(ctx),
-        Papel(ctx),
-        Mouse(ctx),
         Energia(ctx),
-        Limpeza(ctx),
+        Contas(ctx),
         Diagnostico(ctx),
     ]
-    if tuple(e.id for e in lista) != perfis.ORDEM:
-        raise RuntimeError("Etapas fora da ordem de perfis.ORDEM.")
+    if tuple(e.id for e in lista) != perfis.CONFIGURACAO.ordem:
+        raise RuntimeError("Etapas fora da ordem de perfis.CONFIGURACAO.")
+    return lista
+
+
+def montar_manutencao(ctx: Contexto) -> list[Etapa]:
+    """Manutenção (ADR-062, ADR-064), na ordem de `perfis.MANUTENCAO`; sem perfil."""
+    lista: list[Etapa] = [LimpezaUsuarios(ctx), WifiSenhas(ctx), Diagnostico(ctx), Steam(ctx)]
+    if tuple(e.id for e in lista) != perfis.MANUTENCAO.ordem:
+        raise RuntimeError("Etapas fora da ordem de perfis.MANUTENCAO.")
     return lista

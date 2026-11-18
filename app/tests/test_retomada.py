@@ -55,7 +55,7 @@ def test_acl_errada_apaga(tmp_path):
     [
         "{nao e json",
         json.dumps({"formato": 9, "perfil": "sala_de_aula"}),
-        json.dumps({"formato": 1, "perfil": "outro", "criado_em": AGORA.isoformat()}),
+        json.dumps({"formato": 1, "perfil": "Outro Perfil!", "criado_em": AGORA.isoformat()}),
         json.dumps({"formato": 1, "perfil": "sala_de_aula", "criado_em": "2026-11-06T12:00:00"}),
     ],
 )

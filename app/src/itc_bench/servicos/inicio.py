@@ -147,12 +147,14 @@ def _tentar(nome: str, f: Callable[[], Any], erros: list[str]) -> Any:
         return None
 
 
-def ler(*, admin: bool, cadastros: Cadastros | None, fila: int, perfil: perfis.Perfil) -> Painel:
+def ler(
+    *, admin: bool, cadastros: Cadastros | None, fila: int, perfil: perfis.Perfil | None
+) -> Painel:
     erros: list[str] = []
     m = _tentar("maquina", maquina, erros)
     prot = _tentar("protecao", protecao.situacao, erros) if admin else None
     pol: int | None = None
-    if admin and "politicas" in perfil.etapas:
+    if admin and perfil is not None and "politicas" in perfil.etapas:
 
         def faltando() -> int:
             leitura = politicas.ler([hive.MAQUINA])
