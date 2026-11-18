@@ -225,7 +225,7 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
 | 401 | `{"erro": "nao_autorizado"}` | Sessão ausente, malformada, vencida ou revogada |
 | 422 | `{"erro": "unidade_invalida"}` | `unidade` fora das Unidades ativas (diferencia maiúsculas) |
 | 422 | `{"erro": "requisicao_invalida"}` | `unidade` vazia ou com mais de 32 caracteres |
-| 503 | `{"erro": "cadastros_indisponivel"}` | Leitura não configurada, NocoDB fora sem cópia em memória, ou cópia com mais de 24 h. Não mexe na sessão e não é o `glpi_indisponivel` do login |
+| 503 | `{"erro": "cadastros_indisponivel", "motivo": "wifi:http_400"}` | Leitura não configurada, NocoDB fora sem cópia em memória, ou cópia com mais de 24 h. Não mexe na sessão e não é o `glpi_indisponivel` do login `motivo` (TA-ADR-040): `nao_configurado`, `indisponivel` ou `<tabela>:<erro>`, com tabela em `servidores`, `instaladores`, `wifi`, `unidades`, `projetos`, `perfis` e erro em `timeout`, `indisponivel`, `resposta_invalida`, `http_<código>`. Nunca URL, id de tabela, token ou texto do NocoDB. |
 
 ```json
 {

@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import secrets
 import threading
 import time
@@ -37,6 +38,7 @@ class Copia:
         self.lido_em = ""
         self.tentado = None
         self.falhou = False
+        self.motivo = ""  # TA-ADR-040: code of the last failed read (e.g. wifi:http_400)
 
 
 def chave_versao(settings) -> bytes:
@@ -44,12 +46,26 @@ def chave_versao(settings) -> bytes:
     return chave.encode() if chave else secrets.token_bytes(32)
 
 
+# TA-ADR-040: the only shapes of `motivo` that reach the Bench. Logical table name and error kind;
+# never URL, table id, token or NocoDB text.
+MOTIVO = re.compile(
+    r"(?:servidores|instaladores|wifi|unidades|projetos|perfis):"
+    r"(?:timeout|indisponivel|resposta_invalida|http_[1-5][0-9]{2})"
+)
+
+
+def indisponivel(motivo: str) -> Refusal:
+    """503 cadastros_indisponivel with the sanitized reason (TA-ADR-040)."""
+    seguro = motivo if motivo == "nao_configurado" or MOTIVO.fullmatch(motivo) else "indisponivel"
+    return Refusal(503, "cadastros_indisponivel", extra={"motivo": seguro})
+
+
 def obter(request: Request) -> tuple[dict, str, bool]:
     """(cadastros, lido_em, defasado) or 503 cadastros_indisponivel."""
     app = request.app
     settings, copia = app.state.settings, app.state.cadastros
     if not nocodb_cadastros.configurado(settings):
-        raise Refusal(503, "cadastros_indisponivel")
+        raise indisponivel("nao_configurado")
     ttl = settings.nocodb_cadastros_ttl_seconds
     if copia.dados is None or time.monotonic() - copia.tentado >= ttl:
         # Without a copy, wait for whoever is reading; with one, take it and let them read.
@@ -61,7 +77,7 @@ def obter(request: Request) -> tuple[dict, str, bool]:
             finally:
                 copia.lock.release()
     if copia.dados is None or time.monotonic() - copia.lido_mono > DEFASAGEM_MAXIMA:
-        raise Refusal(503, "cadastros_indisponivel")
+        raise indisponivel(copia.motivo)
     return copia.dados, copia.lido_em, copia.falhou
 
 
@@ -70,10 +86,11 @@ def renovar(app, copia: Copia) -> None:
     try:
         dados = nocodb_cadastros.ler(app.state.settings, app.state.transports.get("nocodb_cadastros"))
     except nocodb_cadastros.NocodbIndisponivel as erro:
-        copia.falhou = True
+        copia.falhou, copia.motivo = True, erro.code
         log.warning("leitura dos cadastros no NocoDB falhou (%s); copia em memoria: %s", erro.code, copia.dados is not None)
         return
     copia.dados, copia.lido_mono, copia.lido_em, copia.falhou = dados, copia.tentado, iso(utcnow()), False
+    copia.motivo = ""
     log.info(
         "cadastros lidos do NocoDB: %s",
         ", ".join(f"{nome} {len(dados[nome])}" for nome in ("servidores", "instaladores", "wifi", "unidades")),

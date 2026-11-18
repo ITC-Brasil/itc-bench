@@ -1341,3 +1341,33 @@ com os perfis que as recebem (ex.: `BSBIA03-NOTEBOOKS` para o projeto BSBIA, per
 **Consequences**
 - **Ordem:** criar as colunas `Projeto` e `Perfis` em WiFi junto com as tabelas Projetos e
   Perfis; redes sem `Projeto` continuam funcionando pela unidade.
+
+## TA-ADR-040 — Motivo da falha dos cadastros vai ao Bench
+
+**Status:** Accepted
+**Date:** 2026-11-18 (sincronização parada depois do deploy das tabelas Projetos e Perfis)
+**Module:** Bench pós-16 (emenda ao TA-ADR-027)
+
+**Context**
+Quando a leitura do NocoDB falha, a API grava no log a tabela e o erro (`wifi:http_400`) e
+responde ao Bench só `503 cadastros_indisponivel`. Sem acesso ao servidor, ninguém descobre se
+falta uma coluna, se um id do `api/.env` está errado ou se o token perdeu acesso.
+
+**Decision**
+1. O 503 de cadastros passa a levar `motivo`: `nao_configurado`, `indisponivel` ou
+   `<tabela>:<erro>`. Tabela é o nome lógico (`servidores`, `instaladores`, `wifi`, `unidades`,
+   `projetos`, `perfis`); erro é `timeout`, `indisponivel`, `resposta_invalida` ou
+   `http_<código>`.
+2. A API só manda esse formato (expressão fechada em `routes/cadastros.py`); qualquer outra
+   coisa vira `indisponivel`. Nunca URL, id de tabela, token, nome de coluna nem texto do NocoDB.
+3. A rota continua exigindo sessão de técnico: o motivo não sai para quem não entrou.
+4. O Bench confere o mesmo formato, grava o motivo no log e mostra em Configurações, traduzido
+   (ex.: "tabela WiFi: o NocoDB recusou a leitura: coluna que falta ou com nome diferente").
+
+**Alternatives considered**
+- Manter só no log do servidor: exige SSH para cada diagnóstico.
+- Mandar a mensagem do NocoDB: pode trazer nomes internos e detalhes do banco.
+
+**Consequences**
+- `Refusal` ganha `extra` (campos curtos, já saneados).
+- O Bench antigo ignora o campo novo.
