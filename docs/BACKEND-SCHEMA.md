@@ -98,6 +98,11 @@ Contrato da conta Suporte (ADR-017): `Servico = "Conta Suporte"`, `Papel = "usua
 conta, `Publico` marcado) e `Papel = "senha"` (`Publico` desmarcado). Uma linha ativa de cada;
 duplicada, o Bench recusa. Sem `usuario`, o nome é `Suporte`.
 
+Contrato da conta Gestão (ADR-069), opcional e no mesmo formato: `Servico = "Conta Gestão"`,
+`Papel = "usuario"` (`Gestão`, `Publico` marcado; outro nome é recusado) e
+`Papel = "senha"` (`Publico` desmarcado). Sem nenhuma linha `Conta Gestão`, o Bench não mexe
+na conta Gestão.
+
 Contrato do acesso remoto (ADR-019), uma linha ativa por par: `GLPI Agent`/`servidor` (URL
 `http(s)://`, público), `RustDesk`/`servidor` (host sem porta, público), `RustDesk`/`chave`,
 `RustDesk`/`senha` e `AnyDesk`/`senha` (não públicos). Opcional (ADR-030): `RustDesk`/`api`

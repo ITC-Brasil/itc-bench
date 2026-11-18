@@ -165,6 +165,8 @@ class Contas:
         falta = []
         if not contas.suporte_ok(lista, prot):
             falta.append("conta Suporte")
+        if contas.gestao_cadastrada(self.ctx.cadastros) and not contas.gestao_ok(lista):
+            falta.append("conta Gestão")  # ADR-069: só com as linhas em Servidores
         if extra := _admins_extra(lista, prot):
             falta.append(f"{len(extra)} conta(s) administradora(s) além da Suporte")
         if falta:
@@ -182,6 +184,11 @@ class Contas:
             if not f.ok:
                 return Resultado("falha", f.mensagem, "suporte")
             lista = self.ctx.lista(nova=True)
+        if contas.gestao_cadastrada(self.ctx.cadastros) and not contas.gestao_ok(lista):
+            f = contas.aplicar_gestao(self.ctx.cadastros)  # ADR-069: igual à Suporte
+            if not f.ok:
+                return Resultado("falha", f.mensagem, "gestao")
+            lista = self.ctx.lista(nova=True)
         if _admins_extra(lista, prot):
             f = contas.lote("padrao", protegidas_=prot)
             if not f.ok:
@@ -196,8 +203,10 @@ class Contas:
     def mudancas(self) -> str:
         lista = self.ctx.lista()
         n = len(_admins_extra(lista, self.ctx.protegidas()))
+        gestao = "; a conta Gestão" if contas.gestao_cadastrada(self.ctx.cadastros) else ""
         return (
-            f"aplicar a conta Suporte; remover administrador de {n} conta(s), inclusive a conta "
+            f"aplicar a conta Suporte{gestao}; remover administrador de {n} conta(s), "
+            "inclusive a conta "
             "em uso (vale na próxima entrada; depois o UAC pede a Suporte)"
         )
 

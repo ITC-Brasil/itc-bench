@@ -12,7 +12,9 @@
   (ADR-066), primeiro passo da remoção assistida do McAfee. E **Unidades sem Cidade e
   TagGLPI** (ADR-067, TA-ADR-039): apagar as colunas só depois de publicar a API. E a
   **remoção assistida do McAfee** (ADR-068): botão Remover McAfee com o MCPR em Remover
-  programas; a etapa 6 avisa e segue. A linha `MCPR` precisa ficar ativa.
+  programas; a etapa 6 avisa e segue. A linha `MCPR` precisa ficar ativa. E a **conta
+  Gestão igual à Suporte** (ADR-069, provisório): linhas `Conta Gestão` em Servidores,
+  botão Aplicar conta Gestão e a etapa Contas aplica a que faltar.
 - **16/11/2026 (tarde): branch `feat/unidades-sem-numero`, saindo da `develop`.** Unidades sem
   número no código, MOBILITY e INESQ (ADR-055): `cadastros.CODIGO_UNIDADE` aceita também só a
   sigla, de 2 a 8 letras, para a identificação pelo nome do computador (`INESQ-EST03` → `INESQ`).

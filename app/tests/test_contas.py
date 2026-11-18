@@ -554,6 +554,39 @@ def test_gestao_fora_do_lote_e_nao_conta_como_suporte() -> None:
     assert not contas.suporte_ok(lista(GESTAO), PROT)  # Gestão admin não vale como Suporte
 
 
+def _gestao(i: int, papel: str, valor: str, publico: bool) -> Servidor:
+    from dataclasses import replace
+
+    return replace(servidor(i, papel, valor, publico), servico=contas.SERVICO_GESTAO)
+
+
+def test_gestao_do_cadastro_igual_a_suporte() -> None:
+    """ADR-069: linhas Conta Gestão, no mesmo formato da Suporte; nome sempre Gestão."""
+    assert not contas.gestao_cadastrada(None)
+    assert not contas.gestao_cadastrada(cad(servidor(1, "senha", SENHA, False)))
+    assert contas.gestao_cadastrada(cad(_gestao(1, "senha", SENHA, False)))
+    nome, senha = contas.gestao_do_cadastro(cad(_gestao(1, "senha", SENHA, False)))  # type: ignore[misc]
+    assert nome == "Gestão" and senha.revelar() == SENHA
+    outro = cad(_gestao(1, "senha", SENHA, False), _gestao(2, "usuario", "Diretoria", True))
+    assert "tem que ser Gestão" in contas.gestao_do_cadastro(outro)  # type: ignore[operator]
+    publica = cad(_gestao(1, "senha", SENHA, True))
+    assert "Conta Gestão" in contas.gestao_do_cadastro(publica)  # type: ignore[operator]
+    assert contas.gestao_ok(lista(GESTAO))
+    assert not contas.gestao_ok(lista(conta(1006, "Gestão")))  # sem administrador
+    assert not contas.gestao_ok(lista(SUPORTE))
+
+
+def test_aplicar_gestao_usa_o_trecho_da_suporte() -> None:
+    c = cad(_gestao(1, "senha", SENHA, False))
+    falso = Falso(TECNICO, saida="CRIADA\nOK")
+    feito = contas.aplicar_gestao(c, rodar=falso)
+    assert feito.ok and "Gestão criada" in feito.mensagem
+    script, kw = falso.chamadas[0]
+    assert script == contas.script("suporte") and kw["nome"] == "Gestão"
+    assert isinstance(kw["senha"], Sensivel)
+    assert not contas.aplicar_gestao(cad(), rodar=Falso()).ok
+
+
 def test_nome_gestao_reservado_na_criacao() -> None:
     assert "Gestão" in (validar_nome("gestão", lista(ALUNO), PROT) or "")
     assert "Gestão" in (validar_nome("Gestao", lista(ALUNO), PROT) or "")

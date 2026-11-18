@@ -28,6 +28,10 @@ SERVICO_SUPORTE = "Conta Suporte"
 # Contas restritas fixas (ADR-036): o Bench não as altera nem as mexe em lote, como a Suporte,
 # mas não contam como Suporte. Mesma lista em `recursos/contas/comum.ps1` ($RESTRITAS).
 RESTRITAS = frozenset({"gestão", "gestao"})
+# Conta Gestão (ADR-069): por enquanto igual à Suporte, pela linha própria em Servidores.
+# Opcional: sem as linhas, o Bench não mexe nela. O nome é sempre um das RESTRITAS.
+GESTAO_PADRAO = "Gestão"
+SERVICO_GESTAO = "Conta Gestão"
 TIMEOUT_LISTA, TIMEOUT_ACAO, TIMEOUT_LOTE = 30.0, 60.0, 120.0
 TEMPO_TAMANHO = 5.0  # teto para medir o perfil na confirmação de exclusão
 
@@ -197,23 +201,52 @@ def suporte_ok(lista: Lista, protegidas_: Iterable[str]) -> bool:
     )
 
 
-def suporte_do_cadastro(cadastros: Cadastros | None) -> tuple[str, Sensivel] | str:
-    """(nome, senha) da conta Suporte, ou a mensagem do que falta (ADR-008, ADR-017)."""
+def _conta_do_cadastro(
+    cadastros: Cadastros | None, servico: str, padrao: str
+) -> tuple[str, Sensivel] | str:
+    """(nome, senha) das linhas `servico` em Servidores, ou a mensagem do que falta."""
     if cadastros is None:
         return "Sem cadastros: conecte e sincronize em Configurações."
-    linhas = [s for s in cadastros.servidores if s.servico == SERVICO_SUPORTE]
+    linhas = [s for s in cadastros.servidores if s.servico == servico]
     usuarios = [s for s in linhas if s.papel == "usuario"]
     senhas = [s for s in linhas if s.papel == "senha"]
     if len(usuarios) > 1 or len(senhas) > 1:
-        return "Há mais de uma linha “Conta Suporte” para o mesmo papel em Servidores."
+        return f"Há mais de uma linha “{servico}” para o mesmo papel em Servidores."
     if not senhas or not isinstance(senhas[0].valor, Sensivel) or not senhas[0].valor.revelar():
-        return "Cadastre “Conta Suporte” / senha (não pública) em Servidores e sincronize."
-    nome = SUPORTE_PADRAO
+        return f"Cadastre “{servico}” / senha (não pública) em Servidores e sincronize."
+    nome = padrao
     if usuarios:
         if not isinstance(usuarios[0].valor, str):
-            return "A linha “Conta Suporte” / usuario tem que ser pública."
-        nome = usuarios[0].valor.strip() or SUPORTE_PADRAO
+            return f"A linha “{servico}” / usuario tem que ser pública."
+        nome = usuarios[0].valor.strip() or padrao
     return nome, senhas[0].valor
+
+
+def suporte_do_cadastro(cadastros: Cadastros | None) -> tuple[str, Sensivel] | str:
+    """(nome, senha) da conta Suporte, ou a mensagem do que falta (ADR-008, ADR-017)."""
+    return _conta_do_cadastro(cadastros, SERVICO_SUPORTE, SUPORTE_PADRAO)
+
+
+def gestao_cadastrada(cadastros: Cadastros | None) -> bool:
+    """Há alguma linha “Conta Gestão” em Servidores? Sem nenhuma, o Bench não mexe (ADR-069)."""
+    return cadastros is not None and any(s.servico == SERVICO_GESTAO for s in cadastros.servidores)
+
+
+def gestao_do_cadastro(cadastros: Cadastros | None) -> tuple[str, Sensivel] | str:
+    """(nome, senha) da conta Gestão (ADR-069). O nome tem que ser Gestão (ou Gestao): é o
+    nome que as outras ações do Bench já protegem (ADR-036)."""
+    origem = _conta_do_cadastro(cadastros, SERVICO_GESTAO, GESTAO_PADRAO)
+    if isinstance(origem, tuple) and origem[0].lower() not in RESTRITAS:
+        return "A linha “Conta Gestão” / usuario tem que ser Gestão."
+    return origem
+
+
+def gestao_ok(lista: Lista) -> bool:
+    """A Gestão existe, local, ativa e administradora."""
+    return any(
+        c.nome.lower() in RESTRITAS and c.ativo and c.admin and c.local and not c.nativo
+        for c in lista.contas
+    )
 
 
 # ---------------------------------------------------------------- execução
@@ -565,9 +598,18 @@ def encerrar_sessao(
 
 
 def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:
-    origem = suporte_do_cadastro(cadastros)
+    return _aplicar("Suporte", suporte_do_cadastro(cadastros), rodar)
+
+
+def aplicar_gestao(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:
+    """Igual a Aplicar conta Suporte, com as linhas “Conta Gestão” (ADR-069)."""
+    return _aplicar("Gestão", gestao_do_cadastro(cadastros), rodar)
+
+
+def _aplicar(rotulo: str, origem: tuple[str, Sensivel] | str, rodar: Rodar) -> Feito:
+    """Cria a conta, ou troca a senha, ativa e torna administradora (trecho `suporte.ps1`)."""
     if isinstance(origem, str):
-        log.warning("Contas: aplicar conta Suporte recusado: %s", origem)
+        log.warning("Contas: aplicar conta %s recusado: %s", rotulo, origem)
         return Feito(False, origem)
     nome, senha = origem
     lista = listar(rodar=rodar)
@@ -577,13 +619,13 @@ def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powe
             "suporte_nativo" if existente.nativo else "microsoft" if not existente.local else None
         )
         if motivo:
-            log.warning("Contas: aplicar conta Suporte recusado: %s", motivo)
+            log.warning("Contas: aplicar conta %s recusado: %s", rotulo, motivo)
             return Feito(False, MENSAGENS[motivo])
     r = rodar(script("suporte"), timeout=TIMEOUT_ACAO, nome=nome, senha=senha)
-    # Com a Suporte logada, aplicar é permitido (emenda do ADR-017); a tela avisa do cofre.
+    # Com a conta logada, aplicar é permitido (emenda do ADR-017); a tela avisa do cofre.
     verbo = "criada" if "CRIADA" in _linhas(r) else "atualizada"
     return _feito(
-        "aplicar conta Suporte",
+        f"aplicar conta {rotulo}",
         nome,
         r,
         f"Conta {nome} {verbo}: administradora, senha do cadastro.",

@@ -3255,3 +3255,38 @@ tem que digitar. Essa tela existe para que um programa não desligue o antivíru
 - O técnico gasta cerca de 30 segundos no MCPR e reinicia a máquina no fim.
 - O log recebe o Id da linha, o código de saída e quantos produtos McAfee sobraram; nunca o Link.
 - Roteiro de máquina real 8.8d.
+
+## ADR-069 — Conta Gestão aplicada como a Suporte (provisório)
+
+**Status:** Accepted
+**Date:** 2026-11-18 (pedido do responsável)
+**Module:** Pós-16 (emenda ao ADR-036; com o ADR-017)
+
+**Context**
+A Gestão é uma conta administradora fixa que o Bench só protegia (ADR-036): nunca a criava nem
+trocava a senha. O responsável quer, por enquanto, tratá-la como a Suporte, com linhas
+próprias em Servidores. A regra definitiva (por exemplo, definir a senha só quando estiver
+vazia) fica para depois.
+
+**Decision**
+1. Servidores ganha o contrato opcional `Conta Gestão` (`usuario` = `Gestão`, público; `senha`,
+   não pública), no formato da `Conta Suporte`.
+2. `contas.gestao_do_cadastro`, `gestao_cadastrada`, `gestao_ok` e `aplicar_gestao`: o mesmo
+   trecho `suporte.ps1` da Suporte (cria se faltar; senão troca a senha, ativa e torna
+   administradora). O nome tem que ser `Gestão` (ou `Gestao`): é o que as outras ações já
+   protegem.
+3. Tela Contas: botão Aplicar conta Gestão, com a mesma confirmação da Suporte.
+4. Etapa Contas da Preparação: com as linhas cadastradas e a Gestão faltando (ou desativada,
+   ou sem administrador), aplica a Gestão depois da Suporte. Gestão já certa não é reaplicada.
+   Sem as linhas, nada muda na Gestão.
+5. Fora de Aplicar conta Gestão, a Gestão continua restrita (ADR-036): nada de lote, senha,
+   exclusão ou criação de outra com esse nome.
+
+**Alternatives considered**
+- Tornar as linhas obrigatórias, como a Suporte: bloquearia a etapa Contas nas unidades em que
+  o responsável ainda não cadastrou a Gestão.
+- Definir a senha só quando vazia: decisão adiada pelo responsável.
+
+**Consequences**
+- O responsável cadastra as duas linhas `Conta Gestão` (senha só direto no NocoDB).
+- Roteiro de máquina real 8.8e.

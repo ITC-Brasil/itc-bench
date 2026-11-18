@@ -366,6 +366,7 @@ def test_contas_com_nativo_ativo_fica_pendente_sem_mexer_nele(monkeypatch, extra
     )
     monkeypatch.setattr(contas, "protegidas", lambda cad: frozenset({"suporte"}))
     monkeypatch.setattr(contas, "suporte_do_cadastro", lambda cad: ("Suporte", None))
+    monkeypatch.setattr(contas, "gestao_cadastrada", lambda cad: False)
     monkeypatch.setattr(
         contas, "aplicar_suporte", lambda cad: chamadas.append("suporte") or contas.Feito(True, "")
     )
@@ -390,6 +391,34 @@ def test_gestao_administradora_nao_deixa_contas_pendente() -> None:
 
     extras = etapas._admins_extra(lista(SUPORTE, GESTAO), frozenset({"suporte"}))
     assert extras == []
+
+
+@pytest.mark.parametrize(
+    ("cadastrada", "existe", "esperado"),
+    [
+        (False, False, []),  # sem as linhas Conta Gestão, o Bench não mexe
+        (True, True, []),  # já certa: não reaplica
+        (True, False, ["gestao"]),
+    ],
+)
+def test_contas_aplica_gestao_so_cadastrada_e_faltando(monkeypatch, cadastrada, existe, esperado):
+    """ADR-069: a Gestão, por enquanto, igual à Suporte."""
+    from test_contas import GESTAO, SUPORTE, lista
+
+    lido = lista(SUPORTE, GESTAO) if existe else lista(SUPORTE)
+    chamadas = []
+    monkeypatch.setattr(contas, "listar", lambda **k: lido)
+    monkeypatch.setattr(contas, "protegidas", lambda cad: frozenset({"suporte"}))
+    monkeypatch.setattr(contas, "suporte_do_cadastro", lambda cad: ("Suporte", None))
+    monkeypatch.setattr(contas, "gestao_cadastrada", lambda cad: cadastrada)
+    monkeypatch.setattr(
+        contas, "aplicar_gestao", lambda cad: chamadas.append("gestao") or contas.Feito(True, "")
+    )
+    e = etapas.Contas(etapas.Contexto(admin=True, cadastros=object()))  # type: ignore[arg-type]
+    leitura = e.ler()
+    assert ("conta Gestão" in leitura.detalhe) == bool(esperado)
+    assert e.aplicar(threading.Event()).estado == "ok"
+    assert chamadas == esperado
 
 
 def test_etapas_numeradas_pela_ordem_fixa():
