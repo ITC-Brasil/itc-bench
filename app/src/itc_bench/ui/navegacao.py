@@ -10,7 +10,7 @@ M08 = "09 — Acesso remoto"
 M09 = "10 — Programas e Remover programas"
 M10 = "11 — Políticas e USB"
 M11 = "12 — Proteção do login e Aparência"
-M12 = "13 — Preparação completa, Início e Limpeza"
+M12 = "13 — Configuração, Manutenção, Início e Limpeza"
 
 
 class Item(NamedTuple):
@@ -20,7 +20,14 @@ class Item(NamedTuple):
 
 
 GRUPOS: list[tuple[str, list[Item]]] = [
-    ("Início", [Item("inicio", "Início", M12), Item("prep", "Preparação completa", M12)]),
+    (
+        "Início",
+        [
+            Item("inicio", "Início", M12),
+            Item("prep", "Configuração", M12),
+            Item("manut", "Manutenção", M12),
+        ],
+    ),
     (
         "Preparar",
         [

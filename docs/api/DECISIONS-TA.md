@@ -1223,3 +1223,121 @@ pede as colunas pelo nome no `fields=`; com a coluna apagada, a leitura da tabel
 - **Ordem:** publicar a API com este TA-ADR **antes** de apagar as colunas no NocoDB. A API
   anterior ainda pede as colunas.
 - O GLPI Agent passa a ser instalado sem `TAG=` (como já era com a coluna vazia).
+
+## TA-ADR-035 — Projeto do papel de parede em Instaladores
+
+**Status:** Accepted
+**Date:** 2026-11-16, revisado em 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-057; emenda ao TA-ADR-030)
+
+**Context**
+Cada projeto tem o seu papel de parede. Instaladores (`Tipo = papel`) não dizia de qual projeto
+era a imagem.
+
+**Decision**
+- Coluna nova `Projeto` (SingleLineText) em Instaladores, com a sigla de Projetos. Lida no
+  `fields=` só com `NOCODB_TABELA_PROJETOS` preenchido (TA-ADR-036).
+- Só nas linhas `papel`: o valor vai para `instaladores[].projeto`. Vazio = sem projeto. Sigla
+  que não é de um Projeto ativo descarta a linha (`projeto_invalido`, só o Id no log).
+- Nas outras linhas a coluna é ignorada e `projeto` sai vazio.
+- O `?unidade=` não filtra o papel: o Bench recebe todos e escolhe (a tela mostra todos).
+
+**Alternatives considered**
+- Coluna `Unidade` no papel (primeira versão): o responsável preferiu por projeto.
+- `Projetos.PapelDeParede` apontando para a linha pelo nome: vínculo frágil ao renomear.
+
+**Consequences**
+- **Ordem do deploy:** criar a coluna `Projeto` em Instaladores junto com a tabela Projetos,
+  antes de preencher `NOCODB_TABELA_PROJETOS` (sem a variável, a coluna não é lida).
+- Bench antigo ignora o campo novo.
+
+## TA-ADR-036 — Tabela Projetos (opcional) e `Unidades.Projeto`
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-059; emenda ao TA-ADR-027)
+
+**Context**
+O responsável quer as unidades agrupadas por projeto: tabela Projetos no NocoDB e cada unidade
+apontando para a sua.
+
+**Decision**
+- Tabela nova Projetos (`Sigla` display, `Nome`, `Ativo`), id em `NOCODB_TABELA_PROJETOS`.
+  **Opcional:** vazio, a API não lê Projetos nem a coluna `Projeto` de Unidades, e entrega
+  `projetos: []` e `unidades[].projeto: ""`. `configurado()` não exige essa tabela.
+- Com a tabela: Unidades lê também `Projeto` (texto com a sigla, sem link do NocoDB, como
+  `WiFi.Unidade`). Sigla que não é de um Projeto ativo deixa a unidade **sem projeto** (não
+  descarta a unidade), com `projeto_invalido` e só o Id no log.
+- `GET /v1/bench/cadastros` ganha `projetos` (id, sigla, nome) e `unidades[].projeto`.
+
+**Alternatives considered**
+- Campo Link do NocoDB entre as tabelas: a API leria ids em vez de texto e o padrão do WiFi
+  deixaria de valer; o texto com sigla é igual ao resto dos cadastros.
+- Descartar a unidade com projeto inválido: tiraria Wi-Fi e papel de parede da unidade por erro
+  de digitação num campo que, por enquanto, só organiza.
+
+**Consequences**
+- **Ordem do deploy:** criar a tabela Projetos e a coluna `Projeto` em Unidades no NocoDB,
+  **depois** preencher `NOCODB_TABELA_PROJETOS` no `.env` do servidor. Sem a variável, nada muda.
+- Bench antigo ignora as chaves novas.
+
+## TA-ADR-037 — Tabela Perfis (perfis da Preparação do Bench)
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-060; emenda ao TA-ADR-027)
+
+**Context**
+Os perfis da Preparação saem do código do Bench e passam ao NocoDB (ADR-060).
+
+**Decision**
+- Tabela nova Perfis, id em `NOCODB_TABELA_PERFIS` (opcional; vazio = `perfis: []`). Colunas:
+  `Codigo` (display), `Nome`, `Etapas`, `Descricao`, `Ativo` e, com `NOCODB_TABELA_PROJETOS`
+  preenchido, `Projeto`.
+- Validação, só Id no log quando descarta:
+  - `Codigo`: minúsculas, `[a-z0-9_]{1,32}` (vem em minúsculas); senão `codigo_invalido`.
+  - `Etapas`: números de 1 a 14 separados por vírgula, ponto e vírgula ou espaço; ordenados e
+    sem repetição na saída; vazio ou fora da faixa = `etapas_invalidas`.
+  - `Projeto`: vazio ou sigla de Projeto ativo; senão `projeto_invalido`.
+  - Dois perfis com o mesmo `Codigo`: os dois saem (`codigo_duplicado`).
+- `GET /v1/bench/cadastros` ganha `perfis`: `id`, `codigo`, `nome` (vazio = o código),
+  `etapas` (lista de inteiros), `projeto`, `descricao`.
+- A API só confere a faixa 1..14; quem liga número a etapa é o Bench (ADR-056).
+- **Revisado em 17/11/2026 (ADR-062):** a Configuração passou a ter 12 etapas; a faixa
+  aceita é 1..12 (`TOTAL_ETAPAS = 12`). Perfis com 13 ou 14 são descartados
+  (`etapas_invalidas`) e precisam ser revistos.
+
+**Alternatives considered**
+- Coluna `Id` como código: o `Id` é a chave interna do NocoDB.
+- Etapas por nome (`contas, wifi`): mais sujeito a erro de digitação que o número da tela.
+
+**Consequences**
+- **Ordem:** criar a tabela Perfis (e os perfis) no NocoDB, depois `NOCODB_TABELA_PERFIS` no
+  `.env` do servidor. Com o Bench novo e sem a variável, a Preparação completa não roda.
+
+## TA-ADR-038 — WiFi por projeto e perfil
+
+**Status:** Accepted
+**Date:** 2026-11-17 (pedido do responsável)
+**Module:** Bench pós-16 (ADR-065; emenda ao TA-ADR-027 e ao ADR-014)
+
+**Context**
+As redes eram por unidade. O responsável quer as redes como o papel de parede: por projeto, e
+com os perfis que as recebem (ex.: `BSBIA03-NOTEBOOKS` para o projeto BSBIA, perfil aluno).
+
+**Decision**
+- Colunas novas em WiFi: `Projeto` (lida com `NOCODB_TABELA_PROJETOS`) e `Perfis` (lida com
+  `NOCODB_TABELA_PERFIS`), entregues em `wifi[].projeto` e `wifi[].perfis` (lista de códigos em
+  minúsculas, sem repetir).
+- Validação, só Id no log quando descarta: com `Projeto`, a sigla tem de ser de um Projeto ativo
+  (`projeto_invalido`) e a `Unidade` vira anotação; sem `Projeto`, a regra antiga
+  (`unidade_invalida`). Código de perfil desconhecido descarta a rede (`perfil_invalido`).
+- `GET /v1/bench/cadastros?unidade=X`: as redes do projeto de X e as antigas (sem projeto) de X.
+  Sem `?unidade=`, todas (como antes).
+
+**Alternatives considered**
+- Perfil desconhecido ignorado (rede para todos): entregaria senha de rede a quem não deveria.
+
+**Consequences**
+- **Ordem:** criar as colunas `Projeto` e `Perfis` em WiFi junto com as tabelas Projetos e
+  Perfis; redes sem `Projeto` continuam funcionando pela unidade.

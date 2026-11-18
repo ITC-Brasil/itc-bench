@@ -12,6 +12,7 @@ import sys
 import threading
 from pathlib import Path
 
+import perfis_teste
 import pytest
 
 from itc_bench.servicos import contas, desinstalar, etapas, executor, limpeza, perfis, politicas
@@ -21,22 +22,55 @@ from itc_bench.servicos.preparacao import Leitura, Resultado
 # ---------------------------------------------------------------- perfis
 
 
-def test_perfis_usam_so_etapas_e_parametros_fechados():
-    for p in perfis.PERFIS:
-        assert set(p.etapas) <= set(perfis.ORDEM)
-        assert list(p.etapas) == [e for e in perfis.ORDEM if e in p.etapas]
+def test_etapas_dos_numeros_e_parametros_fechados():
+    """ADR-060/062: o cadastro só escolhe números de 1 a 12; ordem e parâmetros são do código."""
+    assert perfis.etapas_dos_numeros([12, 1, 11, 11]) == ("energia_inicio", "contas", "diagnostico")
+    assert perfis.etapas_dos_numeros(["3", 1]) == ("energia_inicio", "wifi")
+    assert perfis.etapas_dos_numeros([0, 1]) is None
+    assert perfis.etapas_dos_numeros([13]) is None
+    assert perfis.etapas_dos_numeros([]) is None
+    assert perfis.etapas_dos_numeros(["x"]) is None
     for pid in (*perfis.POLITICAS_USUARIO, *perfis.POLITICAS_MAQUINA, perfis.POLITICA_USB):
         assert pid in politicas.POR_ID
     assert set(perfis.LIMPEZA) <= set(limpeza.NOMES)
     assert "lixeira" not in perfis.LIMPEZA
 
 
-def test_perfil_do_cadastro():
-    assert perfis.do_cadastro("administrativo")[0].id == "administrativo"
-    assert perfis.do_cadastro(" Sala_de_Aula ")[0].id == "sala_de_aula"
-    assert perfis.do_cadastro(None) == (perfis.PADRAO, "")
-    perfil, aviso = perfis.do_cadastro("qualquer coisa")
-    assert perfil is perfis.PADRAO and "desconhecido" in aviso
+def test_perfil_padrao_e_disponiveis_do_cadastro():
+    """ADR-060: perfis só do cadastro; os de outro projeto ficam de fora; PerfilPadrao marca."""
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    from itc_bench.servicos.cadastros import Cadastros, Unidade
+
+    so_abc = replace(perfis_teste.PERFIS[0], id="aluno_abc", nome="Aluno ABC", projeto="ABC")
+    unidades = (
+        Unidade(1, "UM-01", "UM-01", "", "", "", " Administrativo ", projeto="ABC"),
+        Unidade(2, "UM-02", "UM-02", "", "", "", "qualquer", projeto="DEF"),
+        Unidade(3, "UM-03", "UM-03", "", "", "", ""),
+    )
+    cad = Cadastros(
+        "v" * 64,
+        datetime.now(UTC),
+        "t",
+        None,
+        False,
+        (),
+        (),
+        (),
+        unidades,
+        perfis=(*perfis_teste.PERFIS, so_abc),
+    )
+    assert [p.id for p in perfis.disponiveis(cad, "UM-01")][-1] == "aluno_abc"
+    assert "aluno_abc" not in [p.id for p in perfis.disponiveis(cad, "UM-02")]
+    assert perfis.padrao(cad, "UM-01") == (perfis_teste.POR_ID["administrativo"], "")
+    perfil, aviso = perfis.padrao(cad, "UM-02")
+    assert perfil == perfis_teste.PERFIS[0] and "desconhecido" in aviso
+    assert perfis.padrao(cad, "UM-03") == (perfis_teste.PERFIS[0], "")
+    assert perfis.padrao(cad, None) == (perfis_teste.PERFIS[0], "")
+    sem = replace(cad, perfis=())
+    assert perfis.padrao(sem, "UM-01") == (None, perfis.SEM_PERFIL)
+    assert perfis.padrao(None, None) == (None, perfis.SEM_PERFIL)
 
 
 def test_montar_segue_a_ordem():
@@ -91,7 +125,8 @@ def test_rodar_de_novo_nao_refaz():
     assert e.aplicou == 1
 
 
-def test_falha_segue_e_bloqueia_dependentes(caplog):
+def test_falha_segue_sem_bloquear_as_outras(caplog):
+    """ADR-062: sem dependência entre etapas; a falha de Contas não bloqueia Políticas."""
     caplog.set_level(logging.INFO, logger="itc_bench")
     c = Falsa("contas", [Leitura("pendente")], erro=RuntimeError("C:\\Users\\aluno caiu"))
     pol = Falsa("politicas", [Leitura("pendente")])
@@ -101,7 +136,7 @@ def test_falha_segue_e_bloqueia_dependentes(caplog):
     )
     assert a.situacao["contas"].situacao == "falhou"
     assert a.situacao["contas"].codigo == "RuntimeError"
-    assert a.situacao["politicas"].situacao == "bloqueada" and pol.aplicou == 0
+    assert a.situacao["politicas"].situacao != "bloqueada" and pol.aplicou == 1
     assert a.situacao["energia"].situacao == "feito"
     assert any("situacao=" in r.getMessage() for r in caplog.records)
     assert "aluno" not in caplog.text
@@ -134,7 +169,8 @@ def test_ok_mas_ainda_pendente_vira_falha():
 
 
 def test_desmarcadas_nao_rodam_e_selo():
-    a = prep.novo(perfis.POR_ID["sala_de_aula"], desmarcadas=["usb", "limpeza"])
+    a = prep.novo(perfis_teste.POR_ID["aluno"], desmarcadas=["usb", "programas"])
+    assert a.nome == "Aluno"
     assert "usb" not in a.etapas and a.selo() == f"0/{len(perfis.ORDEM) - 2}"
 
 
@@ -422,9 +458,56 @@ def test_contas_aplica_gestao_so_cadastrada_e_faltando(monkeypatch, cadastrada, 
 
 
 def test_etapas_numeradas_pela_ordem_fixa():
-    assert [perfis.NUMERO[e] for e in perfis.ORDEM] == list(range(1, 15))
-    assert perfis.rotulo("identificacao") == "1. Identificação"
-    assert perfis.rotulo("contas") == "2. Contas"
-    assert perfis.rotulo("diagnostico") == "14. Diagnóstico"
-    adm = perfis.POR_ID["administrativo"].etapas
-    assert [perfis.NUMERO[e] for e in adm] == [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]
+    # ADR-062: Configuração 1 a 12; Manutenção com números próprios (o 1 reservado).
+    assert [perfis.NUMERO[e] for e in perfis.ORDEM] == list(range(1, 13))
+    assert perfis.rotulo("energia_inicio") == "1. Energia: nunca desligar"
+    assert perfis.rotulo("papel") == "4. Papel de parede"
+    assert perfis.rotulo("contas") == "11. Contas"
+    assert perfis.rotulo("diagnostico") == "12. Diagnóstico"
+    assert perfis.MANUTENCAO.rotulo("wifi_senhas") == "2. Wi-Fi: atualizar senhas"
+    assert perfis.MANUTENCAO.rotulo("diagnostico") == "3. Diagnóstico"
+    for fora in ("identificacao", "mouse", "limpeza"):
+        assert fora not in perfis.ORDEM and fora not in perfis.MANUTENCAO.ordem
+    adm = perfis_teste.POR_ID["administrativo"].etapas
+    assert [perfis.NUMERO[e] for e in adm] == [1, 3, 4, 5, 6, 9, 10, 11, 12]
+    assert perfis.DEPENDE == {}
+
+
+def test_papel_pelo_projeto_da_unidade():
+    """ADR-057: o papel é o do projeto da unidade; unidade sem projeto, projeto sem papel ou
+    bancada: nenhum, e a etapa 10 some. Sem cadastro, a etapa não some (fica bloqueada)."""
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    from itc_bench.servicos import papel_de_parede
+    from itc_bench.servicos.cadastros import Cadastros, Instalador, Projeto, Unidade
+
+    base = Instalador(0, "P", "", "p.png", "", "https://exemplo.invalid/p.png", "", tipo="papel")
+    do_abc = replace(base, id=1, projeto="ABC")
+    unidades = tuple(
+        Unidade(i, c, c, "", "", "", "", projeto=p)
+        for i, (c, p) in enumerate((("UM-01", "ABC"), ("UM-02", "DEF"), ("UM-03", "")), 1)
+    )
+    cad = Cadastros(
+        "v" * 64,
+        datetime.now(UTC),
+        "t",
+        None,
+        False,
+        (),
+        (do_abc, base),
+        (),
+        unidades,
+        projetos=(Projeto(1, "ABC", "Abc"), Projeto(2, "DEF", "Def")),
+    )
+    assert [i.id for i in papel_de_parede.da_unidade(cad, "UM-01")] == [1]
+    assert papel_de_parede.da_unidade(cad, "UM-02") == []  # projeto sem papel
+    assert papel_de_parede.da_unidade(cad, "UM-03") == []  # unidade sem projeto
+    assert papel_de_parede.da_unidade(cad, None) == []  # bancada
+    # o cadastro de teste não tem rede: a 3 também some (ADR-065); aqui importa o papel
+    assert "papel" not in etapas.ocultas(cad, "UM-01")
+    assert "papel" in etapas.ocultas(cad, "UM-02")
+    assert "papel" in etapas.ocultas(cad, None)
+    assert etapas.ocultas(None, "UM-01") == frozenset()
+    assert etapas.Papel(etapas.Contexto(True, cad, unidade="UM-01"))._linha().id == 1
+    assert [papel_de_parede.dono(i) for i in (do_abc, base)] == ["projeto ABC", "sem projeto"]

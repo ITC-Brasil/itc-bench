@@ -1,6 +1,8 @@
 """Telas do Módulo 13 (ADR-023): Ajuda consolidada, Preparação, Limpeza e Registro, sem tocar
 no Windows (serviços trocados por falsos)."""
 
+import perfis_teste
+
 from itc_bench.servicos import limpeza, perfis, registro
 from itc_bench.servicos import preparacao as prep
 from itc_bench.ui import ajuda, tarefa
@@ -77,7 +79,8 @@ def test_preparacao_sem_admin_so_le(qtbot, monkeypatch):
     monkeypatch.setattr(
         ui_prep.PainelPreparacao, "_carregar_alunos", lambda self, marcar=None: None
     )
-    p = ui_prep.PainelPreparacao(False, lambda: None, lambda: None)
+    cad = _cad_papel(None)
+    p = ui_prep.PainelPreparacao(False, lambda: cad, lambda: None)
     qtbot.addWidget(p)
     p.ler()
     assert p.andamento is not None
@@ -102,10 +105,30 @@ def test_preparacao_confirmacao_lista_o_que_muda(qtbot):
     assert "Wi-Fi: 2 rede(s)" in texto and "Energia" not in texto
 
 
-def test_preparacao_perfil_da_unidade_desconhecido(qtbot):
+def test_preparacao_sem_perfil_no_cadastro_nao_le(qtbot):
+    """ADR-060: sem perfis no cadastro, nada para escolher nem ler, com aviso."""
     p = ui_prep.PainelPreparacao(False, lambda: None, lambda: None)
     qtbot.addWidget(p)
-    assert p.perfil_da_unidade()[0] is perfis.PADRAO
+    assert p.perfil_da_unidade() == (None, perfis.SEM_PERFIL)
+    assert p.perfil.count() == 0 and p.lista.topLevelItemCount() == 0
+    assert not p.b_ler.isEnabled()
+    p.ler()
+    assert p.andamento is None
+
+
+def test_preparacao_lista_os_perfis_do_cadastro(qtbot):
+    cad = _cad_papel("UM-01", "UM-01")
+    p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-01")
+    qtbot.addWidget(p)
+    assert [p.perfil.itemText(i) for i in range(p.perfil.count())] == [
+        "Aluno",
+        "Administrativo",
+        "Só diagnóstico",
+    ]
+    p.perfil.setCurrentIndex(2)
+    assert [p.lista.topLevelItem(i).text(0) for i in range(p.lista.topLevelItemCount())] == [
+        "12. Diagnóstico"
+    ]
 
 
 def test_limpeza_sem_admin_nao_limpa(qtbot, monkeypatch):
@@ -140,3 +163,65 @@ def test_registro_filtra(qtbot, monkeypatch):
     p.carregar()
     p.nivel.setCurrentText("Erros")
     assert "dois" in p.texto.toPlainText() and "um" not in p.texto.toPlainText()
+
+
+def _cad_papel(unidade_maquina, *unidades_papel):
+    from datetime import UTC, datetime
+
+    from itc_bench.servicos.cadastros import Cadastros, Instalador, Unidade
+
+    papeis = tuple(
+        Instalador(
+            i,
+            f"Papel {u}",
+            "",
+            "p.png",
+            "",
+            "https://exemplo.invalid/p.png",
+            "",
+            tipo="papel",
+            projeto=f"P{u}",
+        )
+        for i, u in enumerate(unidades_papel, start=1)
+    )
+    # Cada unidade UM-0n é do projeto PUM-0n: papel "da unidade" = papel do projeto dela.
+    unidades = tuple(
+        Unidade(n, c, c, "", "", "", "", projeto=f"P{c}")
+        for n, c in enumerate(("UM-01", "UM-02"), start=1)
+    )
+    return Cadastros(
+        "v" * 64,
+        datetime.now(UTC),
+        "t",
+        unidade_maquina,
+        False,
+        (),
+        papeis,
+        (),
+        unidades,
+        perfis=perfis_teste.PERFIS,
+    )
+
+
+def _ids_da_lista(p):
+    return [p.lista.topLevelItem(i).data(0, 256) for i in range(p.lista.topLevelItemCount())]
+
+
+def test_preparacao_sem_papel_da_unidade_pula_da_3_para_a_5(qtbot):
+    """ADR-057: sem papel da unidade, a etapa 10 some da lista e não roda."""
+    cad = _cad_papel("UM-02", "UM-01", "")
+    p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-02")
+    qtbot.addWidget(p)
+    ids = _ids_da_lista(p)
+    # sem rede no cadastro de teste, a 3 também some (ADR-065)
+    assert "papel" not in ids and "wifi" not in ids
+    assert ids[ids.index("preinstalados") + 1] == "remoto"
+    assert "papel" in p.desmarcadas()
+    assert p.lista.topLevelItem(ids.index("remoto")).text(0) == "5. Acesso remoto"
+
+
+def test_preparacao_com_papel_da_unidade_mostra_a_10(qtbot):
+    cad = _cad_papel("UM-01", "UM-01")
+    p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-01")
+    qtbot.addWidget(p)
+    assert "papel" in _ids_da_lista(p) and "papel" not in p.desmarcadas()

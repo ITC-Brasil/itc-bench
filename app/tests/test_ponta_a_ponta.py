@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import URLError
 
+import perfis_teste
 import pytest
 
 from itc_bench.nucleo import caminhos, wlan
@@ -24,7 +25,6 @@ from itc_bench.servicos import (
     executor,
     identificacao,
     instaladores,
-    perfis,
     remoto,
 )
 from itc_bench.servicos import preparacao as prep
@@ -103,9 +103,10 @@ def _cadastros() -> cadastros.Cadastros:
                 cidade="",
                 uf="",
                 tag_glpi=m["tag GLPI"],
-                perfil_padrao="sala_de_aula",
+                perfil_padrao="aluno",
             )
         ],
+        "perfis": perfis_teste.corpo(),
     }
     registro = {
         "versao": "v" * 16,
@@ -229,7 +230,7 @@ class _JobFalso:
 def _rodar_perfis(admin: bool) -> dict[str, prep.Andamento]:
     cad = _cadastros()
     saida = {}
-    for perfil in perfis.PERFIS:
+    for perfil in perfis_teste.PERFIS:
         ctx = etapas.Contexto(admin=admin, cadastros=cad, unidade="ABC01", alvos=(SID,))
         andamento = prep.Andamento(perfil.id, list(perfil.etapas), {})
         saida[perfil.id] = prep.rodar(etapas.montar(ctx), andamento, pausar=threading.Event())

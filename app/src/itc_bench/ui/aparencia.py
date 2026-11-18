@@ -56,7 +56,8 @@ AJUDA_TELA = (
     "Papel de parede\n"
     "Põe o papel de parede do Grupo nas contas e impede o aluno de trocar.\n\n"
     "Aplicar\n"
-    "1. Escolha a imagem (vem do cadastro em Instaladores, tipo papel) e o estilo.\n"
+    "1. Escolha a imagem (vem do cadastro em Instaladores, tipo papel) e o estilo. Cada "
+    "imagem mostra o projeto dela; vem marcada a do projeto da unidade desta máquina.\n"
     "2. Marque as contas (a sua aparece como “(você)”; Ler perfis fechados mostra também a "
     "situação das contas que não estão abertas). Aplicar baixa a imagem (ou use Escolher "
     "arquivo… sem rede: o Bench "
@@ -511,11 +512,18 @@ class PainelPapel(_PainelAlvos):
     def _guardar(self, leitura: Any) -> None:
         self.dono, self.situacao = leitura
         atual = self.imagem.currentData()
+        cad = self.obter_cadastros()
         self.imagem.blockSignals(True)
         self.imagem.clear()
-        for i in pp.linhas(self.obter_cadastros()):
+        for i in pp.linhas(cad):
             motivo = pp.validar(i)
-            self.imagem.addItem(i.programa + (f" (inválida: {motivo})" if motivo else ""), i.id)
+            self.imagem.addItem(
+                f"{i.programa} — {pp.dono(i)}" + (f" (inválida: {motivo})" if motivo else ""),
+                i.id,
+            )
+        if atual is None:  # primeira leitura: vem marcado o papel da unidade (ADR-057)
+            proprio = pp.da_unidade(cad, cad.unidade if cad else None)
+            atual = proprio[0].id if proprio else None
         if atual is not None and (n := self.imagem.findData(atual)) >= 0:
             self.imagem.setCurrentIndex(n)
         self.imagem.blockSignals(False)

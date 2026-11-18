@@ -27,6 +27,7 @@ NOME = "preparacao.json"
 VALIDADE = timedelta(hours=24)
 MAX_REINICIOS = 2
 SID = re.compile(r"^S-1-5-21-\d+(?:-\d+)+$")
+CODIGO_PERFIL = re.compile(r"[a-z0-9_]{1,32}")  # o mesmo de Perfis.Codigo (TA-ADR-037)
 DONOS = ("O:BA", "O:SY")
 ACE = re.compile(r"\(([^)]*)\)")
 
@@ -111,7 +112,8 @@ def _validar(cru: object) -> Estado | str:
     if not isinstance(cru, dict) or cru.get("formato") != FORMATO:
         return "formato"
     perfil = cru.get("perfil")
-    if perfil not in perfis.POR_ID:
+    # O perfil vem do cadastro (ADR-060): aqui só o formato do código; a tela confere se existe.
+    if not isinstance(perfil, str) or not CODIGO_PERFIL.fullmatch(perfil):
         return "perfil"
     try:
         criado = datetime.fromisoformat(str(cru.get("criado_em")))

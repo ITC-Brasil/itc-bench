@@ -16,7 +16,7 @@ def janela(qtbot):
     return j, handler
 
 
-def test_sete_grupos_e_vinte_itens(qtbot):
+def test_sete_grupos_e_vinte_e_um_itens(qtbot):
     j, _ = janela(qtbot)
     assert [g for g, _ in GRUPOS] == [
         "Início",
@@ -27,7 +27,7 @@ def test_sete_grupos_e_vinte_itens(qtbot):
         "Diagnóstico",
         "Sistema",
     ]
-    assert len(j.nav) == 20
+    assert len(j.nav) == 21  # Manutenção entrou (ADR-062)
     assert j.pilha.currentWidget() is j.telas["inicio"]
 
 

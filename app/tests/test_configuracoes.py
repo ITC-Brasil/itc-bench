@@ -63,7 +63,7 @@ def test_unidades_sem_cidade_nem_tag(qtbot, monkeypatch, tmp_path):
     j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
     p = j.configuracoes
     titulos = [p.unidades.horizontalHeaderItem(k).text() for k in range(p.unidades.columnCount())]
-    assert titulos == ["Código", "Nome", "UF", "Perfil padrão"]
+    assert titulos == ["Código", "Nome", "Projeto", "UF", "Perfil padrão"]
     registro = {
         "versao": "v",
         "sincronizado_em": "2026-11-18T10:00:00+00:00",
@@ -80,6 +80,32 @@ def test_unidades_sem_cidade_nem_tag(qtbot, monkeypatch, tmp_path):
     }
     u = cadastros._de_dados(registro).unidades[0]
     assert (u.cidade, u.tag_glpi, u.uf) == ("", "", "DF")
+
+
+def test_aba_projetos_e_projeto_da_unidade(qtbot, monkeypatch, tmp_path):
+    """ADR-059: Projetos numa aba, com as unidades de cada; a unidade mostra a sigla."""
+
+    def com_projetos():
+        c = corpo()
+        c["projetos"] = [{"id": 1, "sigla": "ABC", "nome": "Projeto Abc"}]
+        c["unidades"][0]["projeto"] = "ABC"
+        return c
+
+    monkeypatch.setattr(api, "saude", lambda base: True)
+    monkeypatch.setattr(api, "cadastros", lambda *a: com_projetos())
+    armazem = Armazem(tmp_path / "c.dpapi")
+    c = cadastros.sincronizar("b", Sensivel("t"), armazem, "ana", None)
+    tema.aplicar(QApplication.instance())
+    j = Janela(HandlerTela(), "https://api.exemplo.invalid", None, "NB", armazem=armazem)
+    qtbot.addWidget(j)
+    p = j.configuracoes
+    codigo = p.unidades.item(0, 0).text()
+    assert p.unidades.item(0, 2).text() == "ABC" and p.unidades.item(1, 2).text() == "—"
+    assert [p.projetos.item(0, k).text() for k in range(3)] == ["ABC", "Projeto Abc", codigo]
+    cad = armazem.carregar()
+    assert cad is not None and cad.projeto_por_sigla("ABC").nome == "Projeto Abc"
+    assert cad.projeto_por_sigla("") is None
+    del c
 
 
 def test_so_leitura_e_ajuda(qtbot, monkeypatch, tmp_path):
