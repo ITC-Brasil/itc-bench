@@ -3189,3 +3189,25 @@ Programas da Preparação o baixaria e executaria em toda máquina.
 **Consequences**
 - Atalho web (`webapp`) chamado MCPR continua sendo programa; só o instalador é ferramenta.
 - Roteiro de máquina real 8.8b.
+
+## ADR-067 — Unidades sem Cidade e Tag do GLPI
+
+**Status:** Accepted
+**Date:** 2026-11-18 (revisão do NocoDB com o responsável)
+**Module:** Pós-16 (com o TA-ADR-039; emenda ao ADR-019)
+
+**Context**
+O responsável não usa `Cidade` nem `TagGLPI` em Unidades e quer apagar as colunas.
+
+**Decision**
+1. A API deixa de pedir as duas colunas e manda os campos vazios (TA-ADR-039).
+2. O Bench lê `cidade` e `tag_glpi` como opcionais (cache sem as chaves é aceito).
+3. Configurações › Unidades mostra Código, Nome, UF e Perfil padrão (sem Cidade e sem Tag GLPI).
+4. Acesso remoto: o GLPI Agent é instalado sem tag; a ajuda da tela diz isso.
+
+**Alternatives considered**
+- Manter as colunas e ignorar: o responsável preferiu tirar do banco.
+
+**Consequences**
+- Apagar as colunas só depois de publicar a API (TA-ADR-039).
+- Roteiro de máquina real 8.8c.

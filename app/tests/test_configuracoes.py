@@ -58,6 +58,30 @@ def test_mostra_cadastros_com_segredos_mascarados(qtbot, monkeypatch, tmp_path):
     assert not p.botao_sincronizar.isEnabled()  # sem sessão online
 
 
+def test_unidades_sem_cidade_nem_tag(qtbot, monkeypatch, tmp_path):
+    """ADR-067: a aba Unidades mostra só a UF; cache sem as chaves cidade/tag_glpi é aceito."""
+    j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
+    p = j.configuracoes
+    titulos = [p.unidades.horizontalHeaderItem(k).text() for k in range(p.unidades.columnCount())]
+    assert titulos == ["Código", "Nome", "UF", "Perfil padrão"]
+    registro = {
+        "versao": "v",
+        "sincronizado_em": "2026-11-18T10:00:00+00:00",
+        "por": "t",
+        "unidade": None,
+        "dados": {
+            "servidores": [],
+            "instaladores": [],
+            "wifi": [],
+            "unidades": [
+                {"id": 1, "codigo": "ABC01", "nome": "A", "uf": "DF", "perfil_padrao": ""}
+            ],
+        },
+    }
+    u = cadastros._de_dados(registro).unidades[0]
+    assert (u.cidade, u.tag_glpi, u.uf) == ("", "", "DF")
+
+
 def test_so_leitura_e_ajuda(qtbot, monkeypatch, tmp_path):
     j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
     for tabela in j.configuracoes.findChildren(QTableWidget):

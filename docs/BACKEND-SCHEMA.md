@@ -75,11 +75,13 @@ Contrato de Programas (ADR-020, TA-ADR-029):
 |---|---|---|
 | `Codigo` | SingleLineText, display | Sigla do programa + número da UM com dois dígitos, ou só a sigla para unidade sem número: `^(?:[A-Z]{1,6}[0-9]{2}\|[A-Z]{2,15})$`: com número até 8; só letras até 15, o limite do nome do computador (ex. fictícios: `ABC01`, `ABCDE`). ADR-018, ADR-055 |
 | `Nome` | SingleLineText | |
-| `Cidade` | SingleLineText | |
 | `UF` | SingleLineText | |
-| `TagGLPI` | SingleLineText | Tag do GLPI Agent |
 | `PerfilPadrao` | SingleLineText | Id do perfil da Preparação completa: `sala_de_aula`, `administrativo` ou `so_diagnostico` (ADR-023); vazio ou outro = Sala de aula |
 | `Ativo` | Checkbox | |
+
+`Cidade` e `TagGLPI` saíram (ADR-067, TA-ADR-039): a API não as pede mais e manda
+`cidade` e `tag_glpi` vazios. As colunas só podem ser apagadas no NocoDB **depois** que a
+API com o TA-ADR-039 estiver publicada.
 
 **Regra `WiFi.Unidade`:** continua texto, sem relação no NocoDB, com o mesmo código de
 `Unidades.Codigo` (ex. fictício: `ABC01`). A API descarta a rede cuja unidade não é uma Unidade ativa; o
@@ -102,7 +104,7 @@ campo. Ausente (as obrigatórias), vazia, duplicada ou com `Publico` trocado: o 
 aquele programa e diz o par. Instaladores: `Programa` igual a
 `GLPI Agent`, `RustDesk` ou `AnyDesk`, `SHA256` vazio ou de 64 hexadecimais (ADR-028; preencher
 fixa o arquivo), `Link` `https://` e
-`Arquivo` com `.msi`, `.msi`, `.exe`. `Unidades.TagGLPI` é opcional (sem ela, o agente vai sem
+`Arquivo` com `.msi`, `.msi`, `.exe`. O GLPI Agent vai sem tag: `Unidades.TagGLPI` não é mais lida (ADR-067; antes, sem ela o agente ia sem
 `TAG=`).
 
 ## API (rotas)

@@ -46,7 +46,8 @@ TABELAS = {
     "wifi": ("nocodb_tabela_wifi", ("Id", "SSID", "Senha", "Unidade", "Categoria", "Ativo", "AtualizadoEm"), "SSID"),
     "unidades": (
         "nocodb_tabela_unidades",
-        ("Id", "Codigo", "Nome", "Cidade", "UF", "TagGLPI", "PerfilPadrao", "Ativo"),
+        # TA-ADR-039: Cidade and TagGLPI are no longer read (the columns may be deleted).
+        ("Id", "Codigo", "Nome", "UF", "PerfilPadrao", "Ativo"),
         "Codigo",
     ),
 }
@@ -241,8 +242,8 @@ def unidade(linha: dict) -> dict:
         "id": linha.get("Id"),
         "codigo": texto(linha.get("Codigo")),
         "nome": texto(linha.get("Nome")),
-        "cidade": texto(linha.get("Cidade")),
+        "cidade": "",  # TA-ADR-039: kept empty for the Bench 0.19.0, which expects the key
         "uf": texto(linha.get("UF")),
-        "tag_glpi": texto(linha.get("TagGLPI")),
+        "tag_glpi": "",  # TA-ADR-039: idem; the GLPI Agent goes without TAG
         "perfil_padrao": texto(linha.get("PerfilPadrao")),
     }

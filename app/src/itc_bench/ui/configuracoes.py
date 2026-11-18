@@ -98,7 +98,7 @@ class PainelConfiguracoes(QWidget):
         self.servidores = self._tabela(["Serviço", "Papel", "Valor", "Versão", "Observação"])
         self.wifi = self._tabela(["SSID", "Unidade", "Categoria", "Senha", "Atualizado em"])
         self.instaladores = self._tabela(["Programa", "Versão", "Arquivo", "SHA-256", "Link"])
-        self.unidades = self._tabela(["Código", "Nome", "Cidade/UF", "Tag GLPI", "Perfil padrão"])
+        self.unidades = self._tabela(["Código", "Nome", "UF", "Perfil padrão"])  # ADR-067
         self.abas.addTab(self.servidores, "Servidores")
         self.abas.addTab(self.wifi, "Wi-Fi")
         self.abas.addTab(self.instaladores, "Instaladores")
@@ -188,8 +188,7 @@ class PainelConfiguracoes(QWidget):
                 [
                     u.codigo,
                     u.nome,
-                    "/".join(p for p in (u.cidade, u.uf) if p),
-                    u.tag_glpi,
+                    u.uf,
                     u.perfil_padrao,
                 ]
                 for u in c.unidades

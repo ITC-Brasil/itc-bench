@@ -166,9 +166,9 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 int(u["id"]),
                 str(u["codigo"]),
                 str(u["nome"]),
-                str(u["cidade"]),
+                str(u.get("cidade") or ""),  # ADR-067: não vem mais
                 str(u["uf"]),
-                str(u["tag_glpi"]),
+                str(u.get("tag_glpi") or ""),  # ADR-067: não vem mais
                 str(u["perfil_padrao"]),
             )
             for u in dados["unidades"]
