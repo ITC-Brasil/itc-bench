@@ -240,6 +240,7 @@ class Janela(QMainWindow):
         self.cadastros: Cadastros | None = self.armazem.carregar()
         self.cadastros_offline = False
         self.sem_central = False  # última sincronização: API no ar, NocoDB fora (503)
+        self.motivo_central = ""  # TA-ADR-040: tabela e erro do 503, para o aviso
         try:
             self.unidade = cadastros.unidade_da_maquina()
         except OSError as erro:
@@ -397,8 +398,11 @@ class Janela(QMainWindow):
         else:
             if self.sem_central:
                 quando = self.cadastros.sincronizado_em.astimezone()
+                causa = cadastros.explicar_motivo(self.motivo_central)
                 avisos.append(
-                    f"Servidor sem acesso aos cadastros; usando a cópia de {quando:%d/%m %H:%M}."
+                    "Servidor sem acesso aos cadastros"
+                    + (f" ({causa})" if causa else "")
+                    + f"; usando a cópia de {quando:%d/%m %H:%M}."
                 )
             elif self.cadastros.defasado:
                 avisos.append("O cadastro central está fora do ar; a API mandou a última cópia.")
@@ -593,6 +597,7 @@ class Janela(QMainWindow):
         self.cadastros = resultado.cadastros
         self.cadastros_offline = resultado.estado not in ("ok", "igual")
         self.sem_central = resultado.estado == "sem_central"
+        self.motivo_central = resultado.motivo if self.sem_central else ""
         if self.armazem.aviso:
             log.info("Cache dos cadastros: %s.", self.armazem.aviso)
         self._atualizar_rodape()

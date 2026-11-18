@@ -221,18 +221,28 @@ def test_nao_configurado_503(settings):
     criar_sessao(settings)
     with TestClient(create_app(settings)) as c:
         r = c.get("/v1/bench/cadastros", headers=AUT)
-    assert r.status_code == 503 and r.json() == {"erro": "cadastros_indisponivel"}
+    assert r.status_code == 503
+    assert r.json() == {"erro": "cadastros_indisponivel", "motivo": "nao_configurado"}
 
 
-@pytest.mark.parametrize("falha", ["rede", "timeout", "401", "html"])
-def test_nocodb_fora_sem_copia_503_e_sessao_intacta(settings, falha, caplog):
+@pytest.mark.parametrize(
+    ("falha", "motivo"),
+    [
+        ("rede", "servidores:indisponivel"),
+        ("timeout", "servidores:timeout"),
+        ("401", "servidores:http_401"),
+        ("html", "servidores:resposta_invalida"),
+    ],
+)
+def test_nocodb_fora_sem_copia_503_e_sessao_intacta(settings, falha, motivo, caplog):
     caplog.set_level(logging.DEBUG)
     s = configurar(settings)
     criar_sessao(s)
     fake = FakeNocodb(falha=falha)
     with TestClient(create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(fake.handler)})) as c:
         r = c.get("/v1/bench/cadastros", headers=AUT)
-        assert r.status_code == 503 and r.json() == {"erro": "cadastros_indisponivel"}
+        assert r.status_code == 503
+        assert r.json() == {"erro": "cadastros_indisponivel", "motivo": motivo}  # TA-ADR-040
         # 503 cadastros_indisponivel does not touch the session
         assert c.get("/v1/bench/sessao", headers=AUT).status_code == 200
         # within the TTL a failed read is not repeated
@@ -599,8 +609,9 @@ def test_wifi_le_categoria_pelo_titulo(settings, fake):
     assert {rede["categoria"] for rede in dados["wifi"]} == {"Carreta"}
 
 
-def test_tabela_que_falhou_so_no_log(settings, caplog):
-    """The API log names the table (instaladores:http_400); the Bench only gets cadastros_indisponivel."""
+def test_tabela_que_falhou_vai_no_motivo(settings, caplog):
+    """TA-ADR-040: the Bench gets the table and the error kind (instaladores:http_400), never the
+    NocoDB text, URL or table id."""
     s = configurar(settings)
     criar_sessao(s)
     fake = FakeNocodb()
@@ -612,5 +623,24 @@ def test_tabela_que_falhou_so_no_log(settings, caplog):
 
     with caplog.at_level("WARNING"), TestClient(create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(handler)})) as c:
         r = c.get("/v1/bench/cadastros", headers=AUT)
-    assert r.status_code == 503 and r.json() == {"erro": "cadastros_indisponivel"}
+    assert r.status_code == 503
+    assert r.json() == {"erro": "cadastros_indisponivel", "motivo": "instaladores:http_400"}
+    assert "campo inexistente" not in r.text and "mIns" not in r.text
     assert "instaladores:http_400" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("bruto", "seguro"),
+    [
+        ("wifi:http_400", "wifi:http_400"),
+        ("perfis:timeout", "perfis:timeout"),
+        ("nao_configurado", "nao_configurado"),
+        ("", "indisponivel"),
+        ("wifi:http_400 https://x", "indisponivel"),
+        ("outra:http_400", "indisponivel"),
+    ],
+)
+def test_motivo_so_em_formato_conhecido(bruto, seguro):
+    from app.routes.cadastros import indisponivel
+
+    assert indisponivel(bruto).extra == {"motivo": seguro}

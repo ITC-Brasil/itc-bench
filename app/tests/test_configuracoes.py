@@ -188,6 +188,9 @@ def test_servidor_sem_acesso_aos_cadastros_avisa(qtbot, monkeypatch, tmp_path):
     assert "Servidor sem acesso aos cadastros; usando a cópia de " in textos_visiveis(j)
     j._sincronizou(cadastros.Sincronizacao("igual", armazem.carregar()))
     assert "Servidor sem acesso" not in textos_visiveis(j)
+    # TA-ADR-040: com o motivo, o aviso diz a tabela e a causa
+    j._sincronizou(cadastros.Sincronizacao("sem_central", armazem.carregar(), "wifi:http_400"))
+    assert "Servidor sem acesso aos cadastros (tabela WiFi: o NocoDB recusou" in textos_visiveis(j)
 
 
 # ---------------------------------------------------------------- unidade pelo nome (ADR-048)

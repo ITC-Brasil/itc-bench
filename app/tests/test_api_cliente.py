@@ -227,6 +227,22 @@ def test_cadastros_503_do_nocodb_nao_e_sem_conexao(base):
     assert not issubclass(api.CadastrosIndisponivel, api.SemConexao)
 
 
+@pytest.mark.parametrize(
+    ("motivo", "esperado"),
+    [
+        ("wifi:http_400", "wifi:http_400"),
+        ("nao_configurado", "nao_configurado"),
+        ("wifi:http_400 https://x", ""),  # fora do formato: descartado (TA-ADR-040)
+        (None, ""),
+    ],
+)
+def test_cadastros_503_traz_o_motivo(base, motivo, esperado):
+    resposta(503, {"erro": "cadastros_indisponivel", "motivo": motivo})
+    with pytest.raises(api.CadastrosIndisponivel) as erro:
+        api.cadastros(base, Sensivel(SESSAO), None, None)
+    assert erro.value.motivo == esperado
+
+
 def test_cadastros_borda_fora_e_sem_conexao(base):
     resposta(530, "<html>tunel</html>", tipo="text/html")
     with pytest.raises(api.SemConexao):

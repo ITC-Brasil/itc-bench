@@ -176,6 +176,34 @@ def test_offline_mantem_o_cache(armazem, chamadas, erro):
     assert armazem.arquivo.exists()
 
 
+def test_sem_central_leva_o_motivo(armazem, chamadas):
+    fila, _ = chamadas
+    fila += [corpo(), api.CadastrosIndisponivel("cadastros_indisponivel", "perfis:http_404")]
+    sincronizar("b", TOKEN, armazem, "ana", None)
+    r = sincronizar("b", TOKEN, armazem, "ana", None)
+    assert r.estado == "sem_central" and r.motivo == "perfis:http_404"
+
+
+@pytest.mark.parametrize(
+    ("motivo", "trecho"),
+    [
+        ("wifi:http_400", "tabela WiFi: o NocoDB recusou a leitura: coluna que falta"),
+        ("perfis:http_404", "tabela Perfis: tabela não encontrada: id errado no api/.env"),
+        ("servidores:http_401", "tabela Servidores: o token da API não tem acesso"),
+        ("projetos:timeout", "tabela Projetos: o NocoDB demorou demais"),
+        ("unidades:http_502", "tabela Unidades: erro no NocoDB (http 502)"),
+        ("nao_configurado", "não tem as tabelas do NocoDB configuradas"),
+        ("", ""),
+        ("outra:http_400", ""),
+    ],
+)
+def test_explicar_motivo(motivo, trecho):
+    from itc_bench.servicos.cadastros import explicar_motivo
+
+    texto = explicar_motivo(motivo)
+    assert (trecho in texto) if trecho else texto == ""
+
+
 def test_401_pede_login_e_nao_apaga(armazem, chamadas):
     fila, _ = chamadas
     fila += [corpo(), api.Recusado(401, "nao_autorizado")]
