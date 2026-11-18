@@ -17,6 +17,7 @@ from itc_bench.servicos import (
     identificacao,
     instaladores,
     limpeza,
+    mcafee,
     papel_de_parede,
     perfis,
     politicas,
@@ -361,6 +362,8 @@ class Preinstalados:
         n = len(self._presentes())
         if n:
             return Leitura("pendente", f"{n} app(s) da Microsoft a remover")
+        if mcafee.encontrados():  # ADR-068: só o técnico remove, pelo MCPR
+            return Leitura("pendente", mcafee.AVISO_ETAPA)
         return Leitura("feito")
 
     def _presentes(self) -> list[str]:
@@ -375,7 +378,11 @@ class Preinstalados:
         if desinstalar.ise_instalado():
             fs.append(desinstalar.remover_ise(cancelar=cancelar))
         fs += desinstalar.remover_office(desinstalar.office_presentes(), cancelar=cancelar)
-        return _falhas(fs, lambda f: f.estado in ("ok", "pulado"), lambda f: f.mensagem)
+        r = _falhas(fs, lambda f: f.estado in ("ok", "pulado"), lambda f: f.mensagem)
+        if r.estado == "ok" and mcafee.encontrados():
+            # ADR-068: o MCPR pede o técnico; a etapa avisa e não bloqueia as seguintes.
+            return Resultado("parcial", mcafee.AVISO_ETAPA, "mcafee")
+        return r
 
     def mudancas(self) -> str:
         return "remover para todas as contas: " + ", ".join(self._presentes())

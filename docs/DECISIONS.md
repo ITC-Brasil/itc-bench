@@ -3183,7 +3183,8 @@ Programas da Preparação o baixaria e executaria em toda máquina.
 
 **Alternatives considered**
 - Só desmarcar `Ativo` no NocoDB: resolve hoje, mas um `Ativo` marcado por engano voltaria a
-  executar o MCPR em toda máquina. Recomendado também, até a etapa do McAfee existir.
+  executar o MCPR em toda máquina. Recomendado só até o ADR-068: agora a linha precisa
+  ficar ativa.
 - Uma `Categoria` nova (ex.: `Ferramentas`): exigiria mudar a lista fechada de categorias na API.
 
 **Consequences**
@@ -3211,3 +3212,46 @@ O responsável não usa `Cidade` nem `TagGLPI` em Unidades e quer apagar as colu
 **Consequences**
 - Apagar as colunas só depois de publicar a API (TA-ADR-039).
 - Roteiro de máquina real 8.8c.
+
+## ADR-068 — Remoção assistida do McAfee pelo MCPR
+
+**Status:** Accepted
+**Date:** 2026-11-18 (pedido do responsável)
+**Module:** Pós-16 (com o ADR-066; emenda ao ADR-020 e ao ADR-061)
+
+**Context**
+Notebooks vêm com McAfee de fábrica e a Configuração tem que removê-lo. A ferramenta oficial é
+o MCPR (McAfee Consumer Product Removal), já cadastrado em Instaladores (ADR-066). O MCPR não
+tem modo silencioso: depois de Next e Agree ele mostra um código de validação que uma pessoa
+tem que digitar. Essa tela existe para que um programa não desligue o antivírus sozinho.
+
+**Decision**
+1. `servicos/mcafee.py`: `encontrados()` procura "McAfee" no `DisplayName` dos programas
+   instalados (a mesma leitura do registro de Programas); `linha_mcpr(cadastros)` acha a linha
+   do MCPR (`programas.ferramenta`) e diz o que falta (nenhuma, duplicada, arquivo que não é
+   `.exe`, sem versão ou link); `remover()` baixa e confere o MCPR como os outros instaladores,
+   abre sem argumentos, espera fechar (até 1 hora, sem encerrar no tempo esgotado) e procura o
+   McAfee de novo.
+2. Tela Remover programas: com McAfee instalado, aparecem o aviso McAfee encontrado e o botão
+   Remover McAfee com o MCPR. Sem a linha MCPR válida, o botão fica desativado e o aviso diz o
+   que falta. A confirmação explica o passo a passo (Next, Agree, código, não reiniciar antes de
+   fechar). No fim: "McAfee removido. Reinicie a máquina" ou o que ainda sobrou.
+3. Etapa 6 da Preparação (Remover pré-instalados): não roda o MCPR. Com McAfee presente, a
+   leitura fica pendente com o aviso e o resultado é `parcial` ("remova em Remover programas"),
+   que não bloqueia as etapas seguintes.
+4. O Bench nunca digita nem tenta passar o código de validação.
+
+**Alternatives considered**
+- Rodar o MCPR sozinho, preenchendo o código ou por parâmetros internos não documentados:
+  contorna uma proteção do fabricante, é frágil entre versões e sem suporte. Recusado.
+- Desinstalar pelo `UninstallString` do registro: o desinstalador do McAfee doméstico também é
+  interativo e deixa restos; o fabricante indica o MCPR.
+- Remoção em massa sem técnico: só com ferramenta empresarial (McAfee/Trellix) ou máquina sem
+  McAfee de fábrica. Fora do Bench.
+
+**Consequences**
+- A linha `MCPR` em Instaladores precisa ficar ativa (revoga a recomendação do ADR-066 de
+  desmarcar `Ativo`).
+- O técnico gasta cerca de 30 segundos no MCPR e reinicia a máquina no fim.
+- O log recebe o Id da linha, o código de saída e quantos produtos McAfee sobraram; nunca o Link.
+- Roteiro de máquina real 8.8d.

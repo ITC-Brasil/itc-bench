@@ -149,6 +149,7 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 8.8a | Remover programas ao abrir: só removíveis; o aviso conta os ocultos; buscar um driver; marcar "Mostrar também os que não podem ser removidos" | Lista sem protegidos, recusados e sem desinstalador; aviso "N oculto(s)…"; a busca pelo driver avisa "1 com esse nome está(ão) oculto(s)"; com a caixa marcada, eles voltam com o motivo e sem caixa de marcar | ADR-058 |
 | 8.8b | Cadastro com a linha `MCPR` ativa (`instalador`, `Programas`); abrir Programas e Ler situação na Preparação | MCPR não aparece em Programas nem na etapa Programas; nada é baixado nem executado | ADR-066 |
 | 8.8c | Com a API do TA-ADR-039 publicada e as colunas `Cidade` e `TagGLPI` apagadas de Unidades: sincronizar; abrir Configurações › Unidades; instalar o GLPI Agent no Acesso remoto | Sincroniza sem erro; a aba mostra Código, Nome, UF e Perfil padrão; o agente instala sem tag | ADR-067 |
+| 8.8d | Máquina com McAfee de fábrica e a linha `MCPR` ativa: abrir Remover programas; Remover McAfee com o MCPR; seguir no MCPR (Next, Agree, código); depois rodar a etapa 6 da Preparação numa máquina ainda com McAfee | Aviso McAfee encontrado com os nomes; o MCPR abre; ao fechar, "McAfee removido. Reinicie a máquina" e o aviso some depois de Atualizar; a etapa 6 termina parcial com o aviso e as etapas seguintes rodam; sem a linha MCPR, o botão fica desativado e o aviso diz o que falta | ADR-068 |
 | 8.9 | Remover o Windows Terminal; criar conta nova | Não volta | 10/V7 |
 
 ### 9. Políticas e USB

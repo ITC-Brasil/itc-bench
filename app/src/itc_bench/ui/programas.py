@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from itc_bench.servicos import desinstalar as des
-from itc_bench.servicos import instaladores
+from itc_bench.servicos import instaladores, mcafee
 from itc_bench.servicos import programas as pg
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.ui import tarefa
@@ -85,6 +85,14 @@ AJUDA_REMOVER = (
     "Programas instalados só para um usuário aparecem quando o perfil dele está carregado.\n"
     "Windows Terminal: removido para todos os usuários e para contas novas. A etapa 6 da "
     "Preparação (Remover pré-instalados) também o remove, junto com o PowerShell ISE.\n\n"
+    "McAfee\n"
+    "Quando há McAfee instalado, aparece o aviso McAfee encontrado e o botão Remover McAfee "
+    "com o MCPR. O Bench baixa o MCPR da linha de Instaladores, confere o arquivo e abre a "
+    "ferramenta da McAfee. Nela: Next, Agree, digite o código de validação que aparece na "
+    "tela e espere terminar. O Bench não digita esse código: ele existe para garantir que uma "
+    "pessoa está na máquina. Quando o MCPR fecha, o Bench procura o McAfee de novo e diz se "
+    "saiu. Reinicie a máquina no fim. Sem a linha MCPR ativa em Instaladores, o botão fica "
+    "desativado e o aviso diz o que falta.\n\n"
     "Sem administrador (modo de teste), a tela só mostra a lista."
 )
 
@@ -418,9 +426,22 @@ class PainelRemover(_Base):
     colunas = ("Programa", "Versão", "Modo", "Desinstalador")
     verbo = "Remover"
 
-    def __init__(self, admin: bool) -> None:
+    def __init__(
+        self, admin: bool, obter_cadastros: Callable[[], Cadastros | None] = lambda: None
+    ) -> None:
         super().__init__(admin)
+        self.obter_cadastros = obter_cadastros
         self.entradas: list[des.Entrada] = []
+        # ADR-068: McAfee assistido pelo MCPR; só aparece quando há McAfee.
+        self.mcafee = _rotulo("")
+        self.b_mcafee = QPushButton("Remover McAfee com o MCPR")
+        self.b_mcafee.clicked.connect(self._mcafee)
+        caixa = QHBoxLayout()
+        caixa.addWidget(self.mcafee, 1)
+        caixa.addWidget(self.b_mcafee)
+        self.corpo.addLayout(caixa)
+        self.mcafee.hide()
+        self.b_mcafee.hide()
         # ADR-058: por padrão só os removíveis; os outros voltam por esta caixa.
         self.todos = QCheckBox("Mostrar também os que não podem ser removidos")
         self.todos.toggled.connect(lambda _m: self._filtrar())
@@ -452,6 +473,42 @@ class PainelRemover(_Base):
         self.tabela.blockSignals(False)
         self._filtrar()
         self._ocupar(False)
+        self._mostrar_mcafee()
+
+    def _mostrar_mcafee(self) -> None:
+        nomes = sorted(
+            {e.nome for e in self.entradas if mcafee.NOME.casefold() in e.nome.casefold()},
+            key=str.casefold,
+        )
+        self.mcafee.setVisible(bool(nomes))
+        self.b_mcafee.setVisible(bool(nomes))
+        if not nomes:
+            return
+        linha = mcafee.linha_mcpr(self.obter_cadastros())
+        falta = linha if isinstance(linha, str) else ""
+        texto = "McAfee encontrado: " + ", ".join(nomes) + "."
+        self.mcafee.setText(f"{texto} {falta}".strip())
+        self.b_mcafee.setEnabled(self.admin and not self.ocupado and not falta)
+
+    def _mcafee(self) -> None:
+        aviso = (
+            "O Bench vai abrir o MCPR, a ferramenta de remoção da McAfee.\n\n"
+            "Nele: Next, Agree, digite o código de validação que aparece na tela e espere "
+            "terminar. Não reinicie antes de o MCPR fechar.\n\n"
+            "Continuar?"
+        )
+        if not confirmar(self, self.titulo, aviso):
+            return
+        self._ocupar(True)
+        self.b_mcafee.setEnabled(False)
+        self.estado.setText("MCPR aberto: siga na janela da McAfee.")
+        cadastros = self.obter_cadastros()
+        tarefa.iniciar(lambda: mcafee.remover(cadastros), self._mcafee_feito, self._falhou)
+
+    def _mcafee_feito(self, r: Any) -> None:
+        self.estado.setText("" if self.admin else "Sem administrador: só leitura.")
+        resumo = "McAfee removido." if r.ok else "McAfee ainda presente."
+        self._terminou([r.mensagem], resumo, not r.ok)
 
     def _filtrar(self) -> None:
         busca = self.busca.text().casefold()
