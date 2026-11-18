@@ -187,7 +187,10 @@ def test_appx_lista_so_microsoft_e_nomes_validos():
         assert desinstalar.NOME_APPX.fullmatch(n)
         assert n.lower().startswith(("microsoft.", "clipchamp."))
     assert "Microsoft.WindowsStore" not in desinstalar.APPX_PREINSTALADOS
-    assert "Microsoft.WindowsTerminal" not in desinstalar.APPX_PREINSTALADOS
+    # winget (etapa 5) vem do App Installer: nunca na lista.
+    assert "Microsoft.DesktopAppInstaller" not in desinstalar.APPX_PREINSTALADOS
+    # ADR-061: o Terminal entra na etapa 6.
+    assert "Microsoft.WindowsTerminal" in desinstalar.APPX_PREINSTALADOS
 
 
 def test_appx_recusa_fora_da_lista_sem_chamar_o_trecho():
@@ -363,6 +366,7 @@ def test_contas_com_nativo_ativo_fica_pendente_sem_mexer_nele(monkeypatch, extra
     )
     monkeypatch.setattr(contas, "protegidas", lambda cad: frozenset({"suporte"}))
     monkeypatch.setattr(contas, "suporte_do_cadastro", lambda cad: ("Suporte", None))
+    monkeypatch.setattr(contas, "gestao_cadastrada", lambda cad: False)
     monkeypatch.setattr(
         contas, "aplicar_suporte", lambda cad: chamadas.append("suporte") or contas.Feito(True, "")
     )
@@ -387,3 +391,40 @@ def test_gestao_administradora_nao_deixa_contas_pendente() -> None:
 
     extras = etapas._admins_extra(lista(SUPORTE, GESTAO), frozenset({"suporte"}))
     assert extras == []
+
+
+@pytest.mark.parametrize(
+    ("cadastrada", "existe", "esperado"),
+    [
+        (False, False, []),  # sem as linhas Conta Gestão, o Bench não mexe
+        (True, True, []),  # já certa: não reaplica
+        (True, False, ["gestao"]),
+    ],
+)
+def test_contas_aplica_gestao_so_cadastrada_e_faltando(monkeypatch, cadastrada, existe, esperado):
+    """ADR-069: a Gestão, por enquanto, igual à Suporte."""
+    from test_contas import GESTAO, SUPORTE, lista
+
+    lido = lista(SUPORTE, GESTAO) if existe else lista(SUPORTE)
+    chamadas = []
+    monkeypatch.setattr(contas, "listar", lambda **k: lido)
+    monkeypatch.setattr(contas, "protegidas", lambda cad: frozenset({"suporte"}))
+    monkeypatch.setattr(contas, "suporte_do_cadastro", lambda cad: ("Suporte", None))
+    monkeypatch.setattr(contas, "gestao_cadastrada", lambda cad: cadastrada)
+    monkeypatch.setattr(
+        contas, "aplicar_gestao", lambda cad: chamadas.append("gestao") or contas.Feito(True, "")
+    )
+    e = etapas.Contas(etapas.Contexto(admin=True, cadastros=object()))  # type: ignore[arg-type]
+    leitura = e.ler()
+    assert ("conta Gestão" in leitura.detalhe) == bool(esperado)
+    assert e.aplicar(threading.Event()).estado == "ok"
+    assert chamadas == esperado
+
+
+def test_etapas_numeradas_pela_ordem_fixa():
+    assert [perfis.NUMERO[e] for e in perfis.ORDEM] == list(range(1, 15))
+    assert perfis.rotulo("identificacao") == "1. Identificação"
+    assert perfis.rotulo("contas") == "2. Contas"
+    assert perfis.rotulo("diagnostico") == "14. Diagnóstico"
+    adm = perfis.POR_ID["administrativo"].etapas
+    assert [perfis.NUMERO[e] for e in adm] == [1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14]

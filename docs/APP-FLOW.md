@@ -37,7 +37,7 @@ Selos na barra: progresso da preparação (ex.: `6/9`) e contagem de alertas cr�
 preparação (feito / pendente / não iniciado), último diagnóstico, alertas com atalho para a tela
 que resolve, atalhos (forçar inventário GLPI, limpar temporários).
 
-**Preparação completa** — escolhe perfil (ex.: Sala de aula), lista etapas, "Rodar N etapas",
+**Preparação completa** — escolhe perfil (ex.: Sala de aula), lista etapas numeradas de 1 a 14 com número fixo (ADR-056), "Rodar N etapas",
 "Pausar". Log ao vivo. Se uma etapa pede reinício, agenda retomada e continua depois do boot.
 
 **Tela de cadastro (Wi-Fi como modelo)** — abas filtro (esta unidade / todas / instaladas no

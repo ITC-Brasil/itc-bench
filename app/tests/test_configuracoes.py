@@ -58,6 +58,30 @@ def test_mostra_cadastros_com_segredos_mascarados(qtbot, monkeypatch, tmp_path):
     assert not p.botao_sincronizar.isEnabled()  # sem sessão online
 
 
+def test_unidades_sem_cidade_nem_tag(qtbot, monkeypatch, tmp_path):
+    """ADR-067: a aba Unidades mostra só a UF; cache sem as chaves cidade/tag_glpi é aceito."""
+    j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
+    p = j.configuracoes
+    titulos = [p.unidades.horizontalHeaderItem(k).text() for k in range(p.unidades.columnCount())]
+    assert titulos == ["Código", "Nome", "UF", "Perfil padrão"]
+    registro = {
+        "versao": "v",
+        "sincronizado_em": "2026-11-18T10:00:00+00:00",
+        "por": "t",
+        "unidade": None,
+        "dados": {
+            "servidores": [],
+            "instaladores": [],
+            "wifi": [],
+            "unidades": [
+                {"id": 1, "codigo": "ABC01", "nome": "A", "uf": "DF", "perfil_padrao": ""}
+            ],
+        },
+    }
+    u = cadastros._de_dados(registro).unidades[0]
+    assert (u.cidade, u.tag_glpi, u.uf) == ("", "", "DF")
+
+
 def test_so_leitura_e_ajuda(qtbot, monkeypatch, tmp_path):
     j = montar(qtbot, monkeypatch, Armazem(tmp_path / "c.dpapi"))
     for tabela in j.configuracoes.findChildren(QTableWidget):
@@ -151,7 +175,10 @@ def test_servidor_sem_acesso_aos_cadastros_avisa(qtbot, monkeypatch, tmp_path):
         ("ABC07", "ABC07"),
         ("ABC07-", "ABC07"),
         ("ABC071-EST", None),  # depois do código vem dígito: não é código
-        ("QUALIFICA-EST", None),  # sigla sem número com mais de 8 letras
+        ("QUALIFICA-EST", "QUALIFICA"),  # formato de código; só vale se estiver no cadastro
+        ("ITCBRASIL-EST01", "ITCBRASIL"),  # 9 letras (ADR-055 revisado)
+        ("ABCDEFGHIJKLMNO", "ABCDEFGHIJKLMNO"),  # 15 letras: o nome inteiro do computador
+        ("ABCDEFGHIJKLMNOP", None),  # 16 letras: não cabe num nome de computador
         ("MOBILITY-EST01", "MOBILITY"),  # unidade sem número (ADR-055)
         ("inesq-est03", "INESQ"),
         ("INESQ", "INESQ"),

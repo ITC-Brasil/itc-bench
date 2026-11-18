@@ -482,7 +482,7 @@ class Janela(QMainWindow):
         self.remoto = PainelRemoto(self.admin, lambda: self.cadastros, lambda: self.unidade)
         # Software (ADR-020): mesmo padrão, leem ao abrir; ação só admin.
         self.programas = PainelProgramas(self.admin, lambda: self.cadastros)
-        self.remover = PainelRemover(self.admin)
+        self.remover = PainelRemover(self.admin, lambda: self.cadastros)
         # Segurança (ADR-021): Políticas e USB pelo mesmo serviço; leem ao abrir; ação só admin.
         self.politicas = PainelPoliticas(self.admin, lambda: self.cadastros)
         self.usb = PainelPoliticas(self.admin, lambda: self.cadastros, usb=True)

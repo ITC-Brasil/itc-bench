@@ -47,8 +47,12 @@ WINREG_CTYPES = {
 }
 
 CHAMADAS_SCRIPT = {"rodar", "_rodar", "powershell"}
-# Montam texto de script com dado constante do código, validado antes (ADR-023, Appx).
-SCRIPT_MONTADO = {("servicos/desinstalar.py", "script_appx")}
+# Montam texto de script com dado constante do código, validado antes (ADR-023 Appx, ADR-063
+# Office de fábrica).
+SCRIPT_MONTADO = {
+    ("servicos/desinstalar.py", "script_appx"),
+    ("servicos/desinstalar.py", "script_office"),
+}
 
 
 def _arquivos() -> list[Path]:

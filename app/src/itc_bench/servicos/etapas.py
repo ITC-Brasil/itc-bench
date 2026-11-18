@@ -17,6 +17,7 @@ from itc_bench.servicos import (
     identificacao,
     instaladores,
     limpeza,
+    mcafee,
     papel_de_parede,
     perfis,
     politicas,
@@ -164,6 +165,8 @@ class Contas:
         falta = []
         if not contas.suporte_ok(lista, prot):
             falta.append("conta Suporte")
+        if contas.gestao_cadastrada(self.ctx.cadastros) and not contas.gestao_ok(lista):
+            falta.append("conta Gestão")  # ADR-069: só com as linhas em Servidores
         if extra := _admins_extra(lista, prot):
             falta.append(f"{len(extra)} conta(s) administradora(s) além da Suporte")
         if falta:
@@ -181,6 +184,11 @@ class Contas:
             if not f.ok:
                 return Resultado("falha", f.mensagem, "suporte")
             lista = self.ctx.lista(nova=True)
+        if contas.gestao_cadastrada(self.ctx.cadastros) and not contas.gestao_ok(lista):
+            f = contas.aplicar_gestao(self.ctx.cadastros)  # ADR-069: igual à Suporte
+            if not f.ok:
+                return Resultado("falha", f.mensagem, "gestao")
+            lista = self.ctx.lista(nova=True)
         if _admins_extra(lista, prot):
             f = contas.lote("padrao", protegidas_=prot)
             if not f.ok:
@@ -195,8 +203,10 @@ class Contas:
     def mudancas(self) -> str:
         lista = self.ctx.lista()
         n = len(_admins_extra(lista, self.ctx.protegidas()))
+        gestao = "; a conta Gestão" if contas.gestao_cadastrada(self.ctx.cadastros) else ""
         return (
-            f"aplicar a conta Suporte; remover administrador de {n} conta(s), inclusive a conta "
+            f"aplicar a conta Suporte{gestao}; remover administrador de {n} conta(s), "
+            "inclusive a conta "
             "em uso (vale na próxima entrada; depois o UAC pede a Suporte)"
         )
 
@@ -358,17 +368,33 @@ class Preinstalados:
     def ler(self) -> Leitura:
         if motivo := _sem(self.ctx):
             return _bloq(motivo)
-        presentes = desinstalar.appx_presentes()
-        if presentes:
-            return Leitura("pendente", f"{len(presentes)} app(s) da Microsoft a remover")
+        n = len(self._presentes())
+        if n:
+            return Leitura("pendente", f"{n} app(s) da Microsoft a remover")
+        if mcafee.encontrados():  # ADR-068: só o técnico remove, pelo MCPR
+            return Leitura("pendente", mcafee.AVISO_ETAPA)
         return Leitura("feito")
+
+    def _presentes(self) -> list[str]:
+        """Appx da lista fechada, o PowerShell ISE (ADR-061) e o Office de fábrica (ADR-063)."""
+        nomes = desinstalar.appx_presentes()
+        if desinstalar.ise_instalado():
+            nomes = [*nomes, desinstalar.NOME_ISE]
+        return nomes + [desinstalar.NOME_OFFICE[p] for p in desinstalar.office_presentes()]
 
     def aplicar(self, cancelar: threading.Event) -> Resultado:
         fs = desinstalar.remover_appx(desinstalar.appx_presentes(), cancelar=cancelar)
-        return _falhas(fs, lambda f: f.estado in ("ok", "pulado"), lambda f: f.mensagem)
+        if desinstalar.ise_instalado():
+            fs.append(desinstalar.remover_ise(cancelar=cancelar))
+        fs += desinstalar.remover_office(desinstalar.office_presentes(), cancelar=cancelar)
+        r = _falhas(fs, lambda f: f.estado in ("ok", "pulado"), lambda f: f.mensagem)
+        if r.estado == "ok" and mcafee.encontrados():
+            # ADR-068: o MCPR pede o técnico; a etapa avisa e não bloqueia as seguintes.
+            return Resultado("parcial", mcafee.AVISO_ETAPA, "mcafee")
+        return r
 
     def mudancas(self) -> str:
-        return "remover para todas as contas: " + ", ".join(desinstalar.appx_presentes())
+        return "remover para todas as contas: " + ", ".join(self._presentes())
 
 
 # ---------------------------------------------------------------- 7 Políticas e 8 USB

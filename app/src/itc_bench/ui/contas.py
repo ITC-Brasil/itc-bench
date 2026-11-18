@@ -81,15 +81,19 @@ AJUDA = (
     "Conta Suporte e ações em lote\n"
     "• Aplicar conta Suporte cria a conta (ou troca a senha, ativa e torna administradora) "
     "com o nome e a senha de Configurações › Servidores. Sem cadastro sincronizado, não roda.\n"
+    "• Aplicar conta Gestão faz o mesmo com as linhas Conta Gestão de Servidores (usuario "
+    "Gestão e senha não pública). Sem essas linhas, o botão avisa o que falta e a Preparação "
+    "não mexe na Gestão.\n"
     "• Tornar todos administradores: para a preparação ou a manutenção, quando é preciso "
     "rodar coisas fora do Bench.\n"
     "• Remover administrador de todos (exceto Suporte): ao terminar. Inclui a conta em uso, "
     "que vira comum na próxima entrada. Só roda com a Suporte ativa e administradora.\n"
     "\n"
     "O que o Bench não deixa fazer\n"
-    "Mexer no Administrador nativo, na Gestão (nem nas ações em lote, nem criar outra com "
-    "esse nome) e nas contas Microsoft ou de domínio; alterar a Suporte fora de Aplicar conta"
-    " Suporte; rebaixar, excluir ou trocar a senha da conta em uso; excluir conta com sessão "
+    "Mexer no Administrador nativo, na Gestão fora de Aplicar conta Gestão (nem nas ações em "
+    "lote, nem criar outra com esse nome) e nas contas Microsoft ou de domínio; alterar a "
+    "Suporte fora de Aplicar conta Suporte; rebaixar, excluir ou trocar a senha da conta em "
+    "uso; excluir conta com sessão "
     "aberta; rebaixar ou excluir o último administrador ativo.\n"
     "\n"
     "Sem administrador (modo de teste), a tela só mostra a lista."
@@ -371,12 +375,14 @@ class PainelContas(QWidget):
         # Lote
         quadro, lo = _bloco("Suporte e todas as contas")
         self.b_suporte = QPushButton("Aplicar conta Suporte")
+        self.b_gestao = QPushButton("Aplicar conta Gestão")  # ADR-069
+        self.b_gestao.clicked.connect(self._gestao)
         self.b_todos_admin = QPushButton("Tornar todos administradores")
         self.b_todos_padrao = QPushButton("Remover administrador de todos (exceto Suporte)")
         self.b_suporte.clicked.connect(self._suporte)
         self.b_todos_admin.clicked.connect(lambda: self._lote("admin"))
         self.b_todos_padrao.clicked.connect(lambda: self._lote("padrao"))
-        for b in (self.b_suporte, self.b_todos_admin, self.b_todos_padrao):
+        for b in (self.b_suporte, self.b_gestao, self.b_todos_admin, self.b_todos_padrao):
             lo.addWidget(b)
         lo.addStretch()
         linha.addWidget(quadro, 1)
@@ -474,7 +480,7 @@ class PainelContas(QWidget):
         self.atualizar.setEnabled(not ocupado)
         self._selecao()
         self._validar()
-        for b in (self.b_suporte, self.b_todos_admin, self.b_todos_padrao):
+        for b in (self.b_suporte, self.b_gestao, self.b_todos_admin, self.b_todos_padrao):
             b.setEnabled(self.admin and not ocupado and self.lista is not None)
         self.b_encerrar.setEnabled(
             self.admin
@@ -650,6 +656,15 @@ class PainelContas(QWidget):
             return
         if confirmar(self, "Conta Suporte", texto_suporte(origem[0], self.lista)):
             self._rodar(lambda: contas.aplicar_suporte(cadastros))
+
+    def _gestao(self) -> None:
+        cadastros = self.obter_cadastros()
+        origem = contas.gestao_do_cadastro(cadastros)
+        if isinstance(origem, str):
+            txt.aviso(self, "Conta Gestão", origem)
+            return
+        if confirmar(self, "Conta Gestão", texto_suporte(origem[0], self.lista)):
+            self._rodar(lambda: contas.aplicar_gestao(cadastros))
 
     def _lote(self, tipo: Any) -> None:
         if self.lista is None:
