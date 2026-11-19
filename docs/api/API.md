@@ -231,7 +231,7 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
 {
   "versao": "<64 hex>", "lido_em": "AAAA-MM-DDTHH:MM:SSZ", "defasado": false, "unidade": null,
   "servidores": [{"id": 1, "servico": "RustDesk", "papel": "servidor de ID", "valor": "...", "versao": "", "observacao": "", "publico": true}],
-  "instaladores": [{"id": 1, "programa": "...", "versao": "...", "arquivo": "...", "sha256": "<hex minúsculo>", "link": "https://...", "observacao": "", "tipo": "instalador", "categoria": "Programas", "identificador": "", "argumentos": "", "deteccao": "", "modo": "quiosque", "projeto": ""}],
+  "instaladores": [{"id": 1, "programa": "...", "versao": "...", "arquivo": "...", "sha256": "<hex minúsculo>", "link": "https://...", "observacao": "", "tipo": "instalador", "categoria": "Programas", "identificador": "", "argumentos": "", "deteccao": "", "modo": "quiosque", "projeto": "", "perfis": []}],
   "wifi": [{"id": 10, "ssid": "...", "senha": "...", "unidade": "UM-01", "categoria": "Carreta", "atualizado_em": "...", "projeto": "ABC", "perfis": ["aluno"]}],
   "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "", "uf": "..", "tag_glpi": "", "perfil_padrao": "...", "projeto": ""}],
   "projetos": [{"id": 1, "sigla": "ABC", "nome": "..."}],
@@ -253,6 +253,10 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
   `tipo`, `categoria` e `modo` saem como `instalador`, `Programas` e `quiosque`. Tipo, categoria
   ou modo fora da lista, winget sem ID no formato e Web App sem `https://` com host saem em
   `descartados` (log com o `Id` e o motivo, sem valor).
+- **`projeto` e `perfis` em todo instalador** (TA-ADR-042): sigla de Projetos (vazio = todos
+  os projetos) e códigos de Perfis (vazio = todos), como no WiFi. Sigla ou código que não é
+  Projeto ou Perfil ativo descarta a linha (`projeto_invalido`, `perfil_invalido`). Sem a tabela
+  correspondente lida, a coluna não é pedida e o campo vem vazio.
 - **`tipo = papel`** (TA-ADR-030): papel de parede do Bench. Exige `arquivo` `.jpg`/`.jpeg`/`.png`,
   `sha256` com 64 hexadecimais e `link` `https://` com host; senão sai em `descartados` com
   `papel_invalido`.

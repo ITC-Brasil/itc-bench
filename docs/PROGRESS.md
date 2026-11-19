@@ -2,6 +2,34 @@
 
 ## ESTADO ATUAL
 
+- **19/11/2026 (noite): branch `chore/bump-0.21.0`, saindo da `develop` (`28155e5`).** Versão
+  **0.21.0** no código e no README, para o release com a nova tela Início (#107) e os programas
+  por projeto (#108); os instaladores de teste dos PRs saíram como 0.20.0, por isso número novo.
+  **Release parado** até existir a coluna `Perfis` (SingleLineText) em Instaladores no NocoDB:
+  sem ela, a API nova faria a sincronização parar (`instaladores:http_400`). Depois: PR
+  `develop` → `main`, tag `v0.21.0`, publicar e apagar as branches dos PRs #107 e #108. O
+  rascunho da v0.20.0 continua sem publicar (decisão do responsável). Lista completa de
+  pendências em `PENDENCIAS.md`, fora do repositório.
+- **19/11/2026 (noite): `feat/programas-por-projeto` na `develop` pelo ITC-Brasil/itc-bench#108
+  (`28155e5`).** Programas por projeto e perfil, como o Wi-Fi (ADR-074, TA-ADR-042): a API manda
+  `projeto` e `perfis` em todo instalador (sigla ou perfil desconhecido descarta a linha); a
+  etapa 6 da Configuração instala só os gerais e os do projeto da unidade que valem para o
+  perfil (e some sem nenhum); a tela Programas abre em "Projeto desta máquina", com "Todos os
+  projetos" e a coluna Para. Doc em `docs/modules/programas-por-projeto.md`, roteiro 8.8f e
+  10.29, auditoria em `docs/security/2026-11-19-programas-por-projeto.md`.
+  **Pendente no NocoDB:** criar a coluna `Perfis` (SingleLineText) em Instaladores.
+  Release na entrada acima (0.21.0).
+- **19/11/2026 (noite): `feat/inicio-visual` na `develop` pelo ITC-Brasil/itc-bench#107
+  (`e28c1f8`).** Nova tela Início (ADR-073), pelo design aprovado: grade de 4 colunas iguais, cartão
+  Máquina com desenho do notebook, Configuração com anel, indicadores de Disco, Bateria,
+  Processador e Memória (dados novos no `ler.ps1`), Alertas com ícone e botão da tela que
+  resolve, Último diagnóstico e Ações rápidas. Cores novas na `Paleta` (`anel`, `ok_fundo`,
+  `err_fundo`). Doc em `docs/modules/inicio-visual.md`, roteiro 3.6a a 3.6c, auditoria em
+  `docs/security/2026-11-19-inicio-visual.md`, capturas em `.conversa/`.
+  A **v0.20.0** (ADR-071, ADR-072) está na `main` (`9988e3c`) com a tag criada; o rascunho da
+  Release está conferido e espera o responsável publicar. Instalador de teste do #107 testado
+  pelo responsável. Também: saúde da bateria e ciclos pelo `powercfg`, Windows 10 ou 11 pelo
+  build e leitura automática da Configuração (roteiro 3.6a a 3.6d).
 - **19/11/2026 (fim da tarde): branch `feat/preparacao-contas-rodar`, saindo da `develop`
   (`f4450ca`), sem commit.** Configuração e Manutenção (ADR-071): o Rodar usa as etapas
   marcadas na hora do clique (bug: a desmarcada depois de ler rodava) e não exige mais "Ler
@@ -13,8 +41,8 @@
   código e no README (bump; a última publicada é a v0.18.0).
   Doc em `docs/modules/preparacao-contas-rodar.md`, roteiro 10.25 a 10.28, auditoria em
   `docs/security/2026-11-19-preparacao-contas-rodar.md`. Capturas em `.conversa/`.
-  **Próximo passo:** commit, push e PR para a `develop` quando o responsável liberar; depois,
-  release para a `main`, tag `v0.20.0`, publicar o rascunho da Release e o roteiro 10.25 a
+  Entrou pelo ITC-Brasil/itc-bench#105 (`develop`) e pelo release ITC-Brasil/itc-bench#106
+  (`main` `9988e3c`, tag `v0.20.0`). Falta: publicar o rascunho da Release e o roteiro 10.25 a
   10.28 em máquina real.
 - **19/11/2026 (tarde): nenhuma branch de código em andamento.** `main` (`33f4ce7`) com o código
   atual; a `develop` tem a mais só documentação (`PROGRESS.md`). Entraram na `develop` o ITC-Brasil/itc-bench#99 (TA-ADR-041,

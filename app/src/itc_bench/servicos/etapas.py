@@ -409,11 +409,8 @@ class Programas:
     id: str = "programas"
 
     def _itens(self) -> list[programas.Item]:
-        return [
-            i
-            for i in programas.listar(self.ctx.cadastros)
-            if i.linha.categoria == "Programas" and not i.bloqueio and not i.interativo
-        ]
+        # ADR-074: só os programas do projeto da unidade (e os gerais) que valem para o perfil.
+        return itens_programas(self.ctx.cadastros, self.ctx.unidade, self.ctx.perfil or None)
 
     def _falta(self) -> list[programas.Item]:
         linhas, _ = programas.situacao(self._itens())
@@ -423,7 +420,7 @@ class Programas:
         if motivo := _sem(self.ctx, cadastro=True):
             return _bloq(motivo)
         if not self._itens():
-            return Leitura("feito", "Nenhum programa no cadastro.")
+            return Leitura("feito", "Nenhum programa para o projeto e o perfil.")
         falta = self._falta()
         return (
             Leitura("pendente", f"{len(falta)} programa(s) a instalar")
@@ -708,7 +705,22 @@ def ocultas(cadastros: Cadastros | None, unidade: str | None, perfil: str = "") 
     # ADR-065: sem rede para o projeto e o perfil (ou em bancada), a 3 também some.
     if cadastros is not None and not cadastros.redes_para(unidade, perfil or None):
         fora.add("wifi")
+    # ADR-074: sem programa para o projeto e o perfil, a 6 também some.
+    if cadastros is not None and not itens_programas(cadastros, unidade, perfil or None):
+        fora.add("programas")
     return frozenset(fora)
+
+
+def itens_programas(
+    cadastros: Cadastros | None, unidade: str | None, perfil: str | None
+) -> list[programas.Item]:
+    """Programas que a etapa 6 instala nesta máquina: categoria Programas, sem bloqueio e
+    silenciosos, do projeto da unidade (ou gerais) e do perfil (ADR-074)."""
+    return [
+        i
+        for i in programas.listar(cadastros, unidade, perfil)
+        if i.linha.categoria == "Programas" and not i.bloqueio and not i.interativo
+    ]
 
 
 def ocultas_manutencao() -> frozenset[str]:
