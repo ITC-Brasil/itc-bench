@@ -2,8 +2,8 @@
 
 ## ESTADO ATUAL
 
-- **19/11/2026 (tarde): nenhuma branch de código em andamento.** `develop` (`3bc8172`) e `main`
-  (`33f4ce7`) com o mesmo conteúdo. Entraram na `develop` o ITC-Brasil/itc-bench#99 (TA-ADR-041,
+- **19/11/2026 (tarde): nenhuma branch de código em andamento.** `main` (`33f4ce7`) com o código
+  atual; a `develop` tem a mais só documentação (`PROGRESS.md`). Entraram na `develop` o ITC-Brasil/itc-bench#99 (TA-ADR-041,
   Projetos e Perfis falham sozinhas, campo `avisos`) e o ITC-Brasil/itc-bench#100 (ADR-070,
   tabela e Ids das linhas descartadas no aviso e no log), e na `main` o release
   ITC-Brasil/itc-bench#101. O `api-deploy` publicou a API (health check ok no commit `33f4ce7`).
@@ -13,16 +13,16 @@
   do responsável).
   **Pendente com o responsável:**
   - confirmar se o id de Projetos no `api/.env` foi corrigido;
-  - NocoDB, 15 linhas descartadas: perfil `coordenacao` inativo (9 redes Coordenação), WiFi Id 5
-    (`perfil_invalido`) e Id 34 (`sem_ssid`), papéis de parede Id 8, 12, 19 e 20 sem `Link`,
-    `Nome` vazio nos perfis;
+  - conferir o `Nome` dos perfis (vazio em 18/11; o Bench mostra o código);
   - checks obrigatórios na `main` e na `develop`: hoje nenhuma das duas tem proteção, e o #101
     entrou antes de o CI terminar (proposta com o chat de planejamento);
   - bump e tag do Bench;
   - Bench mostrar os `avisos` da API (fora de escopo por enquanto).
   **Próximo passo:** o responsável decidir a proposta de checks obrigatórios; com a liberação,
-  ADR e PR dos workflows para a `develop`. Em paralelo, as correções no NocoDB e conferir a
-  sincronização em Configurações › Sincronizar agora.
+  ADR e PR dos workflows para a `develop`.
+  **Resolvido em 19/11:** as 15 linhas descartadas no NocoDB (perfil `coordenacao` inativo,
+  WiFi Id 5 e 34, papéis de parede Id 8, 12, 19 e 20 sem `Link`) foram corrigidas pelo
+  responsável.
 - **19/11/2026: branch `feat/tabelas-opcionais`, saindo da `develop`.**
   Projetos e Perfis falham sozinhas: erro numa delas não para a sincronização; a API segue sem
   a tabela e manda `avisos` (`projetos:http_404`) no `GET /v1/bench/cadastros` (TA-ADR-041). A
