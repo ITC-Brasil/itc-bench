@@ -493,7 +493,7 @@ def test_projetos_opcional_e_unidade_aponta_pela_sigla(settings, fake, caplog):
 
 def test_papel_por_projeto(settings, fake, caplog):
     """TA-ADR-035: papel row with Projeto (read only with the Projetos table); unknown sigla
-    drops the row; other Tipos ignore the column."""
+    drops the row. Since TA-ADR-042 the same goes for every Tipo (Id 5, winget)."""
     fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
     base = {"Programa": "Papel", "Tipo": "papel", "Arquivo": "p.jpg", "Link": "https://exemplo.invalid/p.jpg", "Ativo": True}
     fake.dados["mIns"] += [
@@ -508,8 +508,53 @@ def test_papel_por_projeto(settings, fake, caplog):
         com = nocodb_cadastros.ler(
             configurar(settings, nocodb_tabela_projetos="mPro"), httpx.MockTransport(fake.handler)
         )
-    assert {i["id"]: i["projeto"] for i in com["instaladores"]} == {1: "", 2: "ABC", 4: "", 5: ""}
+    assert {i["id"]: i["projeto"] for i in com["instaladores"]} == {1: "", 2: "ABC", 4: ""}
     assert "Id 3 descartado: projeto_invalido" in caplog.text
+    assert "Id 5 descartado: projeto_invalido" in caplog.text
+
+
+def test_programas_por_projeto_e_perfis(settings, fake, caplog):
+    """TA-ADR-042: every Instaladores row may name a Projeto and Perfis, like WiFi. Without the
+    tables read, the columns are not asked and the rows go to everyone."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    fake.dados["mPer"] = [
+        {"Id": 1, "Codigo": "aluno", "Nome": "Aluno", "Etapas": "1,6", "Ativo": True},
+        {"Id": 2, "Codigo": "pedagogo", "Nome": "Pedagogo", "Etapas": "6", "Ativo": True},
+    ]
+    base = {"Tipo": "winget", "Ativo": True}
+    fake.dados["mIns"] += [
+        {**base, "Id": 10, "Programa": "Geral", "Identificador": "Ex.Geral"},
+        {**base, "Id": 11, "Programa": "Do projeto", "Identificador": "Ex.Projeto", "Projeto": "ABC"},
+        {**base, "Id": 12, "Programa": "Dois perfis", "Identificador": "Ex.Perfis", "Perfis": "Aluno; pedagogo"},
+        {**base, "Id": 13, "Programa": "Perfil errado", "Identificador": "Ex.Errado", "Perfis": "professor"},
+        {**base, "Id": 14, "Programa": "Projeto errado", "Identificador": "Ex.Outro", "Projeto": "XYZ"},
+    ]
+    pedidos = []
+    original = fake.handler
+
+    def handler(request):
+        if request.url.path.split("/")[-2] == "mIns":
+            pedidos.append(request.url.params["fields"].split(","))
+        return original(request)
+
+    sem = nocodb_cadastros.ler(configurar(settings), httpx.MockTransport(handler))
+    assert all("Perfis" not in p and "Projeto" not in p for p in pedidos)
+    por_id = {i["id"]: (i["projeto"], i["perfis"]) for i in sem["instaladores"]}
+    assert por_id[11] == ("", []) and por_id[13] == ("", [])  # sem as tabelas: vale para todos
+    pedidos.clear()
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        com = nocodb_cadastros.ler(
+            configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer"),
+            httpx.MockTransport(handler),
+        )
+    assert pedidos and all("Perfis" in p and "Projeto" in p for p in pedidos)
+    por_id = {i["id"]: (i["projeto"], i["perfis"]) for i in com["instaladores"]}
+    assert por_id[10] == ("", [])
+    assert por_id[11] == ("ABC", [])
+    assert por_id[12] == ("", ["aluno", "pedagogo"])
+    assert 13 not in por_id and 14 not in por_id
+    assert "Id 13 descartado: perfil_invalido" in caplog.text
+    assert "Id 14 descartado: projeto_invalido" in caplog.text
 
 
 def test_perfis_validados(settings, fake, caplog):

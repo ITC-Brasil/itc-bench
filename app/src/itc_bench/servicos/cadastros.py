@@ -62,7 +62,10 @@ class Instalador:
     argumentos: str = ""
     deteccao: str = ""
     modo: str = "quiosque"
-    projeto: str = ""  # só no papel (ADR-057): sigla do projeto; vale para as unidades dele
+    # Sigla do projeto (papel: ADR-057; programas: ADR-074); vazio = todos os projetos.
+    projeto: str = ""
+    # Códigos dos perfis que recebem o programa (ADR-074, como no Wi-Fi); vazio = todos.
+    perfis: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -135,6 +138,25 @@ class Cadastros:
             saida = [r for r in saida if not r.perfis or perfil in r.perfis]
         return tuple(saida)
 
+    def projeto_da_unidade(self, unidade: str | None) -> str:
+        u = self.unidade_por_codigo(unidade) if unidade else None
+        return u.projeto if u is not None else ""
+
+    def instaladores_para(
+        self, unidade: str | None, perfil: str | None = None
+    ) -> tuple[Instalador, ...]:
+        """Programas desta máquina (ADR-074): os sem projeto e os do projeto da unidade; com
+        `perfil`, só os que valem para ele (`perfis` vazio = todos). Sem unidade (bancada), só os
+        sem projeto. Diferente do Wi-Fi, programa sem projeto vale para todas as máquinas, como
+        antes."""
+        projeto = self.projeto_da_unidade(unidade)
+        saida = [
+            i for i in self.instaladores if not i.projeto or (projeto and i.projeto == projeto)
+        ]
+        if perfil:
+            saida = [i for i in saida if not i.perfis or perfil in i.perfis]
+        return tuple(saida)
+
     def unidade_por_codigo(self, codigo: str | None) -> Unidade | None:
         return next((u for u in self.unidades if u.codigo == codigo), None)
 
@@ -184,6 +206,7 @@ def _de_dados(registro: dict[str, Any]) -> Cadastros:
                 str(i.get("deteccao") or ""),
                 str(i.get("modo") or "quiosque"),
                 str(i.get("projeto") or ""),
+                tuple(str(p) for p in i.get("perfis") or ()),
             )
             for i in dados["instaladores"]
         ),

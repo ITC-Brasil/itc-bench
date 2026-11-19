@@ -12,6 +12,7 @@ from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -39,6 +40,13 @@ AJUDA = (
     "Instaladores do cadastro. GLPI Agent, RustDesk e AnyDesk ficam em Acesso remoto. O MCPR "
     "(ferramenta de remoção do McAfee) não aparece aqui nem é instalado na Preparação: ele "
     "só serve para remover o McAfee.\n\n"
+    "Projeto e perfis\n"
+    "Cada programa do cadastro pode ter Projeto e Perfis (colunas de Instaladores, como no "
+    "Wi-Fi). Sem Projeto, vale para todas as máquinas; com Projeto, só para as unidades desse "
+    "projeto. Sem Perfis, vale para todos os perfis; com Perfis, a Configuração só instala nos "
+    "perfis listados. A tela abre sempre em Projeto desta máquina (os gerais e os do projeto da "
+    "unidade); Todos os projetos mostra o cadastro inteiro. A coluna Para mostra o projeto e os "
+    "perfis de cada programa. Máquina em bancada (sem unidade) vê só os programas sem projeto.\n\n"
     "Instalar\n"
     "1. Filtre pelas abas ou pela busca e marque os itens.\n"
     "2. Clique em Instalar. A confirmação mostra, item a item, a origem, o modo (silencioso ou "
@@ -98,6 +106,17 @@ AJUDA_REMOVER = (
 
 ABAS = ("Todos", "Programas", "Jogos", "Atalhos web", "Instalados")
 ORIGEM = {"instalador": "instalador", "winget": "winget", "webapp": "atalho web"}
+# ADR-074: a tela abre sempre nos programas desta máquina (sem projeto e do projeto da unidade).
+ESCOPOS = ("Projeto desta máquina", "Todos os projetos")
+
+
+def _para(linha: Any) -> str:
+    """Coluna Para: projeto e perfis do programa (vazio = todos)."""
+    projeto = linha.projeto or "todos os projetos"
+    perfis = ", ".join(linha.perfis) if linha.perfis else "todos os perfis"
+    return f"{projeto} · {perfis}"
+
+
 SITUACAO = {
     "instalado": "instalado",
     "desatualizado": "desatualizado",
@@ -278,12 +297,22 @@ class _Base(QWidget):
 
 class PainelProgramas(_Base):
     titulo = "Programas"
-    colunas = ("Programa", "Origem", "Versão", "Instalada", "Situação")
+    colunas = ("Programa", "Origem", "Versão", "Instalada", "Situação", "Para")
     verbo = "Instalar"
 
-    def __init__(self, admin: bool, obter_cadastros: Callable[[], Cadastros | None]) -> None:
+    def __init__(
+        self,
+        admin: bool,
+        obter_cadastros: Callable[[], Cadastros | None],
+        obter_unidade: Callable[[], str | None] = lambda: None,
+    ) -> None:
         super().__init__(admin)
         self.obter_cadastros = obter_cadastros
+        self.obter_unidade = obter_unidade
+        self.escopo = QComboBox()
+        self.escopo.addItems(ESCOPOS)
+        self.escopo.currentIndexChanged.connect(lambda _i: self.carregar())
+        self.topo.insertWidget(1, self.escopo)
         self.linhas: list[pg.Linha] = []
         self.origens: dict[int, Path] = {}
         self.escolher = QPushButton("Escolher arquivo…")
@@ -298,10 +327,28 @@ class PainelProgramas(_Base):
         self.tabela.itemSelectionChanged.connect(self._contar)
         self._montar()
 
+    def showEvent(self, evento: QShowEvent) -> None:
+        # ADR-074: sempre abre em "Projeto desta máquina"; unidade trocada relê.
+        if not self.ocupado and (
+            self.escopo.currentIndex() != 0 or self.obter_unidade() != self._unidade_lida
+        ):
+            self.escopo.blockSignals(True)
+            self.escopo.setCurrentIndex(0)
+            self.escopo.blockSignals(False)
+            self.lido = False
+        super().showEvent(evento)
+
+    _unidade_lida: str | None = None
+
+    def da_maquina(self) -> bool:
+        return self.escopo.currentIndex() == 0
+
     def carregar(self) -> None:
         self._ocupar(True)
         self.estado.setText("Lendo a situação…")
-        itens = pg.listar(self.obter_cadastros())
+        self._unidade_lida = self.obter_unidade()
+        unidade = self._unidade_lida if self.da_maquina() else pg.TODAS
+        itens = pg.listar(self.obter_cadastros(), unidade)
         tarefa.iniciar(lambda: pg.situacao(itens), self._recebeu, self._falhou)
 
     def _recebeu(self, dados: tuple[list[pg.Linha], str]) -> None:
@@ -312,6 +359,17 @@ class PainelProgramas(_Base):
             avisos.append("Sem cadastros: conecte, entre e sincronize.")
         if sem_winget:
             avisos.append(sem_winget)
+        if self.da_maquina():
+            unidade = self._unidade_lida
+            cad = self.obter_cadastros()
+            projeto = cad.projeto_da_unidade(unidade) if cad is not None else ""
+            if not unidade:
+                avisos.append(
+                    "Máquina em bancada: só os programas sem projeto. Escolha a unidade em "
+                    "Configurações ou use Todos os projetos."
+                )
+            elif projeto:
+                avisos.append(f"Programas gerais e do projeto {projeto}.")
         if not self.admin:
             avisos.append("Sem administrador: só leitura.")
         self.estado.setText(" ".join(avisos))
@@ -325,6 +383,7 @@ class PainelProgramas(_Base):
             self.tabela.setItem(r, 2, _celula(item.linha.versao))
             self.tabela.setItem(r, 3, _celula(linha.instalada))
             self.tabela.setItem(r, 4, _celula(SITUACAO[linha.situacao], linha.motivo))
+            self.tabela.setItem(r, 5, _celula(_para(item.linha)))
         self.tabela.blockSignals(False)
         self._filtrar()
         self._ocupar(False)

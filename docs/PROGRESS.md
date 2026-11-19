@@ -2,6 +2,16 @@
 
 ## ESTADO ATUAL
 
+- **19/11/2026 (noite): branch `feat/programas-por-projeto`, saindo da `develop` (`82b5d90`),
+  sem commit.** Programas por projeto e perfil, como o Wi-Fi (ADR-074, TA-ADR-042): a API manda
+  `projeto` e `perfis` em todo instalador (sigla ou perfil desconhecido descarta a linha); a
+  etapa 6 da Configuração instala só os gerais e os do projeto da unidade que valem para o
+  perfil (e some sem nenhum); a tela Programas abre em "Projeto desta máquina", com "Todos os
+  projetos" e a coluna Para. Doc em `docs/modules/programas-por-projeto.md`, roteiro 8.8f e
+  10.29, auditoria em `docs/security/2026-11-19-programas-por-projeto.md`.
+  **Pendente no NocoDB:** criar a coluna `Perfis` (SingleLineText) em Instaladores.
+  **Próximo passo:** commit, push e PR para a `develop` quando o responsável liberar. A
+  `feat/inicio-visual` (ADR-073) segue em paralelo, também sem commit.
 - **19/11/2026 (fim da tarde): branch `feat/preparacao-contas-rodar`, saindo da `develop`
   (`f4450ca`), sem commit.** Configuração e Manutenção (ADR-071): o Rodar usa as etapas
   marcadas na hora do clique (bug: a desmarcada depois de ler rodava) e não exige mais "Ler
