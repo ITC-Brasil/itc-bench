@@ -2,6 +2,20 @@
 
 ## ESTADO ATUAL
 
+- **19/11/2026 (fim da tarde): branch `feat/preparacao-contas-rodar`, saindo da `develop`
+  (`f4450ca`), sem commit.** Configuração e Manutenção (ADR-071): o Rodar usa as etapas
+  marcadas na hora do clique (bug: a desmarcada depois de ler rodava) e não exige mais "Ler
+  situação"; a confirmação lista as contas marcadas; o painel vira "Contas locais", com todas
+  as contas locais e as bloqueadas em cinza com o motivo (regras do ADR-021 sem mudança);
+  Marcar todas / Desmarcar todas, Atualizar e Encerrar sessões… (o mesmo da tela Contas).
+  ADR-072: Suporte, Gestão e Administrador nativo nunca aparecem no painel; a conta do Bench e
+  a logada continuam bloqueadas (liberar a logada fica para depois). **Versão 0.20.0** no
+  código e no README (bump; a última publicada é a v0.18.0).
+  Doc em `docs/modules/preparacao-contas-rodar.md`, roteiro 10.25 a 10.28, auditoria em
+  `docs/security/2026-11-19-preparacao-contas-rodar.md`. Capturas em `.conversa/`.
+  **Próximo passo:** commit, push e PR para a `develop` quando o responsável liberar; depois,
+  release para a `main`, tag `v0.20.0`, publicar o rascunho da Release e o roteiro 10.25 a
+  10.28 em máquina real.
 - **19/11/2026 (tarde): nenhuma branch de código em andamento.** `main` (`33f4ce7`) com o código
   atual; a `develop` tem a mais só documentação (`PROGRESS.md`). Entraram na `develop` o ITC-Brasil/itc-bench#99 (TA-ADR-041,
   Projetos e Perfis falham sozinhas, campo `avisos`) e o ITC-Brasil/itc-bench#100 (ADR-070,

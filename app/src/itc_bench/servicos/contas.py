@@ -82,6 +82,7 @@ class Conta:
     ultima: datetime | None
     perfil: str | None  # caminho do perfil: nunca vai para o log
     carregado: bool
+    bench: bool = False  # a conta que roda o Bench (ADR-071); só para mostrar o motivo
 
     @property
     def nativo(self) -> bool:
@@ -352,6 +353,7 @@ def ler(saida: str) -> Lista:
                 ultima=_data(c.get("ultima")),
                 perfil=c["perfil"] if isinstance(c.get("perfil"), str) else None,
                 carregado=bool(c.get("carregado")),
+                bench=bool(c.get("bench")),
             )
             for c in cru["contas"] or []
         )
@@ -595,6 +597,12 @@ def encerrar_sessao(
             return Feito(False, f"{MENSAGENS['encerrar']}: sessão {n}, código {codigo}")
     log.info("Contas: encerrar sessão %s: ok (%d sessão(ões))", conta.nome, len(numeros))
     return Feito(True, f"Sessão de {conta.nome} encerrada.", (), _avisos(r))
+
+
+def encerrar_sessoes(sids: Iterable[str]) -> Feito:
+    """Encerra as sessões das contas, uma por vez (tela Contas, Configuração e Manutenção)."""
+    feitos = [encerrar_sessao(sid) for sid in sids]
+    return Feito(all(f.ok for f in feitos), "\n".join(f.mensagem for f in feitos))
 
 
 def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:
