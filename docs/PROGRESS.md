@@ -2,17 +2,37 @@
 
 ## ESTADO ATUAL
 
+- **19/11/2026 (tarde): nenhuma branch de código em andamento.** `develop` (`3bc8172`) e `main`
+  (`33f4ce7`) com o mesmo conteúdo. Entraram na `develop` o ITC-Brasil/itc-bench#99 (TA-ADR-041,
+  Projetos e Perfis falham sozinhas, campo `avisos`) e o ITC-Brasil/itc-bench#100 (ADR-070,
+  tabela e Ids das linhas descartadas no aviso e no log), e na `main` o release
+  ITC-Brasil/itc-bench#101. O `api-deploy` publicou a API (health check ok no commit `33f4ce7`).
+  As branches `feat/tabelas-opcionais` e `feat/descartados-ids` foram apagadas (regra nova do
+  responsável: apagar as `feat/...` depois de cada release `develop` → `main`). Versão do Bench
+  ainda **0.19.0**, sem bump e sem tag: o ADR-070 só chega às máquinas com versão nova (decisão
+  do responsável).
+  **Pendente com o responsável:**
+  - confirmar se o id de Projetos no `api/.env` foi corrigido;
+  - NocoDB, 15 linhas descartadas: perfil `coordenacao` inativo (9 redes Coordenação), WiFi Id 5
+    (`perfil_invalido`) e Id 34 (`sem_ssid`), papéis de parede Id 8, 12, 19 e 20 sem `Link`,
+    `Nome` vazio nos perfis;
+  - checks obrigatórios na `main` e na `develop`: hoje nenhuma das duas tem proteção, e o #101
+    entrou antes de o CI terminar (proposta com o chat de planejamento);
+  - bump e tag do Bench;
+  - Bench mostrar os `avisos` da API (fora de escopo por enquanto).
+  **Próximo passo:** o responsável decidir a proposta de checks obrigatórios; com a liberação,
+  ADR e PR dos workflows para a `develop`. Em paralelo, as correções no NocoDB e conferir a
+  sincronização em Configurações › Sincronizar agora.
 - **19/11/2026: branch `feat/tabelas-opcionais`, saindo da `develop`.**
   Projetos e Perfis falham sozinhas: erro numa delas não para a sincronização; a API segue sem
   a tabela e manda `avisos` (`projetos:http_404`) no `GET /v1/bench/cadastros` (TA-ADR-041). A
   busca da tabela pelo nome foi descartada pelo responsável: o id vem só do `api/.env`. API:
   290 testes no container. Auditoria em `docs/security/2026-11-19-tabelas-opcionais.md`.
-  **Próximo passo:** revisão e merge do PR pelo responsável. O Bench mostrar os `avisos` fica
-  para decidir depois.
+  Entrou pelo ITC-Brasil/itc-bench#99 (ver a entrada acima).
 - **18/11/2026 (noite): branch `feat/descartados-ids`, saindo da `develop`.** O aviso de linhas
   ignoradas pela API mostra a tabela e os Ids ("WiFi: Id 12, 37"), e o mesmo resumo vai ao log
   do Bench (ADR-070). Antes só o total, e o texto citava só "sem nome ou unidade inexistente".
-  A API não muda. **Próximo passo:** revisão e merge do PR pelo responsável.
+  A API não muda. Entrou pelo ITC-Brasil/itc-bench#100 (ver a entrada acima).
 - **18/11/2026 (fim do dia): branch `feat/motivo-cadastros`, saindo da `develop`.** A
   `feat/sem-tabelas` (PR #93) e a `feat/com-tabelas` (PR #95) já estão na `develop` e na
   `main` (PRs #94 e #96; API publicada). Depois do deploy das tabelas Projetos e Perfis, a
