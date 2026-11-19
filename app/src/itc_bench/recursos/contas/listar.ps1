@@ -1,5 +1,6 @@
 $admins = Membros-Admin
 $logados = Sids-Logados
+$bench = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $perfis = @{}
 foreach ($p in @(Get-CimInstance -ClassName Win32_UserProfile)) { $perfis[$p.SID] = $p }
 $todas = @(Get-LocalUser)
@@ -12,6 +13,7 @@ $contas = foreach ($u in $todas) {
         fonte = "$($u.PrincipalSource)"; logada = [bool]($logados -contains $sid)
         ultima = $(if ($u.LastLogon) { $u.LastLogon.ToString('o') } else { $null })
         perfil = $(if ($p) { $p.LocalPath } else { $null }); carregado = [bool]($p -and $p.Loaded)
+        bench = [bool]($sid -eq $bench)
     }
 }
 $locais = @($todas | ForEach-Object { $_.SID.Value })

@@ -3566,3 +3566,79 @@ estava incompleta (projeto, perfil, papel de parede e valores fora da lista tamb
   campo ou buscar por ele.
 - Nada de segredo no aviso nem no log: só nome de tabela e número.
 - Roteiro de máquina real 2.3a.
+
+## ADR-071 — Configuração e Manutenção: Rodar pelas marcações atuais, sem leitura obrigatória, e contas locais com motivo
+
+**Status:** Accepted
+**Date:** 2026-11-19 (pedido do responsável, depois de um teste na Configuração)
+**Module:** Pós-16 (emenda ao ADR-023 e ao ADR-062; com o ADR-021 e o ADR-036)
+
+**Context**
+Num teste da Configuração (perfil aluno), a etapa desmarcada depois de "Ler situação" rodou: o
+Rodar usava as etapas fixadas na leitura, enquanto o botão contava pelas marcações atuais. A
+leitura (cerca de 16 s) também era obrigatória para rodar, embora o motor já confira cada etapa
+antes de aplicar. O painel de contas mostrava só as que podiam ser alvo, sem dizer por que as
+outras sumiam, e não havia como encerrar uma sessão sem ir à tela Contas.
+
+**Decision**
+1. **Rodar pelas marcações atuais.** Contador, confirmação e execução usam as etapas marcadas
+   na hora do clique (`_andamento_atual`), com a situação da última leitura quando houver.
+2. **Rodar sem leitura.** O botão fica disponível com etapas marcadas, sem "Ler situação"
+   antes (que continua, opcional). Sem leitura, a confirmação lista as etapas sem o detalhe. O
+   motor confere cada etapa (`_ler`) antes de aplicar e pula as feitas, como antes.
+3. **Confirmação com as contas.** Quando há etapa que age nas contas marcadas (Políticas, USB,
+   Papel de parede, Mouse e teclado, Limpeza de usuários), a confirmação lista as contas
+   marcadas (ou "nenhuma").
+4. **Contas locais com motivo.** O painel passa a "Contas locais" e mostra todas as contas
+   locais (domínio e Microsoft ficam de fora). As que não podem ser alvo ficam cinza, sem
+   caixa habilitada e sem SID no item, com o motivo: administradora, desativada, conta logada,
+   sem perfil, Suporte, Administrador nativo ou conta do Bench. **As regras de alvo não mudam**
+   (ADR-021): `etapas.contas_de_aluno` passa a ser o filtro de `etapas.contas_locais`, e o
+   PowerShell continua conferindo. A listagem das contas ganha o campo `bench` (a conta do
+   processo), só para mostrar o motivo.
+5. **Marcar todas / Desmarcar todas** nas etapas e nas contas (nas contas, só nas que podem ser
+   alvo).
+6. **Atualizar** relê as contas, mantém as marcações das que continuam e marca as que passaram
+   a poder ser alvo; desativado enquanto ocupado.
+7. **Encerrar sessões…** na Configuração e na Manutenção: o mesmo diálogo e a mesma confirmação
+   da tela Contas (`ui.contas.pedir_encerrar`, `contas.encerrar_sessoes`), com as mesmas
+   recusas (sessão 0 e a do Bench, ADR-049). Depois, a lista de contas é relida.
+
+**Alternatives considered**
+- Manter a leitura obrigatória e só corrigir o contador: continuaria custando 16 s por rodada
+  sem ganho de segurança, porque o motor já lê antes de aplicar.
+- Esconder as contas bloqueadas: era o comportamento que deixava o técnico sem saber o motivo.
+
+**Consequences**
+- Retomada depois de reinício continua igual (relê e roda só o que falta).
+- Roteiro de máquina real 10.25 a 10.28.
+
+## ADR-072 — Suporte, Gestão e Administrador nativo fora da lista de contas; versão 0.20.0
+
+**Status:** Accepted
+**Date:** 2026-11-19 (decisão do responsável)
+**Module:** Pós-16 (emenda ao ADR-071)
+
+**Context**
+Com o ADR-071, o painel "Contas locais" da Configuração e da Manutenção passou a mostrar todas
+as contas locais, inclusive Suporte, Gestão e o Administrador nativo, em cinza. Essas três
+nunca são alvo; aparecer, mesmo bloqueadas, só confunde o técnico.
+
+**Decision**
+1. `etapas.escondida`: Suporte (o nome padrão e o cadastrado), Gestão (`Gestão` ou `Gestao`)
+   e o Administrador nativo (RID 500) **nunca aparecem** no painel. As regras de alvo não
+   mudam: as três já eram recusadas (ADR-021, ADR-036, ADR-069).
+2. **A conta do Bench e a conta logada continuam bloqueadas** (decisão do responsável). Foi
+   considerado liberar a conta logada na tela onde o Bench está aberto; fica para depois.
+3. Versão **0.20.0**: desde a v0.18.0 (última publicada) entraram 37 PRs; a 0.19.0 só existiu
+   no código e em instaladores de teste dos PRs, então a release usa um número novo para que
+   essas máquinas recebam a atualização.
+
+**Alternatives considered**
+- Manter as três em cinza com o motivo: mais informação, mas o técnico nunca precisa delas
+  nessas telas.
+- Publicar como 0.19.0: máquinas com instalador de teste 0.19.0 não atualizariam.
+
+**Consequences**
+- A tela Contas continua mostrando as três (lá são gerenciadas).
+- Bump e tag seguem o `docs/BUILD.md`: merge até a `main` e tag `v0.20.0`.
