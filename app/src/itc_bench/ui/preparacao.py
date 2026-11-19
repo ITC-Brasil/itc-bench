@@ -185,6 +185,7 @@ class _Sinais(QObject):
 
 class PainelPreparacao(QWidget):
     selo = Signal(str)
+    leitura = Signal()  # começou ou terminou uma leitura ou execução (o Início se atualiza)
 
     def __init__(
         self,
@@ -207,6 +208,7 @@ class PainelPreparacao(QWidget):
         self.pausar = threading.Event()
         self.ocupado = False
         self.iniciado = False
+        self._auto_pendente = False  # leitura automática esperando as contas (ADR-073)
         self._ocultas_lista: frozenset[str] = frozenset()
         self._lista_contas: contas.Lista | None = None  # última leitura, para Encerrar sessões
         self._elegiveis: set[str] = set()  # SIDs que podiam ser alvo na última leitura
@@ -420,21 +422,45 @@ class PainelPreparacao(QWidget):
                 fora = tuple(e for e in self.desmarcadas() if e not in self._ocultas_lista)
                 self._montar_lista(fora)
             return
-        self.iniciado = True
-        if self.manutencao:
-            self._montar_lista()
-            self._carregar_alunos()
-            return
-        self._carregar_perfis()
-        perfil, aviso = self.perfil_da_unidade()
-        if perfil is not None:
-            self.perfil.setCurrentIndex(self.perfil.findData(perfil.id))
-        self._montar_lista()
-        self.aviso.setText(aviso)
-        self._carregar_alunos()
-        self._ver_guardado()
+        self._iniciar()
 
-    def _carregar_alunos(self, marcar: tuple[str, ...] | None = None) -> None:
+    def _iniciar(self, depois: Callable[[], None] | None = None) -> None:
+        """Primeira montagem: perfil da unidade, lista de etapas e contas. `depois` roda quando
+        as contas chegarem (a leitura das etapas precisa delas)."""
+        self.iniciado = True
+        if not self.manutencao:
+            self._carregar_perfis()
+            perfil, aviso = self.perfil_da_unidade()
+            if perfil is not None:
+                self.perfil.setCurrentIndex(self.perfil.findData(perfil.id))
+        self._montar_lista()
+        if not self.manutencao:
+            self.aviso.setText(aviso)
+        # Sem `depois`, a chamada de antes (os testes trocam _carregar_alunos por um falso).
+        if depois is None:
+            self._carregar_alunos()
+        else:
+            self._carregar_alunos(depois=depois)
+        if not self.manutencao:
+            self._ver_guardado()
+
+    def ler_automatico(self) -> bool:
+        """Lê a situação das etapas em segundo plano, uma vez, quando ninguém leu ainda nesta
+        sessão (pedido pelo Início, ADR-073). Só leitura: nada é aplicado. True se começou."""
+        if self.ocupado or self.andamento is not None:
+            return False
+        if not self.iniciado:
+            self._auto_pendente = True
+            self._iniciar(depois=self.ler)
+        elif self.perfil_atual() is not None:
+            self.ler()
+        else:
+            return False
+        return self.perfil_atual() is not None
+
+    def _carregar_alunos(
+        self, marcar: tuple[str, ...] | None = None, depois: Callable[[], None] | None = None
+    ) -> None:
         """Lê as contas locais (ADR-071). As que não podem ser alvo ficam cinza, sem marcar, com
         o motivo. `marcar`: SIDs a marcar (retomada); sem ele, mantém as marcações de antes e
         marca as que passaram a poder ser alvo."""
@@ -472,8 +498,21 @@ class PainelPreparacao(QWidget):
             if not locais:
                 self.alunos.addItem("Nenhuma conta local.")
             self._ocupar(self.ocupado)
+            if depois is None:
+                return
+            if not self.ocupado and self.andamento is None:
+                depois()
+            elif self._auto_pendente:  # o técnico já leu ou rodou: a automática não precisa
+                self._auto_pendente = False
+                self.leitura.emit()
 
-        tarefa.iniciar(ler, recebeu, lambda m: self._linha(f"Contas não lidas: {m}"))
+        def falhou(m: str) -> None:
+            self._linha(f"Contas não lidas: {m}")
+            if self._auto_pendente:  # sem contas, a leitura automática não começa
+                self._auto_pendente = False
+                self.leitura.emit()
+
+        tarefa.iniciar(ler, recebeu, falhou)
 
     def _marcar_etapas(self, sim: bool) -> None:
         estado = Qt.CheckState.Checked if sim else Qt.CheckState.Unchecked
@@ -570,16 +609,24 @@ class PainelPreparacao(QWidget):
             montar = etapas.montar_manutencao if self.manutencao else etapas.montar
             self.etapas = montar(self.ctx)
 
+    @property
+    def lendo(self) -> bool:
+        """Lendo ou rodando agora, ou com a leitura automática esperando as contas."""
+        return self.ocupado or self._auto_pendente
+
     def ler(self) -> None:
+        self._auto_pendente = False
         perfil = self.perfil_atual()
         if perfil is None:
             self._linha(perfis.SEM_PERFIL)
+            self.leitura.emit()
             return
         self._preparar_ctx()
         self.andamento = prep.novo(perfil, self.desmarcadas())
         andamento, lista = self.andamento, self.etapas
         self._ocupar(True)
         self._linha("Lendo a situação das etapas…")
+        self.leitura.emit()
         tarefa.iniciar(
             lambda: prep.ler_todas(lista, andamento, self.sinais.etapa.emit),
             self._terminou,
@@ -649,10 +696,12 @@ class PainelPreparacao(QWidget):
         if not pendentes and self.guardado is not None:
             retomada.descartar()
             self.guardado = None
+        self.leitura.emit()
 
     def _falhou(self, motivo: str) -> None:
         self._linha(f"Falha: {motivo}")
         self._ocupar(False)
+        self.leitura.emit()
 
     def _etapa_mudou(self, eid: str) -> None:
         if self.andamento is None:

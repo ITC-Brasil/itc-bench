@@ -45,7 +45,8 @@ Configurações › "Aparência do Bench": Claro (padrão) ou Escuro. As paletas
 ficam em `app/src/itc_bench/ui/tema.py`. O claro usa os valores acima, e o escuro reaproveita as
 superfícies escuras do design (#1A2020, #1B1B1B, #2C2C2C), o `--cy5` e os estados clareados do
 log. A barra lateral, a marca e o botão primário são os mesmos nos dois modos. Cor nova vai na
-`Paleta`, nunca direto numa tela.
+`Paleta`, nunca direto numa tela. O ADR-073 acrescentou `anel` (trilha de anéis e barras),
+`ok_fundo` e `err_fundo` (fundo dos selos de ok e de erro), nos dois modos.
 
 ## Texto de ajuda (ADR-038)
 
@@ -63,6 +64,26 @@ A tela Ajuda separa cada `AJUDA*` em seções sozinha. Para isso, o texto segue 
   direito do topo, por último (ADR-040); ações da tela no painel (primária por último).
 - Tabelas com coluna de situação em selo colorido (feito, pendente, não iniciado, atenção, crítico).
 - Log ao vivo em fonte mono com horário.
+
+## Cartão com indicador (ADR-073)
+
+Padrão da tela Início, para usar de novo em telas de resumo:
+- **Grade de colunas iguais** (`QGridLayout`, `setColumnStretch` igual e mínimo por coluna, gutter
+  de 20 px); o cartão não define largura própria (`QSizePolicy.Ignored`), então uma divisão
+  desce reta por todas as faixas.
+- **Cartão** `#inicioCartao`: superfície, borda `linha`, raio 14 px, margem 20 (24 nos largos);
+  em estado crítico, a borda vira `err` (`nivel="critico"`).
+- **Cabeça do indicador**: ícone 20 px em `mute`, rótulo, e à direita o estado em texto curto
+  (Normal, Atenção, Quase cheio, Na tomada) na cor do nível.
+- **Indicadores pintados** com `QPainter` em `ui/indicadores.py`: `Anel` (fração e texto no meio),
+  `Barra` (10 px) e `Bateria`; trilha na cor `anel` da `Paleta`.
+- **Número** em Archivo 800 24 px com algarismos de largura fixa (`tnum`); texto de apoio em
+  `mute`. Dado que não foi lido aparece como "—".
+- **Selos** (`#inicioSelo`) com raio 13 px: neutro em `selecao`, ok em `ok_fundo`, erro em
+  `err_fundo`. Caixas internas com raio 8 a 12 px; botões com raio 8 px.
+- **Ícones de tela** (não de navegação) em `recursos/icones/`, mesmo padrão (grade 24, traço 2
+  px, `butt`/`miter`): `atualizar`, `disco`, `bateria`, `cpu`, `memoria`, `escudo`, `raio`,
+  `inventario`, `lixeira`, `avancar`, `lista`, `ok`, e o desenho `notebook` (164×112).
 
 ## Estados obrigatórios por tela
 

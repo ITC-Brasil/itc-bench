@@ -75,7 +75,7 @@ def test_maquina_sem_texto_localizado():
         return executor.Resultado(0, saida, "", 0.1, False)
 
     m = inicio.maquina(rodar=rodar)
-    assert m.windows == "Windows Home 24H2 build 26100" and m.bateria == 80
+    assert m.windows == "Windows 11 Home 24H2 build 26100" and m.bateria == 80
 
 
 LOG = r"""2026-11-06 10:00:00,123 INFO [tec] itc_bench: Contas: criar Teste01: ok

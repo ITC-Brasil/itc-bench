@@ -345,3 +345,31 @@ def test_manutencao_tem_os_mesmos_botoes(qtbot, monkeypatch):
         assert b.isVisible() or not p.isVisible()
     assert p.b_atualizar.isEnabled() and p.b_encerrar.isEnabled()
     assert p.alvos() == [f"{BASE}1002", f"{BASE}1007"]
+
+
+# ---------------------------------------------------------------- leitura automática (ADR-073)
+
+
+def test_leitura_automatica_le_uma_vez_depois_das_contas(qtbot, monkeypatch):
+    """O Início pede: a Configuração monta (perfil da unidade, contas) e lê, sem aplicar nada."""
+    monkeypatch.setattr(tarefa, "iniciar", lambda f, ok, falha: ok(f()))
+    monkeypatch.setattr(contas, "listar", lambda **k: LISTA)
+    monkeypatch.setattr(ui_prep.PainelPreparacao, "_ver_guardado", lambda self: None)
+    monkeypatch.setattr(ui_prep.PainelPreparacao, "_carregar_alunos", CARREGAR)
+    cad = _cad()
+    p = ui_prep.PainelPreparacao(True, lambda: cad, lambda: "UM-01")
+    qtbot.addWidget(p)
+    p.etapas = [Falsa(e) for e in PERFIL.etapas]
+    sinais = []
+    p.leitura.connect(lambda: sinais.append(p.lendo))
+    assert p.ler_automatico() is True
+    assert p.andamento is not None and p.alvos()  # leu depois de carregar as contas
+    assert p.perfil.currentData() == "administrativo"  # o perfil padrão da unidade
+    assert not _aplicadas(p)  # só leitura
+    assert sinais and sinais[-1] is False  # avisou o fim
+    assert p.ler_automatico() is False  # já leu: não repete
+
+
+def test_leitura_automatica_nao_atropela_quem_esta_rodando(painel):
+    painel._ocupar(True)
+    assert painel.ler_automatico() is False

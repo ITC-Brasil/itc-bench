@@ -3642,3 +3642,66 @@ nunca são alvo; aparecer, mesmo bloqueadas, só confunde o técnico.
 **Consequences**
 - A tela Contas continua mostrando as três (lá são gerenciadas).
 - Bump e tag seguem o `docs/BUILD.md`: merge até a `main` e tag `v0.20.0`.
+
+## ADR-073 — Nova tela Início: grade de 4 colunas, indicadores e processador e memória
+
+**Status:** Accepted
+**Date:** 2026-11-19 (design aprovado pelo responsável, canvas "ITC Bench — nova tela Início")
+**Module:** Pós-16 (emenda ao ADR-023, item 6)
+
+**Context**
+O Início era uma lista de textos em quatro cartões. O responsável aprovou um redesenho com a
+máquina em destaque, indicadores visuais (disco, bateria, processador, memória), alertas com o
+botão da tela que resolve e ações rápidas com ícone, nos modos claro e escuro.
+
+**Decision**
+1. **Grade de 4 colunas iguais** (gutter 20 px) para as três faixas: Máquina (3) + Configuração
+   (1); Disco, Bateria, Processador, Memória (1 cada); Alertas (3) + Último diagnóstico (1). A
+   coluna da direita tem a mesma largura nas três faixas. Mínimo de 220 px por coluna: cabe em
+   1366x768 com a barra lateral, sem rolagem horizontal.
+2. **Cabeçalho próprio** ("ITC BENCH", "Início", "Lido às", Atualizar, "?"): a `Tela` da janela
+   esconde o topo e a moldura do painel (`Tela.cabecalho_proprio`); o "?" da tela abre a mesma
+   ajuda (ADR-007).
+3. **Dados novos** no trecho que o Início já usa (`recursos/inicio/ler.ps1`): nome do
+   computador, processador (modelo, núcleos, threads, uso no momento) e memória (total
+   instalado, uso no momento, tipo SMBIOS e slots). Só CIM; o Python valida faixas e devolve
+   "—" para o que não vier. O uso de CPU e de RAM sai da mesma leitura (`LoadPercentage`,
+   `FreePhysicalMemory`), sem esperar amostra: a leitura inteira levou 2,6 s numa máquina real.
+4. **Regras de cor**, puras em `servicos/inicio.py`: disco em atenção a partir de 85% usado e
+   crítico abaixo de 10% livre (`LIMITE_DISCO`, o mesmo do alerta); bateria fora da tomada em
+   atenção abaixo de 30% e crítica abaixo de 15%.
+5. **Indicadores pintados** com `QPainter` (`ui/indicadores.py`: `Anel`, `Barra`, `Bateria`,
+   `Desenho`); ícones SVG novos no padrão existente; cores só da `Paleta`, que ganhou `anel`,
+   `ok_fundo` e `err_fundo` nos dois modos.
+6. **Último diagnóstico** continua com a fila de envio: o Bench não guarda a data do último
+   laudo, e não foi criada rota nova na API.
+7. Técnico da sessão no cartão Máquina (o login de quem entrou); selo "Tudo certo" só quando não
+   há alerta **e** tudo foi lido (senão, "Leitura incompleta").
+8. **Windows 10 ou 11** pelo build (22000 ou mais = 11), porque o `ProductName` do registro diz
+   "Windows 10" também no 11: o campo vira "Windows 11 Pro 26H2 build 26300" (pedido do
+   responsável; antes só "Windows Pro").
+9. **Saúde da bateria** (pedido do responsável): carga máxima de hoje sobre a capacidade de
+   fábrica, em %, até 100, e os ciclos de carga; atenção abaixo de 80%, crítica abaixo de 50%.
+   Fonte principal: o relatório XML do `powercfg /batteryreport` (o mesmo que o técnico gera
+   no Windows), que funciona sem administrador e leva cerca de 0,2 s; o arquivo vai para o TEMP
+   com nome aleatório e é apagado na hora, e o XML é lido sem resolver entidades externas
+   (`XmlResolver = $null`). Reserva: `root\wmi` (`BatteryStaticData`, só com administrador, e
+   `BatteryFullChargedCapacity`). Sem as duas, "Saúde: —". Sem bateria, a linha some.
+   Conferido numa máquina real contra o relatório do Windows: 38.000 e 35.260 mWh, 45 ciclos →
+   "Saúde: 93% · 45 ciclos".
+10. **Leitura automática da Configuração** (pedido do responsável): na primeira leitura do
+    Início na sessão, sem leitura anterior, a tela Configuração monta (perfil padrão da unidade,
+    contas locais) e lê a situação em segundo plano (`PainelPreparacao.ler_automatico`); o
+    cartão mostra "Lendo a situação das etapas…" e se atualiza pelo sinal `leitura`. Só lê
+    (`prep.ler_todas`), nunca aplica; não repete se já houver leitura e não começa com a tela
+    ocupada. Enquanto lê, os botões da Configuração ficam ocupados, como numa leitura manual.
+
+**Alternatives considered**
+- Larguras diferentes por faixa: o responsável pediu a divisão reta.
+- Uso de CPU por amostra de 1 s (contador de desempenho): mais preciso, mas atrasa a leitura.
+- Buscar a data do último laudo na API: exigiria rota nova; fica para depois, se pedido.
+
+**Consequences**
+- Archivo 700 não está embutido (só 400, 600 e 800): os títulos de 28 e 17 px usam 800.
+- O nome do computador passa a aparecer no Início (já aparecia no rodapé e na Identificação).
+- Roteiro de máquina real 3.6a a 3.6c.
