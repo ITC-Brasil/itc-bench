@@ -2,16 +2,23 @@
 
 ## ESTADO ATUAL
 
-- **19/11/2026 (noite): branch `feat/programas-por-projeto`, PR ITC-Brasil/itc-bench#108
-  para a `develop`.** Programas por projeto e perfil, como o Wi-Fi (ADR-074, TA-ADR-042): a API manda
+- **19/11/2026 (noite): branch `chore/bump-0.21.0`, saindo da `develop` (`28155e5`).** Versão
+  **0.21.0** no código e no README, para o release com a nova tela Início (#107) e os programas
+  por projeto (#108); os instaladores de teste dos PRs saíram como 0.20.0, por isso número novo.
+  **Release parado** até existir a coluna `Perfis` (SingleLineText) em Instaladores no NocoDB:
+  sem ela, a API nova faria a sincronização parar (`instaladores:http_400`). Depois: PR
+  `develop` → `main`, tag `v0.21.0`, publicar e apagar as branches dos PRs #107 e #108. O
+  rascunho da v0.20.0 continua sem publicar (decisão do responsável). Lista completa de
+  pendências em `PENDENCIAS.md`, fora do repositório.
+- **19/11/2026 (noite): `feat/programas-por-projeto` na `develop` pelo ITC-Brasil/itc-bench#108
+  (`28155e5`).** Programas por projeto e perfil, como o Wi-Fi (ADR-074, TA-ADR-042): a API manda
   `projeto` e `perfis` em todo instalador (sigla ou perfil desconhecido descarta a linha); a
   etapa 6 da Configuração instala só os gerais e os do projeto da unidade que valem para o
   perfil (e some sem nenhum); a tela Programas abre em "Projeto desta máquina", com "Todos os
   projetos" e a coluna Para. Doc em `docs/modules/programas-por-projeto.md`, roteiro 8.8f e
   10.29, auditoria em `docs/security/2026-11-19-programas-por-projeto.md`.
   **Pendente no NocoDB:** criar a coluna `Perfis` (SingleLineText) em Instaladores.
-  **Próximo passo:** merge do #108 na `develop`; depois, release para a `main` com bump
-  para **0.21.0** (os instaladores de teste dos PRs saíram como 0.20.0).
+  Release na entrada acima (0.21.0).
 - **19/11/2026 (noite): `feat/inicio-visual` na `develop` pelo ITC-Brasil/itc-bench#107
   (`e28c1f8`).** Nova tela Início (ADR-073), pelo design aprovado: grade de 4 colunas iguais, cartão
   Máquina com desenho do notebook, Configuração com anel, indicadores de Disco, Bateria,
