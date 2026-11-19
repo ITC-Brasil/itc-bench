@@ -157,7 +157,7 @@ class Tela(QWidget):
         textos.addWidget(trilha)
         textos.addWidget(self.titulo)
         textos.addStretch()
-        topo = QFrame()
+        topo = self.topo = QFrame()
         topo.setObjectName("topo")
         topo.setFixedHeight(80)  # 64 deixava o título encostado na linha de baixo
         lt = QHBoxLayout(topo)
@@ -166,7 +166,7 @@ class Tela(QWidget):
         lt.addStretch()
         lt.addWidget(self.botao_ajuda, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        painel = QFrame()
+        painel = self.painel = QFrame()
         painel.setObjectName("painel")
         self.corpo = QVBoxLayout(painel)
         self.corpo.setContentsMargins(20, 20, 20, 20)
@@ -201,6 +201,15 @@ class Tela(QWidget):
         self.ajuda = PopupAjuda(self, item.titulo)
         self.ajuda.installEventFilter(self)
         self.botao_ajuda.toggled.connect(self._alternar_ajuda)
+
+    def cabecalho_proprio(self) -> None:
+        """A tela desenha o próprio cabeçalho e os cartões (Início, ADR-073): sem o topo com
+        título e "?" e sem a moldura do painel. A ajuda continua por `botao_ajuda.toggle()`."""
+        self.topo.hide()
+        self.painel.setObjectName("painelLivre")
+        self.corpo.setContentsMargins(0, 0, 0, 0)
+        self.painel.style().unpolish(self.painel)
+        self.painel.style().polish(self.painel)
 
     def _alternar_ajuda(self, ligado: bool) -> None:
         if ligado:
@@ -822,7 +831,11 @@ class Janela(QMainWindow):
             lambda: self.preparacao.perfil_da_unidade()[0],
             lambda: self.preparacao.andamento,
             mutex_alheio=self.mutex_alheio,
+            obter_tecnico=lambda: self.entrada.login if self.entrada is not None else "",
+            ler_preparacao=lambda: self.preparacao.ler_automatico(),
+            obter_lendo=lambda: self.preparacao.lendo,
         )
+        self.preparacao.leitura.connect(self.inicio.mostrar_preparacao)
         self.inicio.abrir.connect(self._abrir_do_inicio)
         self.inicio.criticos.connect(self._selo_alertas)
         self.limpeza = PainelLimpeza(self.admin, lambda: self.cadastros)
@@ -836,6 +849,8 @@ class Janela(QMainWindow):
             ("ajuda", self.ajuda_geral),
         ):
             self._trocar(chave, painel)
+        self.telas["inicio"].cabecalho_proprio()
+        self.inicio.ajuda.connect(self.telas["inicio"].botao_ajuda.toggle)
         for chave, tela in self.telas.items():
             tela.ajuda.texto.setText(TEXTOS.get(chave, TEXTO_AJUDA))
             tela.ajuda.ver_tudo.clicked.connect(lambda _c=False, k=chave: self._ver_ajuda(k))

@@ -2,6 +2,16 @@
 
 ## ESTADO ATUAL
 
+- **19/11/2026 (noite): branch `feat/inicio-visual`, saindo da `develop` (`82b5d90`), sem
+  commit.** Nova tela Início (ADR-073), pelo design aprovado: grade de 4 colunas iguais, cartão
+  Máquina com desenho do notebook, Configuração com anel, indicadores de Disco, Bateria,
+  Processador e Memória (dados novos no `ler.ps1`), Alertas com ícone e botão da tela que
+  resolve, Último diagnóstico e Ações rápidas. Cores novas na `Paleta` (`anel`, `ok_fundo`,
+  `err_fundo`). Doc em `docs/modules/inicio-visual.md`, roteiro 3.6a a 3.6c, auditoria em
+  `docs/security/2026-11-19-inicio-visual.md`, capturas em `.conversa/`.
+  A **v0.20.0** (ADR-071, ADR-072) está na `main` (`9988e3c`) com a tag criada; o rascunho da
+  Release está conferido e espera o responsável publicar.
+  **Próximo passo:** commit, push e PR para a `develop` quando o responsável liberar.
 - **19/11/2026 (fim da tarde): branch `feat/preparacao-contas-rodar`, saindo da `develop`
   (`f4450ca`), sem commit.** Configuração e Manutenção (ADR-071): o Rodar usa as etapas
   marcadas na hora do clique (bug: a desmarcada depois de ler rodava) e não exige mais "Ler
@@ -13,8 +23,8 @@
   código e no README (bump; a última publicada é a v0.18.0).
   Doc em `docs/modules/preparacao-contas-rodar.md`, roteiro 10.25 a 10.28, auditoria em
   `docs/security/2026-11-19-preparacao-contas-rodar.md`. Capturas em `.conversa/`.
-  **Próximo passo:** commit, push e PR para a `develop` quando o responsável liberar; depois,
-  release para a `main`, tag `v0.20.0`, publicar o rascunho da Release e o roteiro 10.25 a
+  Entrou pelo ITC-Brasil/itc-bench#105 (`develop`) e pelo release ITC-Brasil/itc-bench#106
+  (`main` `9988e3c`, tag `v0.20.0`). Falta: publicar o rascunho da Release e o roteiro 10.25 a
   10.28 em máquina real.
 - **19/11/2026 (tarde): nenhuma branch de código em andamento.** `main` (`33f4ce7`) com o código
   atual; a `develop` tem a mais só documentação (`PROGRESS.md`). Entraram na `develop` o ITC-Brasil/itc-bench#99 (TA-ADR-041,

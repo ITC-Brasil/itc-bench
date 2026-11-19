@@ -86,6 +86,10 @@ Perfil `sala_de_aula` (pré-selecionado pelo `Unidades.PerfilPadrao` da unidade 
 | 3.4 | Pausar e cancelar | Pausa depois da etapa corrente; cancelar não deixa hive carregado nem serviço parado | 13/V4 |
 | 3.5 | Renomear pela Preparação e reiniciar; reabrir com e sem rede, com sessão vencida e offline | Retomada pede login; `preparacao.json` com ACL; no máximo 2 reinícios; arquivo de mais de 24 h ignorado | 13/V5, 08/V2, 08/V9 |
 | 3.6 | Início depois da preparação | Máquina, alertas e selos coerentes com o que foi feito | 13/V7 |
+| 3.6a | Início em 1366x768 e em 1536x864 (escala 100%), modo claro e escuro | Grade de 4 colunas com a coluna da direita reta nas três faixas; nada se sobrepõe nem corta; sem rolagem horizontal; "?" abre a ajuda da tela; Atualizar relê | ADR-073 |
+| 3.6b | Início numa máquina com bateria (na tomada e fora dela) e num desktop sem bateria; conferir Processador e Memória com o Gerenciador de Tarefas; conferir a saúde com `powercfg /batteryreport` (Design Capacity e Full Charge Capacity); numa máquina com Windows 10 e noutra com 11 | Bateria com a carga e "Na tomada"/"Na bateria" (fora da tomada, laranja abaixo de 30% e vermelha abaixo de 15%); "Saúde: N% · C ciclos" igual a Full Charge / Design e Cycle Count do relatório (também em `--dev`, sem administrador); nenhum `itc-bench-bateria-*.xml` sobrando no TEMP; desktop mostra "Sem bateria" e sem linha de saúde; modelo, núcleos, threads, memória total, tipo e slots iguais aos do Windows; campo Windows com "Windows 10 …" ou "Windows 11 …" certo | ADR-073 |
+| 3.6d | Entrar no Bench e ficar no Início, sem abrir a Configuração | O cartão Configuração mostra "Lendo a situação das etapas…" e depois o anel com N/M e as pendentes, sem clicar em nada; nada é aplicado (Registro só com leituras); abrir a Configuração durante a leitura mostra a lista sendo lida | ADR-073 |
+| 3.6c | Encher o disco até menos de 10% livre (arquivo grande) e abrir o Início; depois apagar | Cartão Disco com borda vermelha e "Quase cheio"; alerta "Disco quase cheio" com o botão Limpar temporários, que abre a Limpeza; depois de apagar, volta ao normal | ADR-073 |
 
 ### 4. Diagnóstico
 

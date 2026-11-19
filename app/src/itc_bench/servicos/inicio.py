@@ -5,6 +5,7 @@ Leituras baratas, feitas em tarefa ao abrir e guardadas 60 s. As etapas da prepa
 """
 
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -36,12 +37,49 @@ class Maquina:
     disco_livre: int | None = None
     bateria: int | None = None
     na_tomada: bool | None = None
+    # ADR-073: nome do computador, processador e memória (None ou "" = não lido).
+    nome: str = ""
+    cpu_nome: str = ""
+    cpu_nucleos: int | None = None
+    cpu_threads: int | None = None
+    cpu_uso: int | None = None  # % agora, da leitura
+    mem_total: int | None = None  # bytes instalados
+    mem_uso: int | None = None  # % em uso agora
+    mem_tipo: str = ""  # DDR4, LPDDR5...
+    mem_slots: int | None = None
+    mem_modulos: int | None = None
+    bateria_projeto: int | None = None  # mWh de fábrica (só com administrador)
+    bateria_cheia: int | None = None  # mWh de carga máxima hoje
+    bateria_ciclos: int | None = None  # ciclos de carga (relatório do powercfg)
+
+    @property
+    def bateria_saude(self) -> int | None:
+        """Carga máxima de hoje sobre a de fábrica, em % (até 100), ou None sem as duas."""
+        if not self.bateria_projeto or not self.bateria_cheia:
+            return None
+        return min(100, round(100 * self.bateria_cheia / self.bateria_projeto))
+
+    @property
+    def disco_usado(self) -> float | None:
+        """Fração usada do disco do sistema, ou None sem leitura."""
+        if not self.disco_total or self.disco_livre is None:
+            return None
+        return min(1.0, max(0.0, 1 - self.disco_livre / self.disco_total))
+
+    @property
+    def processador(self) -> str:
+        """Modelo curto: `12th Gen Intel(R) Core(TM) i5-1235U` → `Core i5-1235U`."""
+        return cpu_curto(self.cpu_nome)
 
     @property
     def windows(self) -> str:
+        """`Windows 11 Pro 26H2 build 26300`. 10 ou 11 vem do build (22000 ou mais = 11): o
+        ProductName do registro diz "Windows 10" mesmo no 11."""
         edicao = {"Core": "Home", "Professional": "Pro"}.get(self.edicao, self.edicao)
+        build = _int(self.build)
+        geracao = "" if build is None else ("11" if build >= WINDOWS_11 else "10")
         partes = (
-            f"Windows {edicao}".strip(),
+            " ".join(x for x in ("Windows", geracao, edicao) if x),
             self.versao,
             f"build {self.build}" * bool(self.build),
         )
@@ -73,9 +111,85 @@ def _texto(v: Any) -> str:
 
 def _int(v: Any) -> int | None:
     try:
-        return None if v is None else int(v)
+        return None if v is None or isinstance(v, bool) else int(v)
     except (TypeError, ValueError):
         return None
+
+
+def _faixa(v: Any, minimo: int, maximo: int) -> int | None:
+    """Inteiro dentro da faixa; fora dela (saída estranha), None."""
+    n = _int(v)
+    return n if n is not None and minimo <= n <= maximo else None
+
+
+# ---------------------------------------------------------------- regras dos indicadores (ADR-073)
+
+LIMITE_DISCO = 0.10  # livre abaixo disso: alerta de disco e cartão "Quase cheio"
+DISCO_ATENCAO = 0.85  # usado a partir disso: anel em atenção
+BATERIA_CRITICA = 15  # % abaixo disso, fora da tomada: crítico
+BATERIA_ATENCAO = 30
+SAUDE_ATENCAO = 80  # % da capacidade de fábrica: abaixo disso, bateria gasta
+SAUDE_CRITICA = 50  # abaixo disso, pede troca
+WINDOWS_11 = 22000  # primeiro build do Windows 11
+# SMBIOS 3.x, tipo de memória (Win32_PhysicalMemory.SMBIOSMemoryType).
+TIPOS_MEMORIA = {
+    20: "DDR",
+    21: "DDR2",
+    24: "DDR3",
+    26: "DDR4",
+    27: "LPDDR",
+    28: "LPDDR2",
+    29: "LPDDR3",
+    30: "LPDDR4",
+    34: "DDR5",
+    35: "LPDDR5",
+}
+Nivel3 = Literal["normal", "atencao", "critico"]
+
+
+def nivel_disco(usado: float | None) -> Nivel3:
+    """Normal, atenção (85% usado) ou crítico (o mesmo limite do alerta: menos de 10% livre)."""
+    if usado is None:
+        return "normal"
+    if round(1 - usado, 9) < LIMITE_DISCO:  # 1 - 0.9 = 0.0999…: arredonda antes de comparar
+        return "critico"
+    return "atencao" if usado >= DISCO_ATENCAO else "normal"
+
+
+def nivel_bateria(carga: int | None, na_tomada: bool | None) -> Nivel3:
+    """Carga baixa só preocupa fora da tomada."""
+    if carga is None or na_tomada:
+        return "normal"
+    if carga < BATERIA_CRITICA:
+        return "critico"
+    return "atencao" if carga < BATERIA_ATENCAO else "normal"
+
+
+def nivel_saude(saude: int | None) -> Nivel3:
+    """Saúde da bateria: atenção abaixo de 80% da capacidade de fábrica, crítica abaixo de 50%."""
+    if saude is None:
+        return "normal"
+    if saude < SAUDE_CRITICA:
+        return "critico"
+    return "atencao" if saude < SAUDE_ATENCAO else "normal"
+
+
+def tipo_memoria(codigo: int | None) -> str:
+    return TIPOS_MEMORIA.get(codigo or 0, "")
+
+
+_MARCAS = re.compile(r"\((?:R|TM|C)\)|[®™]", re.IGNORECASE)
+_RUIDO = re.compile(
+    r"\b\d+(?:st|nd|rd|th) Gen\b|\bIntel\b|\bAMD\b|\bCPU\b|\bProcessor\b|"
+    r"\bwith Radeon(?: \w+)* Graphics\b|@.*$",
+    re.IGNORECASE,
+)
+
+
+def cpu_curto(nome: str) -> str:
+    """Tira marcas, fabricante, geração, "CPU", gráficos e frequência do nome do processador."""
+    curto = _RUIDO.sub(" ", _MARCAS.sub("", nome))
+    return " ".join(curto.split())[:60]
 
 
 def maquina(*, rodar: Rodar = executor.powershell) -> Maquina:
@@ -95,8 +209,21 @@ def maquina(*, rodar: Rodar = executor.powershell) -> Maquina:
         _texto(d.get("build")),
         _int(d.get("disco_total")),
         _int(d.get("disco_livre")),
-        _int(d.get("bateria")),
+        _faixa(d.get("bateria"), 0, 100),
         None if d.get("na_tomada") is None else bool(d.get("na_tomada")),
+        nome=_texto(d.get("nome"))[:15],  # NetBIOS
+        cpu_nome=_texto(d.get("cpu_nome")),
+        cpu_nucleos=_faixa(d.get("cpu_nucleos"), 1, 1024),
+        cpu_threads=_faixa(d.get("cpu_threads"), 1, 4096),
+        cpu_uso=_faixa(d.get("cpu_uso"), 0, 100),
+        mem_total=_faixa(d.get("mem_total"), 1, 1 << 50),
+        mem_uso=_faixa(d.get("mem_uso"), 0, 100),
+        mem_tipo=tipo_memoria(_int(d.get("mem_tipo"))),
+        mem_slots=_faixa(d.get("mem_slots"), 1, 64),
+        mem_modulos=_faixa(d.get("mem_modulos"), 1, 64),
+        bateria_projeto=_faixa(d.get("bateria_projeto"), 1, 10_000_000),
+        bateria_cheia=_faixa(d.get("bateria_cheia"), 1, 10_000_000),
+        bateria_ciclos=_faixa(d.get("bateria_ciclos"), 0, 100_000),
     )
 
 
@@ -133,7 +260,7 @@ def alertas(
         saida.append(Alerta("atencao", "Cadastros com mais de 1 dia; sincronize", "config"))
     if fila:
         saida.append(Alerta("atencao", f"{fila} diagnóstico(s) na fila de envio", "diag"))
-    if disco_livre is not None and disco_livre < 0.10:
+    if disco_livre is not None and disco_livre < LIMITE_DISCO:
         saida.append(Alerta("atencao", "Menos de 10% de disco livre: use a Limpeza", "limpeza"))
     return saida
 

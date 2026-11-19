@@ -33,9 +33,19 @@ class Tarefa(QRunnable):
             resultado = self.funcao()
         except Exception as erro:  # noqa: BLE001 — vai para o log com traceback e para a tela
             log.exception("Falha na tarefa em segundo plano (iniciada por %s).", self.tecnico)
-            self.sinais.falhou.emit(str(erro))
+            self._avisar(self.sinais.falhou, str(erro))
             return
-        self.sinais.concluido.emit(resultado)
+        self._avisar(self.sinais.concluido, resultado)
+
+    def _avisar(self, sinal: Any, valor: Any) -> None:
+        """Uma tarefa longa (a leitura da Configuração, ADR-073) pode acabar depois de o Bench
+        fechar: os sinais já foram apagados e não há tela para receber."""
+        try:
+            sinal.emit(valor)
+        except RuntimeError:
+            log.info(
+                "Tarefa em segundo plano terminou depois de a tela fechar; resultado descartado."
+            )
 
 
 def iniciar(
