@@ -27,6 +27,7 @@ from itc_bench.nucleo.log import log
 from itc_bench.servicos import contas, etapas, identificacao, perfis, retomada
 from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Cadastros
+from itc_bench.ui import contas as ui_contas
 from itc_bench.ui import tarefa, tema
 from itc_bench.ui import texto as txt
 from itc_bench.ui.contas import _rotulo, confirmar
@@ -76,12 +77,15 @@ AJUDA = (
     "sincronize.\n"
     "\n"
     "Como usar\n"
-    "1. Escolha o perfil (vem marcado o da unidade). Desmarque etapas que não quer agora.\n"
-    "2. As contas de aluno vêm marcadas: desmarque as que não devem receber políticas, USB e "
-    "papel de parede.\n"
-    "3. Ler situação confere cada etapa no Windows: feito, pendente ou bloqueada (com o "
-    "motivo).\n"
-    "4. Rodar N etapas mostra o que muda e pede confirmação. Etapa já feita é pulada; rodar "
+    "1. Escolha o perfil (vem marcado o da unidade). Desmarque etapas que não quer agora; "
+    "Marcar todas e Desmarcar todas mudam a lista inteira.\n"
+    "2. Em Contas locais, as contas que podem receber políticas, USB e papel de parede vêm "
+    "marcadas: desmarque as que não devem.\n"
+    "3. Ler situação (opcional) confere cada etapa no Windows: feito, pendente ou bloqueada "
+    "(com o motivo).\n"
+    "4. Rodar N etapas roda as etapas marcadas na hora do clique, com ou sem Ler situação "
+    "antes. Mostra o que muda e pede confirmação; sem leitura, a confirmação lista as etapas "
+    "sem o detalhe. Cada etapa é conferida antes de aplicar: etapa já feita é pulada e rodar "
     "de novo não refaz nada.\n"
     "5. Pausar para depois da etapa que está rodando.\n"
     "\n"
@@ -93,10 +97,17 @@ AJUDA = (
     "administradora. O Administrador nativo não é alterado: se estiver ativo, desative-o pelo"
     " Windows.\n"
     "\n"
-    "Contas de aluno\n"
-    "Contas locais ativas que não são administradoras e já têm perfil, menos a Suporte, o "
-    "Administrador nativo e a conta em uso. Políticas, USB e papel de parede valem para elas "
-    "e para Contas futuras.\n"
+    "Contas locais\n"
+    "Mostra as contas locais desta máquina. Não aparecem nunca: Suporte, Gestão, o "
+    "Administrador nativo e contas Microsoft ou de domínio. Recebem políticas, USB e papel de "
+    "parede só as contas ativas, que não são administradoras, não estão logadas e já têm "
+    "perfil, menos a conta que roda o Bench. As outras ficam cinza, sem marcar, com o motivo "
+    "ao lado: administradora, desativada, conta logada, sem perfil ou conta do Bench. Marcar "
+    "todas e Desmarcar todas só mexem nas que podem ser "
+    "marcadas. Atualizar relê a lista e mantém as marcações. Encerrar sessões… é o mesmo da "
+    "tela Contas: escolha as contas, confirme, e o que estiver aberto nelas fecha sem salvar; "
+    "a sessão do Bench não é encerrada. Depois, a lista é relida (a conta deixa de estar "
+    "logada). As etapas também valem para as contas futuras.\n"
     "\n"
     "Falha\n"
     "Etapa que falha não para as outras. Veja o motivo na linha e no Registro.\n"
@@ -137,13 +148,25 @@ AJUDA_MANUTENCAO = (
     "biblioteca (outro disco) não são apagados.\n"
     "\n"
     "Como usar\n"
-    "1. Marque as contas de aluno que serão limpas.\n"
-    "2. Ler situação confere cada etapa: feito, pendente ou bloqueada (com o motivo).\n"
-    "3. Rodar N etapas mostra o que muda e pede confirmação. Etapa já feita é pulada.\n"
-    "4. Pausar para depois da etapa que está rodando.\n"
+    "1. Em Contas locais, marque as contas que serão limpas. Suporte, Gestão e o "
+    "Administrador nativo não aparecem; as outras que não podem ser limpas ficam cinza, com o "
+    "motivo (administradora, desativada, conta logada, sem perfil ou conta do Bench). Marcar "
+    "todas e "
+    "Desmarcar todas valem para as etapas e para as contas que podem ser marcadas.\n"
+    "2. Conta logada não é limpa: use Encerrar sessões… (o mesmo da tela Contas; o que estiver "
+    "aberto fecha sem salvar) e a lista é relida. Atualizar relê a lista e mantém as "
+    "marcações.\n"
+    "3. Ler situação (opcional) confere cada etapa: feito, pendente ou bloqueada (com o "
+    "motivo), e mostra quanto a limpeza vai liberar.\n"
+    "4. Rodar N etapas roda as etapas marcadas na hora do clique, com ou sem leitura antes, e "
+    "pede confirmação com as contas marcadas. Cada etapa é conferida antes de aplicar; etapa "
+    "já feita é pulada.\n"
+    "5. Pausar para depois da etapa que está rodando.\n"
     "\n"
     "Sem administrador (modo de teste), só a leitura."
 )
+# Etapas que agem nas contas marcadas: a confirmação lista as contas (ADR-071).
+COM_CONTAS = frozenset({"politicas", "usb", "papel", "mouse", "limpeza_usuarios"})
 # Situação → tipo de cor do tema (ok, aviso, erro, info, neutro), no modo claro ou escuro.
 COR = {
     "feito": "ok",
@@ -185,6 +208,8 @@ class PainelPreparacao(QWidget):
         self.ocupado = False
         self.iniciado = False
         self._ocultas_lista: frozenset[str] = frozenset()
+        self._lista_contas: contas.Lista | None = None  # última leitura, para Encerrar sessões
+        self._elegiveis: set[str] = set()  # SIDs que podiam ser alvo na última leitura
         self.sinais = _Sinais()
         self.sinais.texto.connect(self._linha)
         self.sinais.etapa.connect(self._etapa_mudou)
@@ -222,20 +247,48 @@ class PainelPreparacao(QWidget):
             v.addWidget(_rotulo("Sem administrador: só a leitura."))
 
         meio = QHBoxLayout()
+        coluna_etapas = QVBoxLayout()
         self.lista = QTreeWidget()
         self.lista.setHeaderLabels(["Etapa", "Situação", "Detalhe"])
         self.lista.setColumnWidth(0, 210)
         self.lista.setColumnWidth(1, 150)
         self.lista.setRootIsDecorated(False)
         self.lista.itemChanged.connect(lambda *_: self._ocupar(self.ocupado))
+        coluna_etapas.addWidget(self.lista, 1)
+        marcar_etapas = QHBoxLayout()
+        self.b_etapas_todas = QPushButton("Marcar todas")
+        self.b_etapas_todas.clicked.connect(lambda: self._marcar_etapas(True))
+        self.b_etapas_nenhuma = QPushButton("Desmarcar todas")
+        self.b_etapas_nenhuma.clicked.connect(lambda: self._marcar_etapas(False))
+        marcar_etapas.addWidget(self.b_etapas_todas)
+        marcar_etapas.addWidget(self.b_etapas_nenhuma)
+        marcar_etapas.addStretch()
+        coluna_etapas.addLayout(marcar_etapas)
+
         self.painel_alunos = QWidget()
+        self.painel_alunos.setMaximumWidth(320)
         alunos = QVBoxLayout(self.painel_alunos)
         alunos.setContentsMargins(0, 0, 0, 0)
-        alunos.addWidget(_rotulo("Contas de aluno"))
+        alunos.addWidget(_rotulo("Contas locais"))
         self.alunos = QListWidget()
-        self.alunos.setMaximumWidth(240)
         alunos.addWidget(self.alunos, 1)
-        meio.addWidget(self.lista, 3)
+        marcar_contas = QHBoxLayout()
+        self.b_contas_todas = QPushButton("Marcar todas")
+        self.b_contas_todas.clicked.connect(lambda: self._marcar_contas(True))
+        self.b_contas_nenhuma = QPushButton("Desmarcar todas")
+        self.b_contas_nenhuma.clicked.connect(lambda: self._marcar_contas(False))
+        marcar_contas.addWidget(self.b_contas_todas)
+        marcar_contas.addWidget(self.b_contas_nenhuma)
+        alunos.addLayout(marcar_contas)
+        acoes_contas = QHBoxLayout()
+        self.b_atualizar = QPushButton("Atualizar")
+        self.b_atualizar.clicked.connect(lambda: self._carregar_alunos())
+        self.b_encerrar = QPushButton("Encerrar sessões…")
+        self.b_encerrar.clicked.connect(self._encerrar)
+        acoes_contas.addWidget(self.b_atualizar)
+        acoes_contas.addWidget(self.b_encerrar)
+        alunos.addLayout(acoes_contas)
+        meio.addLayout(coluna_etapas, 3)
         meio.addWidget(self.painel_alunos, 1)
         v.addLayout(meio, 3)
 
@@ -317,12 +370,26 @@ class PainelPreparacao(QWidget):
         return fora
 
     def alvos(self) -> list[str]:
+        """SIDs das contas marcadas; conta bloqueada não tem SID no item e nunca entra."""
         saida = []
         for i in range(self.alunos.count()):
             item = self.alunos.item(i)
-            if item is not None and item.checkState() == Qt.CheckState.Checked:
-                saida.append(str(item.data(Qt.ItemDataRole.UserRole)))
+            sid = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+            if sid and item is not None and item.checkState() == Qt.CheckState.Checked:
+                saida.append(str(sid))
         return saida
+
+    def _andamento_atual(self) -> prep.Andamento | None:
+        """Andamento com as etapas marcadas **agora** (ADR-071). Situação da última leitura, se
+        houver; sem leitura, todas "não iniciado" (o motor confere cada uma antes de aplicar)."""
+        perfil = self.perfil_atual()
+        if perfil is None:
+            return None
+        atual = prep.novo(perfil, self.desmarcadas())
+        if self.andamento is not None:
+            atual.situacao.update(self.andamento.situacao)
+            atual.reinicio = self.andamento.reinicio
+        return atual
 
     def _montar_lista(self, desmarcadas: tuple[str, ...] = ()) -> None:
         self.lista.blockSignals(True)
@@ -368,23 +435,82 @@ class PainelPreparacao(QWidget):
         self._ver_guardado()
 
     def _carregar_alunos(self, marcar: tuple[str, ...] | None = None) -> None:
+        """Lê as contas locais (ADR-071). As que não podem ser alvo ficam cinza, sem marcar, com
+        o motivo. `marcar`: SIDs a marcar (retomada); sem ele, mantém as marcações de antes e
+        marca as que passaram a poder ser alvo."""
         cad = self.obter_cadastros()
+        marcadas, conhecidas = set(self.alvos()), set(self._elegiveis)
 
-        def ler() -> list[contas.Conta]:
-            return etapas.contas_de_aluno(contas.listar(), contas.protegidas(cad))
+        def ler() -> tuple[contas.Lista, list[tuple[contas.Conta, str]]]:
+            lista = contas.listar()
+            return lista, etapas.contas_locais(lista, contas.protegidas(cad))
 
-        def recebeu(lista: list[contas.Conta]) -> None:
+        def recebeu(lido: tuple[contas.Lista, list[tuple[contas.Conta, str]]]) -> None:
+            self._lista_contas, locais = lido
             self.alunos.clear()
-            for c in lista:
-                item = QListWidgetItem(c.nome)
-                item.setData(Qt.ItemDataRole.UserRole, c.sid)
-                sim = marcar is None or c.sid in marcar
-                item.setCheckState(Qt.CheckState.Checked if sim else Qt.CheckState.Unchecked)
+            self._elegiveis = set()
+            for c, motivo in locais:
+                if motivo:
+                    item = QListWidgetItem(f"{c.nome} — {motivo}")
+                    item.setCheckState(Qt.CheckState.Unchecked)
+                    item.setFlags(
+                        item.flags() & ~Qt.ItemFlag.ItemIsEnabled & ~Qt.ItemFlag.ItemIsUserCheckable
+                    )
+                    item.setToolTip(txt.dica(f"Não recebe as etapas: {motivo}."))
+                    # O tema pinta item desativado com a cor normal: cinza explícito.
+                    item.setForeground(QColor(tema.atual().mute))
+                else:
+                    item = QListWidgetItem(c.nome)
+                    item.setData(Qt.ItemDataRole.UserRole, c.sid)
+                    self._elegiveis.add(c.sid)
+                    if marcar is not None:
+                        sim = c.sid in marcar
+                    else:
+                        sim = c.sid in marcadas or c.sid not in conhecidas
+                    item.setCheckState(Qt.CheckState.Checked if sim else Qt.CheckState.Unchecked)
                 self.alunos.addItem(item)
-            if not lista:
-                self.alunos.addItem("Nenhuma conta de aluno.")
+            if not locais:
+                self.alunos.addItem("Nenhuma conta local.")
+            self._ocupar(self.ocupado)
 
         tarefa.iniciar(ler, recebeu, lambda m: self._linha(f"Contas não lidas: {m}"))
+
+    def _marcar_etapas(self, sim: bool) -> None:
+        estado = Qt.CheckState.Checked if sim else Qt.CheckState.Unchecked
+        self.lista.blockSignals(True)
+        for i in range(self.lista.topLevelItemCount()):
+            item = self.lista.topLevelItem(i)
+            if item is not None:
+                item.setCheckState(0, estado)
+        self.lista.blockSignals(False)
+        self._ocupar(self.ocupado)
+
+    def _marcar_contas(self, sim: bool) -> None:
+        """Só nas contas que podem ser alvo: as bloqueadas continuam sem marcar."""
+        estado = Qt.CheckState.Checked if sim else Qt.CheckState.Unchecked
+        for i in range(self.alunos.count()):
+            item = self.alunos.item(i)
+            if item is not None and item.data(Qt.ItemDataRole.UserRole):
+                item.setCheckState(estado)
+
+    def _encerrar(self) -> None:
+        """Encerrar sessões (ADR-036), com o diálogo da tela Contas; depois relê as contas."""
+        if self._lista_contas is None:
+            return
+        sids = ui_contas.pedir_encerrar(self, self._lista_contas)
+        if not sids:
+            return
+
+        def feito(f: contas.Feito) -> None:
+            self._ocupar(False)
+            self._linha(f.mensagem)
+            if not f.ok:
+                self._aviso(f.mensagem)
+            self._carregar_alunos()
+
+        self._ocupar(True)
+        self._linha("Encerrando sessões…")
+        tarefa.iniciar(lambda: contas.encerrar_sessoes(sids), feito, self._falhou)
 
     def _ver_guardado(self) -> None:
         if not self.admin:
@@ -460,28 +586,40 @@ class PainelPreparacao(QWidget):
             self._falhou,
         )
 
-    def confirmacao(self) -> str:
-        if self.andamento is None:
+    def confirmacao(self, andamento: prep.Andamento | None = None) -> str:
+        """Texto da confirmação. Sem leitura, lista as etapas marcadas sem o detalhe."""
+        a = andamento if andamento is not None else self.andamento
+        if a is None:
             return ""
         linhas = []
-        for eid in self.andamento.etapas:
-            s = self.andamento.situacao.get(eid)
+        for eid in a.etapas:
+            s = a.situacao.get(eid)
             if s is None or s.situacao not in ("pendente", "nao_iniciado"):
                 continue
             detalhe = s.detalhe
             if eid == "contas":
                 detalhe = etapas.Contas(self.ctx).mudancas()
             linhas.append(f"• {self.fluxo.rotulo(eid)}: {detalhe or 'aplicar'}")
+        if COM_CONTAS & set(a.etapas):
+            nomes = [
+                self.alunos.item(i).text()
+                for i in range(self.alunos.count())
+                if self.alunos.item(i).data(Qt.ItemDataRole.UserRole) in self.ctx.alvos
+            ]
+            linhas.append("\nContas marcadas: " + (", ".join(nomes) if nomes else "nenhuma"))
         return f"Rodar a {self.fluxo.nome.lower()}?\n\n" + "\n".join(linhas)
 
     def _rodar(self) -> None:
-        if self.andamento is None:
-            return
-        if not confirmar(self, "Preparação completa", self.confirmacao()):
+        """Roda as etapas marcadas agora, com ou sem leitura antes (ADR-071)."""
+        andamento = self._andamento_atual()
+        if andamento is None or not andamento.etapas:
             return
         self._preparar_ctx()
+        if not confirmar(self, "Preparação completa", self.confirmacao(andamento)):
+            return
         self.pausar.clear()
-        andamento, lista, pausar = self.andamento, self.etapas, self.pausar
+        self.andamento = andamento
+        lista, pausar = self.etapas, self.pausar
         self._ocupar(True)
         self._linha(f"Preparação ({andamento.nome or andamento.perfil}) iniciada.")
         tarefa.iniciar(
@@ -573,13 +711,12 @@ class PainelPreparacao(QWidget):
     def _ocupar(self, ocupado: bool) -> None:
         self.ocupado = ocupado
         pendentes = 0
-        if self.andamento is not None:
-            fora = set(self.desmarcadas())
+        # ADR-071: conta pelas marcações atuais, com ou sem leitura.
+        if (atual := self._andamento_atual()) is not None:
             pendentes = sum(
                 1
-                for e in self.andamento.etapas
-                if e not in fora
-                and self.andamento.situacao.get(e, prep.Leitura("nao_iniciado")).situacao
+                for e in atual.etapas
+                if atual.situacao.get(e, prep.Leitura("nao_iniciado")).situacao
                 in ("pendente", "nao_iniciado")
             )
         self.b_rodar.setText(f"Rodar {pendentes} etapa(s)" if pendentes else "Rodar etapas")
@@ -590,6 +727,17 @@ class PainelPreparacao(QWidget):
         self.b_pausar.setEnabled(ocupado)
         self.perfil.setEnabled(not ocupado)
         self.b_reiniciar.setEnabled(not ocupado and self.admin)
+        for b in (
+            self.b_etapas_todas,
+            self.b_etapas_nenhuma,
+            self.b_contas_todas,
+            self.b_contas_nenhuma,
+            self.b_atualizar,
+        ):
+            b.setEnabled(not ocupado)
+        self.b_encerrar.setEnabled(self.admin and not ocupado)
+        if not self.admin:
+            self.b_encerrar.setToolTip("Precisa de administrador.")
 
     def _linha(self, texto: str) -> None:
         self.log.appendPlainText(f"{datetime.now():%H:%M:%S}  {texto}")

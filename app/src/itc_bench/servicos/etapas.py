@@ -68,20 +68,64 @@ class Contexto:
         return saida
 
 
+# Motivo, na tela, de uma conta local que não pode ser alvo (ADR-071). Códigos do ADR-021.
+MOTIVO_CONTA = {
+    "nativo": "Administrador nativo",
+    "suporte": "Suporte",
+    "dono": "conta do Bench",
+    "desativada": "desativada",
+    "admin": "administradora",
+    "logada": "conta logada",
+    "sem_perfil": "sem perfil",
+    "nao_encontrada": "não encontrada",
+}
+
+
+def _motivo_conta(
+    c: contas.Conta, lista: contas.Lista, protegidas_: frozenset[str], dono: str
+) -> str:
+    """Código do motivo de a conta não ser alvo, ou "". Regras do ADR-021, sem mudança."""
+    alvo = hive.Alvo(c.sid, c.nome, c.carregado, c.admin)
+    recusa = hive.recusa_alvo(alvo, lista, protegidas_, dono or None)
+    if recusa in ("nativo", "suporte", "dono"):
+        return recusa
+    if c.bench:
+        return "dono"
+    if not c.ativo:
+        return "desativada"
+    if c.admin:
+        return "admin"
+    if c.logada:
+        return "logada"
+    return recusa or ""
+
+
+def escondida(c: contas.Conta, protegidas_: frozenset[str]) -> bool:
+    """Suporte, Gestão e Administrador nativo nunca aparecem nas listas da Configuração e da
+    Manutenção (ADR-072): nunca são alvo, e mostrar só confunde."""
+    nome = c.nome.lower()
+    return c.nativo or nome in protegidas_ or nome in contas.RESTRITAS
+
+
+def contas_locais(
+    lista: contas.Lista, protegidas_: frozenset[str], dono: str = ""
+) -> list[tuple[contas.Conta, str]]:
+    """Contas locais, com o motivo (texto da tela) de não poderem ser alvo; "" = pode. Contas
+    de domínio ou Microsoft ficam de fora (ADR-071); Suporte, Gestão e o Administrador nativo
+    também (ADR-072)."""
+    return [
+        (c, MOTIVO_CONTA[m] if (m := _motivo_conta(c, lista, protegidas_, dono)) else "")
+        for c in lista.contas
+        if c.local and not escondida(c, protegidas_)
+    ]
+
+
 def contas_de_aluno(
     lista: contas.Lista, protegidas_: frozenset[str], dono: str = ""
 ) -> list[contas.Conta]:
     """Contas locais ativas não administradoras, menos Suporte, RID 500, a logada e a dona do
     processo, com as recusas do ADR-021 (sem perfil, nativo, Suporte, dono)."""
-    saida = []
-    for c in lista.contas:
-        if not (c.local and c.ativo) or c.admin or c.logada:
-            continue
-        alvo = hive.Alvo(c.sid, c.nome, c.carregado, c.admin)
-        if hive.recusa_alvo(alvo, lista, protegidas_, dono or None):
-            continue
-        saida.append(c)
-    return saida
+    return [c for c, motivo in contas_locais(lista, protegidas_, dono) if not motivo]
 
 
 def _sem(ctx: Contexto, cadastro: bool = False) -> str:

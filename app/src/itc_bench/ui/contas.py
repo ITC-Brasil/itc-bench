@@ -213,6 +213,29 @@ class EscolherSessoes(QDialog):
         self.botoes.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(self.marcadas()))
 
 
+def pedir_encerrar(pai: QWidget, lista: Lista) -> list[str]:
+    """Diálogo "Encerrar sessões" e a confirmação (ADR-036). Devolve os SIDs confirmados, ou []
+    se não houver sessão ou o técnico cancelar. Usado na tela Contas, na Configuração e na
+    Manutenção (ADR-071)."""
+    abertas = contas.com_sessao(lista)
+    if not abertas:
+        txt.aviso(pai, "Encerrar sessões", "Nenhuma conta com sessão aberta.")
+        return []
+    dialogo = EscolherSessoes(pai, abertas)
+    if dialogo.exec() != QDialog.DialogCode.Accepted:
+        return []
+    sids = dialogo.marcadas()
+    nomes = [c.nome for c in abertas if c.sid in sids]
+    if not sids or not confirmar(
+        pai,
+        "Encerrar sessões",
+        "Encerrar a sessão destas contas agora? Programas abertos nelas são fechados sem "
+        "salvar.\n\n" + "\n".join(nomes),
+    ):
+        return []
+    return sids
+
+
 class ConfirmarExclusao(QDialog):
     """Resumo, caixa de apagar a pasta e o nome digitado para liberar o botão."""
 
@@ -625,28 +648,8 @@ class PainelContas(QWidget):
         """Encerra as sessões marcadas, uma por vez, e mostra o resultado de cada uma."""
         if self.lista is None:
             return
-        abertas = contas.com_sessao(self.lista)
-        if not abertas:
-            txt.aviso(self, "Encerrar sessões", "Nenhuma conta com sessão aberta.")
-            return
-        dialogo = EscolherSessoes(self, abertas)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        sids = dialogo.marcadas()
-        nomes = [c.nome for c in abertas if c.sid in sids]
-        if not sids or not confirmar(
-            self,
-            "Encerrar sessões",
-            "Encerrar a sessão destas contas agora? Programas abertos nelas são fechados sem "
-            "salvar.\n\n" + "\n".join(nomes),
-        ):
-            return
-
-        def encerrar_todas() -> Feito:
-            feitos = [contas.encerrar_sessao(sid) for sid in sids]
-            return Feito(all(f.ok for f in feitos), "\n".join(f.mensagem for f in feitos))
-
-        self._rodar(encerrar_todas)
+        if sids := pedir_encerrar(self, self.lista):
+            self._rodar(lambda: contas.encerrar_sessoes(sids))
 
     def _suporte(self) -> None:
         cadastros = self.obter_cadastros()
