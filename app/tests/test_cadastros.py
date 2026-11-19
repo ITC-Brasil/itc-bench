@@ -204,6 +204,43 @@ def test_explicar_motivo(motivo, trecho):
     assert (trecho in texto) if trecho else texto == ""
 
 
+@pytest.mark.parametrize(
+    ("descartados", "esperado"),
+    [
+        ({}, ""),
+        ({"wifi": [12, 37], "perfis": [4]}, "WiFi: Id 12, 37; Perfis: Id 4"),
+        ({"wifi": []}, ""),
+        ({"wifi": "nao e lista"}, ""),
+        ({"wifi": [None, 5]}, "WiFi: Id 5"),
+        ({"nova": [1]}, "nova: Id 1"),
+        ({"wifi": [34, 3, 12, "x"]}, "WiFi: Id 3, 12, 34, x"),
+        (
+            {"instaladores": list(range(12, 0, -1))},
+            "Instaladores: Id 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 e mais 2",
+        ),
+    ],
+)
+def test_resumo_descartados(descartados, esperado):
+    from itc_bench.servicos.cadastros import resumo_descartados
+
+    assert resumo_descartados(descartados) == esperado
+
+
+def test_resumo_descartados_sem_limite_lista_todos():
+    from itc_bench.servicos.cadastros import resumo_descartados
+
+    texto = resumo_descartados({"wifi": list(range(1, 13))}, limite=None)
+    assert texto == "WiFi: Id " + ", ".join(str(i) for i in range(1, 13))
+
+
+def test_descartados_vao_ao_log_com_tabela_e_id(armazem, chamadas, caplog):
+    fila, _ = chamadas
+    fila.append(corpo())
+    with caplog.at_level("WARNING"):
+        sincronizar("b", TOKEN, armazem, "ana", None)
+    assert "linhas ignoradas pela API (corrigir no NocoDB): WiFi: Id 12." in caplog.text
+
+
 def test_401_pede_login_e_nao_apaga(armazem, chamadas):
     fila, _ = chamadas
     fila += [corpo(), api.Recusado(401, "nao_autorizado")]

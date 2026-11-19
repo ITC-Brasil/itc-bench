@@ -2,6 +2,17 @@
 
 ## ESTADO ATUAL
 
+- **19/11/2026: branch `feat/tabelas-opcionais`, saindo da `develop`.**
+  Projetos e Perfis falham sozinhas: erro numa delas não para a sincronização; a API segue sem
+  a tabela e manda `avisos` (`projetos:http_404`) no `GET /v1/bench/cadastros` (TA-ADR-041). A
+  busca da tabela pelo nome foi descartada pelo responsável: o id vem só do `api/.env`. API:
+  290 testes no container. Auditoria em `docs/security/2026-11-19-tabelas-opcionais.md`.
+  **Próximo passo:** revisão e merge do PR pelo responsável. O Bench mostrar os `avisos` fica
+  para decidir depois.
+- **18/11/2026 (noite): branch `feat/descartados-ids`, saindo da `develop`.** O aviso de linhas
+  ignoradas pela API mostra a tabela e os Ids ("WiFi: Id 12, 37"), e o mesmo resumo vai ao log
+  do Bench (ADR-070). Antes só o total, e o texto citava só "sem nome ou unidade inexistente".
+  A API não muda. **Próximo passo:** revisão e merge do PR pelo responsável.
 - **18/11/2026 (fim do dia): branch `feat/motivo-cadastros`, saindo da `develop`.** A
   `feat/sem-tabelas` (PR #93) e a `feat/com-tabelas` (PR #95) já estão na `develop` e na
   `main` (PRs #94 e #96; API publicada). Depois do deploy das tabelas Projetos e Perfis, a
