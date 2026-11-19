@@ -71,6 +71,10 @@ class Paleta:
     err: str
     info: str
     idle: str
+    # Tela Início (ADR-073): trilha dos anéis e barras, fundos dos selos de ok e de erro.
+    anel: str
+    ok_fundo: str
+    err_fundo: str
 
 
 # Valores do HTML de design (`docs/design/`): .main, .top, .pn, .btn, .inp, .tab, .chk, .pill.
@@ -95,6 +99,9 @@ CLARO = Paleta(
     err=ERR,
     info=INFO,
     idle=FAINT,
+    anel="#E3E8E8",
+    ok_fundo="#E6F4EA",
+    err_fundo="#FBEAE8",
 )
 
 # Escuro (ADR-037): superfícies escuras do design (`.log` #1A2020, barra #1B1B1B/#2C2C2C), ciano
@@ -120,6 +127,9 @@ ESCURO = Paleta(
     err="#E57368",
     info="#6FA8E8",
     idle="#8E9898",
+    anel="#2C3434",
+    ok_fundo="#283831",  # #7BC896 a 14% sobre a superfície, como no design
+    err_fundo="#362C2A",  # #E57368 a 14%
 )
 
 PALETAS = {p.nome: p for p in (CLARO, ESCURO)}
@@ -281,6 +291,40 @@ QTreeView#ajudaIndice::item {{ padding: 5px 4px; }}
 #painel, #cartao, #faixa {{ background: {p.superficie}; border: 1px solid {p.linha};
                             border-radius: 8px; }}
 #cartao QLabel, #faixa QLabel {{ background: transparent; border: none; }}
+#painelLivre {{ background: transparent; border: none; }}
+#inicioMarca {{ font: 600 11px "{DISPLAY}"; color: {p.destaque}; }}
+#inicioTitulo {{ font: 800 34px "{DISPLAY}"; color: {p.texto}; }}
+#inicioModelo {{ font: 800 28px "{DISPLAY}"; color: {p.texto}; }}
+#inicioCartaoTitulo {{ font: 800 17px "{DISPLAY}"; color: {p.texto}; }}
+#inicioNumero {{ font: 800 24px "{DISPLAY}"; color: {p.texto}; }}
+#inicioRotulo, #inicioMute {{ font: 400 12px "{CORPO}"; color: {p.mute}; }}
+#inicioMute {{ font-size: 14px; }}
+#inicioValor {{ font: 600 14px "{CORPO}"; color: {p.texto}; }}
+#inicioSecao {{ font: 600 12px "{CORPO}"; color: {p.mute}; }}
+#inicioCartao {{ background: {p.superficie}; border: 1px solid {p.linha}; border-radius: 14px; }}
+#inicioCartao[nivel="critico"] {{ border-color: {p.err}; }}
+#inicioCaixa {{ background: {p.alternada}; border-radius: 8px; }}
+#inicioAlerta {{ background: {p.err_fundo}; border-radius: 10px; }}
+#inicioAlerta[nivel="atencao"] {{ background: {p.alternada}; }}
+#inicioIconeAlerta, #inicioIcone {{ background: {p.superficie}; border-radius: 10px; }}
+#inicioIcone {{ background: {p.selecao}; }}
+#inicioArte {{ background: {p.selecao}; border-radius: 12px; }}
+#inicioSelo {{ font: 600 12px "{CORPO}"; color: {p.selecao_texto}; background: {p.selecao};
+               border-radius: 13px; padding: 0 10px; }}
+#inicioSelo[nivel="critico"] {{ color: {p.err}; background: {p.err_fundo}; }}
+#inicioSelo[nivel="ok"] {{ color: {p.ok}; background: {p.ok_fundo}; }}
+#inicioContador {{ font: 700 12px "{CORPO}"; color: {p.err}; background: {p.err_fundo};
+                   border-radius: 11px; padding: 0 6px; }}
+#inicioEstado {{ font: 600 12px "{CORPO}"; color: {p.mute}; }}
+#inicioEstado[nivel="critico"] {{ color: {p.err}; }}
+#inicioEstado[nivel="atencao"] {{ color: {p.warn}; }}
+#inicioEstado[nivel="ok"] {{ color: {p.ok}; }}
+#inicioPendente {{ font: 600 14px "{CORPO}"; color: {p.warn}; }}
+#inicio QPushButton {{ border-radius: 8px; font-size: 14px; padding: 0 16px; min-height: 40px; }}
+#inicio QPushButton#primario {{ min-height: 44px; }}
+#inicio QPushButton#inicioAjuda {{ min-width: 40px; max-width: 40px; min-height: 40px;
+    max-height: 40px; padding: 0; border-radius: 20px; border: 1.5px solid {p.borda_controle};
+    background: transparent; color: {p.mute}; font: 600 16px "{CORPO}"; }}
 #cartaoTitulo, #subtitulo {{ font: 700 13px "{DISPLAY}"; color: {p.texto}; }}
 #vazio {{ font: 400 13px "{CORPO}"; color: {p.mute}; }}
 #dica {{ font: 400 11.5px "{CORPO}"; color: {p.trilha}; }}
