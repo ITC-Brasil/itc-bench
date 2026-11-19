@@ -109,6 +109,12 @@ Sem o token ou um dos ids, a API sobe e a rota responde `503 cadastros_indisponi
 (ex.: `wifi:http_400` = coluna que falta; `perfis:http_404` = id errado), e o Bench mostra
 isso em Configurações (TA-ADR-040).
 
+**Projetos e Perfis falham sozinhas** (TA-ADR-041). Se a leitura de uma delas falhar (id errado,
+coluna que falta, token sem acesso), a API segue sem ela e responde `200` com
+`avisos: ["projetos:http_404"]`; o log da API registra `tabela opcional projetos nao lida`. As
+quatro obrigatórias (Servidores, Instaladores, WiFi, Unidades) continuam tudo ou nada. O id de
+cada tabela vem **só** do `api/.env`: a API não procura tabela pelo nome.
+
 **Tokens separados.** O NocoDB não tem escopo por token: o token herda o papel do usuário em cada
 base. Por isso dois usuários: o do espelho (**Editor** só na base dos relatórios, que fica
 **separada** da "ITC Bench") e o de leitura (**Viewer** só na "ITC Bench"). Risco aceito: o token

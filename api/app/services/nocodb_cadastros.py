@@ -60,7 +60,7 @@ TABELAS = {
         "Codigo",
     ),
 }
-OPCIONAIS = ("projetos", "perfis")
+OPCIONAIS = ("projetos", "perfis")  # read first, in this order (TA-ADR-041)
 # Steps of the Bench Configuração, numbered 1..12 (ADR-062; was 1..14, ADR-056). The API only
 # checks the range; the Bench maps numbers to steps.
 TOTAL_ETAPAS = 12
@@ -91,28 +91,52 @@ def texto(valor) -> str:
 
 
 def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
-    """The four cadastros, validated, plus descartados {table: [Id, ...]}."""
-    brutos = {}
+    """The cadastros, validated, plus descartados {table: [Id, ...]} and avisos (TA-ADR-041).
+
+    The four required tables are all-or-nothing: one failure raises NocodbIndisponivel. The
+    optional ones (Projetos, Perfis) fail alone: the read goes on without them and `avisos` gets
+    `<table>:<error>`. Table ids come only from api/.env.
+    """
+    brutos: dict[str, list[dict]] = {}
+    avisos: list[str] = []
     inicio = time.monotonic()
     headers = {"xc-token": settings.nocodb_cadastros_token.get_secret_value().strip()}
+    raiz = settings.nocodb_url.rstrip("/")
     with httpx.Client(timeout=settings.nocodb_cadastros_timeout_seconds, transport=transport) as client:
-        com_projetos = bool(settings.nocodb_tabela_projetos.strip())
-        for nome, (id_setting, campos, _) in TABELAS.items():
-            if nome in OPCIONAIS and not getattr(settings, id_setting).strip():
-                brutos[nome] = []
+        lidas = set()
+        # Optional tables first: whether they were read decides which extra columns the others ask
+        # for. A Projeto column without the Projetos table would drop rows as projeto_invalido.
+        for nome in OPCIONAIS:
+            id_setting, campos, _ = TABELAS[nome]
+            id_ = getattr(settings, id_setting).strip()
+            brutos[nome] = []
+            if not id_:
                 continue
-            if nome in ("unidades", "instaladores", "perfis", "wifi") and com_projetos:
+            if nome == "perfis" and "projetos" in lidas:
+                campos = (*campos, "Projeto")
+            try:
+                brutos[nome] = paginas(client, f"{raiz}/api/v2/tables/{id_}/records", headers, campos, inicio)
+                lidas.add(nome)
+            except NocodbIndisponivel as erro:
+                avisos.append(f"{nome}:{erro.code}")
+                log.warning("tabela opcional %s nao lida (%s); cadastros seguem sem ela", nome, erro.code)
+        for nome, (id_setting, campos, _) in TABELAS.items():
+            if nome in OPCIONAIS:
+                continue
+            if nome in ("unidades", "instaladores", "wifi") and "projetos" in lidas:
                 campos = (*campos, "Projeto")
             # TA-ADR-038: WiFi.Perfis only exists together with the Perfis table.
-            if nome == "wifi" and settings.nocodb_tabela_perfis.strip():
+            if nome == "wifi" and "perfis" in lidas:
                 campos = (*campos, "Perfis")
-            url = f"{settings.nocodb_url.rstrip('/')}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
+            url = f"{raiz}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
                 brutos[nome] = paginas(client, url, headers, campos, inicio)
             except NocodbIndisponivel as erro:
-                # Table name only in the API log (e.g. instaladores:http_400), never to the Bench.
+                # Table name and error kind only (e.g. instaladores:http_400); TA-ADR-040.
                 raise NocodbIndisponivel(f"{nome}:{erro.code}") from None
-    return validar(brutos)
+    dados = validar(brutos)
+    dados["avisos"] = avisos
+    return dados
 
 
 def paginas(client: httpx.Client, url: str, headers: dict, campos: tuple, inicio: float) -> list[dict]:

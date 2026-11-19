@@ -167,6 +167,8 @@ def cadastros(
         "defasado": defasado,
         **conteudo,
         "descartados": dados["descartados"],
+        # TA-ADR-041: optional tables not read, only in the restricted shape of TA-ADR-040.
+        "avisos": [a for a in dados.get("avisos", []) if MOTIVO.fullmatch(a)],
     }
     return Response(
         json.dumps(corpo, ensure_ascii=False), media_type="application/json", headers=cabecalhos

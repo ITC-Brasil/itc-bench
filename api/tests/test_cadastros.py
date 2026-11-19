@@ -644,3 +644,96 @@ def test_motivo_so_em_formato_conhecido(bruto, seguro):
     from app.routes.cadastros import indisponivel
 
     assert indisponivel(bruto).extra == {"motivo": seguro}
+
+
+def _falhando(fake, tabelas: dict[str, int], pedidos: list | None = None):
+    """Handler that answers `status` for the given table ids and records every request."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        tabela = request.url.path.split("/")[-2]
+        if pedidos is not None:
+            pedidos.append((tabela, request.url.params["fields"].split(",")))
+        if tabela in tabelas:
+            return httpx.Response(tabelas[tabela], json={"msg": "texto do NocoDB"})
+        return fake.handler(request)
+
+    return handler
+
+
+@pytest.mark.parametrize(("status", "aviso"), [(404, "projetos:http_404"), (400, "projetos:http_400")])
+def test_projetos_que_falha_segue_sem_ela(settings, fake, caplog, status, aviso):
+    """TA-ADR-041: Projetos failing does not stop the read; without it, the others do not ask
+    for the Projeto column (no row dropped as projeto_invalido)."""
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    fake.dados["mUni"][0]["Projeto"] = "XYZ"
+    pedidos: list = []
+    s = configurar(settings, nocodb_tabela_projetos="mPro")
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        dados = nocodb_cadastros.ler(s, httpx.MockTransport(_falhando(fake, {"mPro": status}, pedidos)))
+    assert dados["avisos"] == [aviso]
+    assert dados["projetos"] == [] and len(dados["unidades"]) == 2
+    assert {u["projeto"] for u in dados["unidades"]} == {""}
+    assert "projeto_invalido" not in caplog.text
+    outras = [campos for tabela, campos in pedidos if tabela != "mPro"]
+    assert outras and all("Projeto" not in campos for campos in outras)
+    assert "projetos nao lida (http_" in caplog.text
+
+
+def test_perfis_que_falha_segue_sem_ela_e_wifi_sem_perfis(settings, fake, caplog):
+    """TA-ADR-041: Perfis failing leaves perfis empty and WiFi without the Perfis column."""
+    fake.dados["mPer"] = [{"Id": 1, "Codigo": "aluno", "Nome": "Aluno", "Etapas": "1,2", "Ativo": True}]
+    pedidos: list = []
+    s = configurar(settings, nocodb_tabela_perfis="mPer")
+    with caplog.at_level("WARNING", logger="tecnico.cadastros"):
+        dados = nocodb_cadastros.ler(s, httpx.MockTransport(_falhando(fake, {"mPer": 404}, pedidos)))
+    assert dados["avisos"] == ["perfis:http_404"] and dados["perfis"] == []
+    wifi = [campos for tabela, campos in pedidos if tabela == "mWif"]
+    assert wifi and all("Perfis" not in campos for campos in wifi)
+    assert "perfil_invalido" not in caplog.text
+
+
+def test_opcionais_lidas_sem_aviso(settings, fake):
+    fake.dados["mPro"] = [{"Id": 1, "Sigla": "ABC", "Nome": "Projeto Abc", "Ativo": True}]
+    fake.dados["mPer"] = [{"Id": 1, "Codigo": "aluno", "Nome": "Aluno", "Etapas": "1,2", "Ativo": True}]
+    s = configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer")
+    dados = nocodb_cadastros.ler(s, httpx.MockTransport(fake.handler))
+    assert dados["avisos"] == [] and len(dados["projetos"]) == 1 and len(dados["perfis"]) == 1
+
+
+def test_obrigatoria_que_falha_continua_503(settings, fake):
+    """TA-ADR-041 keeps TA-ADR-040: a required table failing is still all or nothing."""
+    s = configurar(settings, nocodb_tabela_projetos="mPro")
+    fake.dados["mPro"] = []
+    criar_sessao(s)
+    handler = _falhando(fake, {"mPro": 404, "mWif": 400})
+    with TestClient(create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(handler)})) as c:
+        r = c.get("/v1/bench/cadastros", headers=AUT)
+    assert r.status_code == 503
+    assert r.json() == {"erro": "cadastros_indisponivel", "motivo": "wifi:http_400"}
+
+
+def test_cadastros_entrega_avisos_restritos(settings, fake):
+    """`avisos` reaches the Bench with the table and error kind only, never NocoDB text or id."""
+    s = configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer")
+    criar_sessao(s)
+    handler = _falhando(fake, {"mPro": 404, "mPer": 400})
+    with TestClient(create_app(s, transports={"nocodb_cadastros": httpx.MockTransport(handler)})) as c:
+        r = c.get("/v1/bench/cadastros", headers=AUT)
+    assert r.status_code == 200
+    assert r.json()["avisos"] == ["projetos:http_404", "perfis:http_400"]
+    assert "texto do NocoDB" not in r.text and "mPro" not in r.text and "mPer" not in r.text
+
+
+def test_sem_busca_pelo_nome(settings, fake):
+    """TA-ADR-041: the table id comes only from api/.env; no call to the NocoDB meta routes."""
+    pedidos: list = []
+    s = configurar(settings, nocodb_tabela_projetos="mPro", nocodb_tabela_perfis="mPer")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pedidos.append(request.url.path)
+        if "/meta/" in request.url.path:
+            return httpx.Response(200, json={})
+        return _falhando(fake, {"mPro": 404, "mPer": 404})(request)
+
+    nocodb_cadastros.ler(s, httpx.MockTransport(handler))
+    assert pedidos and not any("/meta/" in p for p in pedidos)

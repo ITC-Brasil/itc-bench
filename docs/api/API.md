@@ -236,9 +236,16 @@ ele, só o Wi-Fi daquela unidade. Servidores, Instaladores e Unidades vêm sempr
   "unidades": [{"id": 1, "codigo": "UM-01", "nome": "...", "cidade": "", "uf": "..", "tag_glpi": "", "perfil_padrao": "...", "projeto": ""}],
   "projetos": [{"id": 1, "sigla": "ABC", "nome": "..."}],
   "perfis": [{"id": 1, "codigo": "aluno", "nome": "Aluno", "etapas": [1, 2, 14], "projeto": "", "descricao": ""}],
-  "descartados": {"wifi": [12]}
+  "descartados": {"wifi": [12]},
+  "avisos": ["perfis:http_404"]
 }
 ```
+
+- **`avisos`** (TA-ADR-041): tabelas opcionais (Projetos, Perfis) que falharam na leitura; a
+  resposta segue sem elas. Só `<tabela>:<erro>`, no mesmo formato restrito do `motivo` do
+  TA-ADR-040; nunca URL, id de tabela ou texto do NocoDB. Vazio quando tudo foi lido. Sem
+  Projetos lida, as outras tabelas não pedem a coluna `Projeto`; sem Perfis lida, o WiFi não
+  pede `Perfis`.
 
 - Só linhas com `Ativo = true`. Linha sem o campo de exibição (`Servico`, `Programa`, `SSID`,
   `Codigo`) ou Wi-Fi com unidade fora das Unidades ativas sai em `descartados` (só o `Id`).

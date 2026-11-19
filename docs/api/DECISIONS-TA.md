@@ -1371,3 +1371,39 @@ falta uma coluna, se um id do `api/.env` está errado ou se o token perdeu acess
 **Consequences**
 - `Refusal` ganha `extra` (campos curtos, já saneados).
 - O Bench antigo ignora o campo novo.
+
+## TA-ADR-041 — Projetos e Perfis opcionais falhando sozinhas; campo `avisos`
+
+**Status:** Accepted
+**Date:** 2026-11-19 (decisão do responsável)
+**Module:** Bench pós-16 (emenda ao TA-ADR-036, TA-ADR-037 e TA-ADR-040)
+
+**Context**
+Depois do deploy das tabelas Projetos e Perfis, um id errado de Projetos no `api/.env` parou a
+sincronização de todas as máquinas (`503 cadastros_indisponivel`): uma tabela opcional derrubava
+as quatro obrigatórias.
+
+**Decision**
+1. Projetos e Perfis são lidas primeiro e **falham sozinhas**: erro de leitura numa delas não
+   derruba a sincronização. A API segue sem a tabela, grava `log.warning` e acrescenta
+   `<tabela>:<erro>` em `avisos`.
+2. As quatro obrigatórias (Servidores, Instaladores, WiFi, Unidades) continuam tudo ou nada,
+   com o `motivo` do TA-ADR-040.
+3. A coluna `Projeto` (Unidades, Instaladores, WiFi, Perfis) só é pedida quando Projetos foi
+   **lida**, e `WiFi.Perfis` só quando Perfis foi lida, não só configurada: sem a tabela, essas
+   colunas descartariam linhas como `projeto_invalido` ou `perfil_invalido`.
+4. `GET /v1/bench/cadastros` ganha `avisos`, só no formato restrito do TA-ADR-040 (nome lógico
+   da tabela e tipo de erro); o resto é filtrado na rota.
+5. O id de cada tabela vem só do `api/.env`.
+
+**Alternatives considered**
+- **Achar a tabela pelo nome** quando o id dá 404 (rotas `/api/v2/meta/...` do NocoDB, na mesma
+  base de Servidores): **descartada pelo responsável**. Escondia o erro de configuração,
+  dependia de o token Viewer listar as tabelas da base e adicionava chamadas e cache por
+  processo. O id continua só no `.env`.
+- Manter tudo ou nada: um erro numa tabela nova para a sincronização de todas as máquinas.
+
+**Consequences**
+- Sem Perfis lida, a lista de perfis vem vazia e a Configuração do Bench não roda (com o aviso
+  na API); sem Projetos, papel de parede e Wi-Fi por projeto ficam parados.
+- O Bench ainda não mostra `avisos` na tela (decisão adiada); o Bench antigo ignora o campo.
