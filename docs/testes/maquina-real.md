@@ -69,6 +69,7 @@ placeholders (`<computador>`, `<conta-1>`, `S-1-5-21-…-1002`, `<ssid>`, `*.exe
 | 2.1 | Primeiro login com técnico com perfil no GLPI; um sem o perfil | Entra; o outro recebe "fora do perfil" | 04/D3 |
 | 2.2 | Antes do primeiro login, abrir Wi-Fi | Aviso de cadastros ausentes, nada instalado | 08/V6 |
 | 2.3 | Configurações depois do login | Cadastros de teste; segredos mascarados | 05/D2 |
+| 2.3a | Com uma rede ativa no WiFi apontando para uma unidade que não existe: Configurações › Sincronizar agora | Aviso "1 linha(s) do cadastro central ignoradas … (WiFi: Id N)" com o Id da rede; a mesma tabela e Id no log do Bench; o motivo (`unidade_invalida`) no log da API | ADR-070 |
 | 2.4 | Desligar a rede, fechar e abrir o Bench | Login offline do mesmo técnico; cadastros do cache | 04, 07/V7 |
 | 2.5 | Na conta `Teste01` (depois do passo 5): `type` e `dir` em `protegido\` | Acesso negado | 04/C4, 05/C3 |
 

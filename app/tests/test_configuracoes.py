@@ -54,7 +54,7 @@ def test_mostra_cadastros_com_segredos_mascarados(qtbot, monkeypatch, tmp_path):
     texto = textos_visiveis(j)
     for marcador in (SENHA_WIFI, CHAVE, OBS):
         assert marcador not in texto
-    assert "1 linha(s) com problema" in texto
+    assert "1 linha(s) do cadastro central ignoradas por erro no NocoDB (WiFi: Id 12)" in texto
     assert not p.botao_sincronizar.isEnabled()  # sem sessão online
 
 

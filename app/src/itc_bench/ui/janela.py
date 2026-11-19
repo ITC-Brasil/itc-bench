@@ -406,11 +406,14 @@ class Janela(QMainWindow):
                 )
             elif self.cadastros.defasado:
                 avisos.append("O cadastro central está fora do ar; a API mandou a última cópia.")
-            descartados = sum(len(v) for v in self.cadastros.descartados.values())
-            if descartados:
+            if resumo := cadastros.resumo_descartados(self.cadastros.descartados):
+                descartados = sum(
+                    len(v) for v in self.cadastros.descartados.values() if isinstance(v, list)
+                )
                 avisos.append(
-                    f"{descartados} linha(s) com problema no cadastro central foram ignoradas "
-                    "(sem nome ou com unidade inexistente). Corrija no NocoDB."
+                    f"{descartados} linha(s) do cadastro central ignoradas por erro no NocoDB "
+                    f"({resumo}). Corrija essas linhas no NocoDB; o motivo de cada uma está "
+                    "no log da API."
                 )
         if self.armazem.arquivo is None:
             avisos.append("Sem administrador: os cadastros ficam só em memória nesta sessão.")
