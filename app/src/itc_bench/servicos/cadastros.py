@@ -386,6 +386,34 @@ def explicar_motivo(motivo: str) -> str:
     return f"tabela {nome}: {causa}"
 
 
+IDS_POR_TABELA = 10  # acima disso, "e mais N": o aviso cabe na tela
+
+
+def _ordem_id(i: Any) -> tuple[int, int, str]:
+    """Números em ordem numérica (3 antes de 12); o que não é número vem depois, como texto."""
+    texto = str(i).strip()
+    return (0, int(texto), "") if texto.isdigit() else (1, 0, texto)
+
+
+def resumo_descartados(descartados: dict[str, Any], limite: int | None = IDS_POR_TABELA) -> str:
+    """`{"wifi": [37, 12]}` → `WiFi: Id 12, 37`: onde estão as linhas que a API ignorou.
+
+    Ids em ordem crescente; `limite=None` lista todos (log). Só tabela e Id, como a API manda;
+    o motivo de cada linha fica no log da API."""
+    partes = []
+    for tabela, ids in descartados.items():
+        brutos = [i for i in ids if i is not None] if isinstance(ids, list) else []
+        lista = [str(i) for i in sorted(brutos, key=_ordem_id)]
+        if not lista:
+            continue
+        mostrar = lista if limite is None else lista[:limite]
+        texto = ", ".join(mostrar)
+        if len(lista) > len(mostrar):
+            texto += f" e mais {len(lista) - len(mostrar)}"
+        partes.append(f"{TABELA_MOTIVO.get(tabela, tabela)}: Id {texto}")
+    return "; ".join(partes)
+
+
 def sincronizar(
     base: str, token: Sensivel, armazem: Armazem, por: str, unidade: str | None
 ) -> Sincronizacao:
@@ -439,6 +467,8 @@ def sincronizar(
         unidade or "todas",
         ", defasado na API" if cadastros.defasado else "",
     )
+    if resumo := resumo_descartados(cadastros.descartados, limite=None):
+        log.warning("Cadastros: linhas ignoradas pela API (corrigir no NocoDB): %s.", resumo)
     return Sincronizacao("ok", cadastros)
 
 

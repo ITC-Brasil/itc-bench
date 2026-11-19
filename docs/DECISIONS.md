@@ -3536,3 +3536,33 @@ responsável pediu as redes como o papel de parede: por projeto, com os perfis q
 - Rede cadastrada com `Projeto` vai para todas as unidades do projeto; rede só de uma unidade
   fica sem `Projeto` (regra antiga).
 - Roteiro de máquina real 10.24.
+
+## ADR-070 — Linhas ignoradas pela API com tabela e Id no aviso
+
+**Status:** Accepted
+**Date:** 2026-11-18 (pedido do responsável)
+**Module:** Pós-16 (com o ADR-006 e o TA-ADR-040)
+
+**Context**
+A API descarta linhas ativas com erro no NocoDB e manda ao Bench `descartados` (`{tabela: [Id,
+…]}`). O Bench mostrava só o total ("15 linha(s) com problema … sem nome ou com unidade
+inexistente"): sem acesso SSH ao log da API não havia como achar as linhas, e a lista de causas
+estava incompleta (projeto, perfil, papel de parede e valores fora da lista também descartam).
+
+**Decision**
+1. `cadastros.resumo_descartados`: "WiFi: Id 12, 37; Perfis: Id 4", com o nome da tabela como no
+   NocoDB e os Ids em ordem crescente. Entrada fora do formato é ignorada.
+2. O aviso de Configurações mostra o total, a tabela e no máximo 10 Ids por tabela ("e mais N"),
+   e diz que o motivo está no log da API. A sincronização grava no log do Bench (WARNING) o
+   resumo com **todos** os Ids.
+3. A API não muda: o motivo de cada linha continua só no log dela.
+
+**Alternatives considered**
+- A API mandar também o motivo: mais útil, mas muda o contrato da API e o deploy; fica para
+  depois, se a tabela e o Id não bastarem.
+
+**Consequences**
+- O Id é o campo `Id` do NocoDB (escondido por padrão na grade): para achar a linha, mostrar o
+  campo ou buscar por ele.
+- Nada de segredo no aviso nem no log: só nome de tabela e número.
+- Roteiro de máquina real 2.3a.
