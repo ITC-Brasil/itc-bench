@@ -3705,3 +3705,42 @@ botão da tela que resolve e ações rápidas com ícone, nos modos claro e escu
 - Archivo 700 não está embutido (só 400, 600 e 800): os títulos de 28 e 17 px usam 800.
 - O nome do computador passa a aparecer no Início (já aparecia no rodapé e na Identificação).
 - Roteiro de máquina real 3.6a a 3.6c.
+## ADR-074 — Programas por projeto e perfil, como o Wi-Fi
+
+**Status:** Accepted
+**Date:** 2026-11-19 (pedido do responsável)
+**Module:** Pós-16 (com o ADR-065 e o TA-ADR-042; o ADR-073 é a nova tela Início, em outra
+branch)
+
+**Context**
+O Wi-Fi já vai por projeto e perfil (ADR-065). Os programas da tela Programas iam para toda
+máquina; o responsável quer instalá-los também pelo projeto da unidade e pelo perfil.
+
+**Decision**
+1. `Instaladores.Projeto` passa a valer para todo tipo (antes só papel) e ganha
+   `Instaladores.Perfis` (códigos da tabela Perfis), validados na API como no WiFi
+   (TA-ADR-042).
+2. `Cadastros.instaladores_para(unidade, perfil)`: os programas **sem projeto** (todas as
+   máquinas, como antes) e os do projeto da unidade; com perfil, só os de `perfis` vazio ou que
+   o contêm. **Bancada (sem unidade): só os sem projeto.** Diferente do Wi-Fi, onde rede sem
+   projeto é só da própria unidade: programa sem projeto continua indo para todos.
+3. Configuração, etapa 6: usa a regra com o perfil escolhido; sem programa para o projeto e o
+   perfil, a etapa **some** (`etapas.ocultas`, como a 3 e a 4).
+4. Tela Programas: abre **sempre** em "Projeto desta máquina" (gerais e do projeto, sem
+   filtrar perfil, que só existe na Configuração); "Todos os projetos" mostra o cadastro
+   inteiro. Coluna nova **Para** ("ABC · aluno, pedagogo"; vazio = "todos os projetos · todos os
+   perfis"). Em bancada, avisa que mostra só os gerais.
+5. Duplicata: numa máquina, dois programas iguais que iriam para ela são duplicata (bloqueados,
+   como antes); em "Todos os projetos", o mesmo programa em projetos ou perfis diferentes não é.
+6. Acesso remoto (GLPI Agent, RustDesk, AnyDesk), MCPR e papel de parede não mudam: continuam
+   pela regra própria de cada um.
+
+**Alternatives considered**
+- Programa sem projeto só na unidade, como o Wi-Fi: tiraria de todas as máquinas o que hoje é
+  instalado em todas.
+- Filtrar a tela Programas também por perfil: a tela não tem perfil; ficaria para a Configuração.
+
+**Consequences**
+- No NocoDB: criar a coluna `Perfis` (SingleLineText) em Instaladores; `Projeto` já existe.
+- O Bench 0.20.0 ignora `projeto` e `perfis` nos programas (mostra todos), até a versão nova.
+- Roteiro de máquina real 8.8f e 10.29.

@@ -1407,3 +1407,33 @@ as quatro obrigatórias.
 - Sem Perfis lida, a lista de perfis vem vazia e a Configuração do Bench não roda (com o aviso
   na API); sem Projetos, papel de parede e Wi-Fi por projeto ficam parados.
 - O Bench ainda não mostra `avisos` na tela (decisão adiada); o Bench antigo ignora o campo.
+
+## TA-ADR-042 — Instaladores com Projeto e Perfis em todo tipo
+
+**Status:** Accepted
+**Date:** 2026-11-19 (pedido do responsável)
+**Module:** Bench pós-16 (emenda ao TA-ADR-035; com o ADR-074 e o TA-ADR-038)
+
+**Context**
+Os programas passam a ir por projeto e perfil, como o Wi-Fi (ADR-074). Até aqui, só a linha de
+papel lia `Projeto`, e Instaladores não tinha `Perfis`.
+
+**Decision**
+1. `Projeto` vale para todo tipo de Instaladores e vai no campo `projeto` de cada linha
+   (vazio = todos os projetos). Sigla que não é Projeto ativo descarta a linha
+   (`projeto_invalido`).
+2. Coluna nova `Perfis` (SingleLineText), como `WiFi.Perfis`: códigos separados por vírgula,
+   ponto e vírgula ou espaço, em minúsculas, únicos e ordenados, no campo `perfis` (vazio =
+   todos). Código que não é perfil válido descarta a linha (`perfil_invalido`).
+3. `Projeto` só é pedido com Projetos **lida**, e `Perfis` só com Perfis lida (TA-ADR-041);
+   sem a tabela, o campo vem vazio e a linha vale para todos.
+4. Os Perfis são validados antes dos Instaladores (a ordem do `validar` mudou).
+
+**Alternatives considered**
+- Ignorar a sigla ou o perfil desconhecido e mandar para todos: um programa de um projeto iria
+  para todas as máquinas por um erro de digitação.
+
+**Consequences**
+- Uma linha que não é papel e tinha `Projeto` com sigla errada, antes ignorada, passa a ser
+  descartada (aparece no aviso de linhas ignoradas do Bench).
+- O Bench 0.20.0 ignora os campos novos nos programas.

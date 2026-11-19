@@ -125,8 +125,8 @@ def ler(settings, transport: httpx.BaseTransport | None = None) -> dict:
                 continue
             if nome in ("unidades", "instaladores", "wifi") and "projetos" in lidas:
                 campos = (*campos, "Projeto")
-            # TA-ADR-038: WiFi.Perfis only exists together with the Perfis table.
-            if nome == "wifi" and "perfis" in lidas:
+            # TA-ADR-038/042: WiFi.Perfis and Instaladores.Perfis only with the Perfis table read.
+            if nome in ("wifi", "instaladores") and "perfis" in lidas:
                 campos = (*campos, "Perfis")
             url = f"{raiz}/api/v2/tables/{getattr(settings, id_setting).strip()}/records"
             try:
@@ -193,20 +193,23 @@ def validar(brutos: dict[str, list[dict]]) -> dict:
             log.warning("cadastro unidades Id %s: projeto_invalido", u["id"])
             u["projeto"] = ""
     codigos = {u["codigo"] for u in unidades}
+    perfis_ = perfis(validos["perfis"], siglas, descartados)
+    codigos_perfil = {p["codigo"] for p in perfis_}
     instaladores = []
     for linha in validos["instaladores"]:
         motivo = motivo_instalador(linha)
-        # TA-ADR-035: a papel row names its project; an unknown sigla drops the row.
-        if not motivo and papel_projeto(linha) not in siglas | {""}:
+        # TA-ADR-035 (papel) and TA-ADR-042 (every Tipo): an unknown sigla or profile drops the
+        # row; giving a project's program to everyone would be worse.
+        if not motivo and texto(linha.get("Projeto")) not in siglas | {""}:
             motivo = "projeto_invalido"
+        if not motivo and any(p not in codigos_perfil for p in lista_perfis(linha)):
+            motivo = "perfil_invalido"
         if motivo:
             descartados.setdefault("instaladores", []).append(linha.get("Id"))
             log.warning("cadastro instaladores Id %s descartado: %s", linha.get("Id"), motivo)
             continue
         instaladores.append(instalador(linha))
 
-    perfis_ = perfis(validos["perfis"], siglas, descartados)
-    codigos_perfil = {p["codigo"] for p in perfis_}
     wifi = []
     for linha in validos["wifi"]:
         motivo = motivo_rede(linha, siglas, codigos, codigos_perfil)
@@ -285,14 +288,11 @@ def instalador(linha: dict) -> dict:
         "argumentos": texto(linha.get("Argumentos")),
         "deteccao": texto(linha.get("Deteccao")),
         "modo": texto(linha.get("Modo")) or "quiosque",
-        "projeto": papel_projeto(linha),
+        # TA-ADR-035 (papel) and TA-ADR-042 (every Tipo): empty = every project.
+        "projeto": texto(linha.get("Projeto")),
+        # TA-ADR-042: Perfis codes, like WiFi.Perfis; empty = every profile.
+        "perfis": lista_perfis(linha),
     }
-
-
-def papel_projeto(linha: dict) -> str:
-    """Projeto of a papel row (TA-ADR-035): empty = none. Other Tipos ignore the column."""
-    tipo = texto(linha.get("Tipo")) or "instalador"
-    return texto(linha.get("Projeto")) if tipo == "papel" else ""
 
 
 def rede(linha: dict) -> dict:
@@ -309,7 +309,7 @@ def rede(linha: dict) -> dict:
 
 
 def lista_perfis(linha: dict) -> list[str]:
-    """WiFi.Perfis (TA-ADR-038): Perfis codes split by comma, semicolon or space, lowercase,
+    """WiFi.Perfis (TA-ADR-038) and Instaladores.Perfis (TA-ADR-042): Perfis codes split by comma, semicolon or space, lowercase,
     sorted and unique. Empty = every profile."""
     partes = re.split(r"[,;\s]+", texto(linha.get("Perfis")).lower())
     return sorted({p for p in partes if p})

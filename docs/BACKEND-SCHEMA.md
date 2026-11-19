@@ -39,7 +39,8 @@ marcada como obrigatória nem única: validação fica na API.
 | `Argumentos` | LongText | Só instalador: um argumento por linha (MSI: `PROPRIEDADE=valor`). Vazio em `.exe` = instalação interativa |
 | `Deteccao` | SingleLineText | Opcional: começo do nome em "Aplicativos instalados" quando é diferente de `Programa` |
 | `Modo` | SingleSelect: `quiosque`, `app` | Só webapp; vazio = `quiosque` |
-| `Projeto` | SingleLineText | Só papel (ADR-057, TA-ADR-035): sigla de `Projetos.Sigla`; vale para todas as unidades do projeto. Sigla que não é Projeto ativo descarta a linha. Lida só com `NOCODB_TABELA_PROJETOS` configurado |
+| `Projeto` | SingleLineText | Sigla de `Projetos.Sigla`: a linha vale para todas as unidades do projeto. Papel (ADR-057, TA-ADR-035) e, desde o ADR-074/TA-ADR-042, todo tipo (programa, winget, Web App). Vazio = todos os projetos. Sigla que não é Projeto ativo descarta a linha. Lida só com `NOCODB_TABELA_PROJETOS` configurado |
+| `Perfis` | SingleLineText | Opcional (ADR-074, TA-ADR-042, como `WiFi.Perfis`): códigos da tabela Perfis separados por vírgula (`aluno,pedagogo`); a Configuração só instala o programa nesses perfis. Vazio = todos. Código que não é perfil ativo descarta a linha. Lida só com `NOCODB_TABELA_PERFIS` configurado |
 
 Contrato de Programas (ADR-020, TA-ADR-029):
 - **instalador:** `Programa`, `Versao`, `Arquivo` `.msi`/`.exe`, `Link` `https://`; `SHA256`

@@ -16,7 +16,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path, PurePath, PureWindowsPath
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from itc_bench.nucleo import acl, versao
@@ -194,22 +194,38 @@ def chave_duplicata(linha: Instalador) -> tuple[str, str]:
     return linha.tipo, linha.identificador.strip().casefold()
 
 
-def listar(cadastros: Cadastros | None) -> list[Item]:
+TODAS = object()  # `listar(unidade=TODAS)`: sem filtrar por projeto (tela Programas, aba Todos)
+
+
+def listar(
+    cadastros: Cadastros | None, unidade: Any = TODAS, perfil: str | None = None
+) -> list[Item]:
     """Linhas de Programas (sem as do Acesso remoto nem as ferramentas, como o MCPR), com o
-    bloqueio de cada uma."""
+    bloqueio de cada uma. Com `unidade` (None = bancada), só as desta máquina e, com `perfil`, só
+    as desse perfil (ADR-074)."""
     if cadastros is None:
         return []
+    fonte = (
+        cadastros.instaladores if unidade is TODAS else cadastros.instaladores_para(unidade, perfil)
+    )
     linhas = [
         i
-        for i in cadastros.instaladores
+        for i in fonte
         if not (i.tipo == "instalador" and i.programa in remoto.PROGRAMAS)
         and not ferramenta(i)  # MCPR: só na remoção do McAfee (ADR-066)
         and i.tipo != "papel"  # papel de parede é da tela Aparência (ADR-022)
     ]
-    contagem = Counter(chave_duplicata(i) for i in linhas)
+
+    def chave(i: Instalador) -> tuple[Any, ...]:
+        # Em Todos, o mesmo programa em projetos ou perfis diferentes não é duplicata; numa
+        # máquina, é (os dois iriam para ela).
+        base = chave_duplicata(i)
+        return (*base, i.projeto, i.perfis) if unidade is TODAS else base
+
+    contagem = Counter(chave(i) for i in linhas)
     itens = []
     for linha in linhas:
-        if contagem[chave_duplicata(linha)] > 1:
+        if contagem[chave(linha)] > 1:
             itens.append(Item(linha, "Cadastro duplicado em Instaladores."))
         else:
             itens.append(Item(linha, validar(linha)))
