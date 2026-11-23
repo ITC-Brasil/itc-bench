@@ -16,6 +16,7 @@ from itc_bench.ui.janela import Janela
 from itc_bench.ui.log_qt import HandlerTela
 
 DA_PASTA = modelo.da_pasta  # o conftest troca por um falso; estes testes usam o de verdade
+NA_PASTA = modelo.na_pasta
 COMPLETO = modelo.Modelo(
     perfil="aluno",
     etapas_desmarcadas=("wifi",),
@@ -97,6 +98,7 @@ def test_valores_estranhos_sao_descartados():
 def test_pasta_pega_o_mais_novo_e_pula_o_ruim(tmp_path, monkeypatch):
     monkeypatch.setattr(modelo, "pasta", lambda: tmp_path)
     monkeypatch.setattr(modelo, "da_pasta", DA_PASTA)
+    monkeypatch.setattr(modelo, "na_pasta", NA_PASTA)
     velho = modelo.salvar(modelo.Modelo(perfil="aluno"), tmp_path / "velho")
     novo = modelo.salvar(modelo.Modelo(perfil="pedagogo"), tmp_path / "novo")
     ruim = tmp_path / "ruim.itcbench"
@@ -112,6 +114,7 @@ def test_pasta_pega_o_mais_novo_e_pula_o_ruim(tmp_path, monkeypatch):
 def test_pasta_vazia_ou_inexistente(tmp_path, monkeypatch):
     monkeypatch.setattr(modelo, "pasta", lambda: tmp_path / "nao_existe")
     monkeypatch.setattr(modelo, "da_pasta", DA_PASTA)
+    monkeypatch.setattr(modelo, "na_pasta", NA_PASTA)
     assert modelo.da_pasta() is None
 
 
@@ -187,3 +190,58 @@ def test_programas_marca_do_modelo_e_guarda_instalados(qtbot):
     assert {p.tabela.item(r, 0).text() for r in p.marcadas()} == {"VLC"}
     p._feito([pg.Resultado(linhas[2].item, "ok", "instalado")])
     assert set(p.marcacoes()) == {"3", "7"}
+
+
+# ---------------------------------------------------------------- usar sempre (ADR-078)
+
+
+def _pasta_real(monkeypatch, tmp_path):
+    destino = tmp_path / "modelos"
+    monkeypatch.setattr(modelo, "pasta", lambda: destino)
+    monkeypatch.setattr(modelo, "na_pasta", NA_PASTA)
+    monkeypatch.setattr(modelo, "da_pasta", DA_PASTA)
+    return destino
+
+
+def test_usar_sempre_copia_e_vence_os_antigos(tmp_path, monkeypatch):
+    destino = _pasta_real(monkeypatch, tmp_path)
+    antigo = modelo.salvar(modelo.Modelo(perfil="aluno"), destino.parent / "antigo")
+    destino.mkdir()
+    velho = modelo.salvar(modelo.Modelo(perfil="pedagogo"), destino / "velho")
+    os.utime(velho, (2_000_000_000, 2_000_000_000))  # "do futuro": a cópia nova ainda vence
+    copia = modelo.usar_sempre(antigo)
+    assert copia.parent == destino and antigo.exists()
+    os.utime(velho, (1, 1))
+    assert modelo.da_pasta()[1].perfil == "aluno"
+    assert modelo.parar_de_usar() == 2 and modelo.na_pasta() == []
+    assert antigo.exists()  # o original não é mexido
+
+
+def test_importar_com_usar_sempre_guarda_na_pasta(qtbot, tmp_path, monkeypatch):
+    from itc_bench.ui import modelo as ui_modelo
+
+    destino = _pasta_real(monkeypatch, tmp_path)
+    arquivo = modelo.salvar(COMPLETO, tmp_path / "um01")
+    p = ui_modelo.PainelModelo(lambda: COMPLETO, lambda _m: [])
+    qtbot.addWidget(p)
+    assert p.usar_sempre.isChecked() and not p.b_parar.isEnabled()
+    monkeypatch.setattr(ui_modelo.QFileDialog, "getOpenFileName", lambda *_a: (str(arquivo), ""))
+    p._importar()
+    assert (destino / "um01.itcbench").exists() and "ao abrir o Bench" in p.estado.text()
+    assert p.b_parar.isEnabled() and "Em uso: um01.itcbench" in p.pasta.text()
+    monkeypatch.setattr(ui_modelo, "confirmar", lambda *_a: True)
+    p._parar()
+    assert modelo.na_pasta() == [] and not p.b_parar.isEnabled()
+
+
+def test_importar_sem_usar_sempre_nao_copia(qtbot, tmp_path, monkeypatch):
+    from itc_bench.ui import modelo as ui_modelo
+
+    destino = _pasta_real(monkeypatch, tmp_path)
+    arquivo = modelo.salvar(COMPLETO, tmp_path / "um01")
+    p = ui_modelo.PainelModelo(lambda: COMPLETO, lambda _m: [])
+    qtbot.addWidget(p)
+    p.usar_sempre.setChecked(False)
+    monkeypatch.setattr(ui_modelo.QFileDialog, "getOpenFileName", lambda *_a: (str(arquivo), ""))
+    p._importar()
+    assert not destino.exists() or not list(destino.iterdir())
