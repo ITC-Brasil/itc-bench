@@ -4,11 +4,18 @@ outra máquina. Regras e formato em `servicos/modelo.py`; aqui só tela."""
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFileDialog,
+    QHBoxLayout,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import modelo
-from itc_bench.ui.contas import _rotulo
+from itc_bench.ui.contas import _rotulo, confirmar
 
 AJUDA = (
     "Leva as marcações de uma máquina para outras da mesma unidade ou do mesmo projeto: prepare "
@@ -25,9 +32,11 @@ AJUDA = (
     "Nunca vão: senhas, nome do computador, contas, nem a unidade da máquina.\n\n"
     "Como usar\n"
     "1. Na primeira máquina, marque tudo nas telas e clique em Salvar modelo….\n"
-    "2. Na outra máquina, clique em Importar modelo… e escolha o arquivo (.itcbench). Ou ponha o "
-    "arquivo na pasta indicada abaixo: ele é carregado sozinho toda vez que o Bench abre (o mais "
-    "novo, se houver mais de um).\n"
+    "2. Na outra máquina, clique em Importar modelo… e escolha o arquivo (.itcbench). Com Usar "
+    "sempre nesta máquina marcado (vem marcado), o Bench guarda uma cópia na pasta indicada e "
+    "carrega o modelo sozinho toda vez que abre; desmarcado, vale só até fechar o Bench. Pôr o "
+    "arquivo na pasta à mão faz o mesmo (vale o mais novo, se houver mais de um). Parar de usar "
+    "tira os modelos da pasta; o arquivo original não é mexido.\n"
     "3. As telas ficam marcadas como no modelo. Confira e rode cada uma como sempre: importar "
     "não aplica nada sozinho.\n\n"
     "Perfil, rede, política ou programa que não existe nesta máquina é ignorado; o resumo diz o "
@@ -59,10 +68,16 @@ class PainelModelo(QWidget):
         self.b_importar = QPushButton("Importar modelo…")
         self.b_importar.setObjectName("primario")
         self.b_importar.clicked.connect(self._importar)
+        self.b_parar = QPushButton("Parar de usar nesta máquina")
+        self.b_parar.clicked.connect(self._parar)
         acoes.addWidget(self.b_salvar)
         acoes.addWidget(self.b_importar)
         acoes.addStretch()
+        acoes.addWidget(self.b_parar)
         v.addLayout(acoes)
+        self.usar_sempre = QCheckBox("Usar sempre nesta máquina (carrega ao abrir o Bench)")
+        self.usar_sempre.setChecked(True)
+        v.addWidget(self.usar_sempre)
         self.pasta = _rotulo(f"Pasta indicada (carregada ao abrir o Bench): {modelo.pasta()}")
         v.addWidget(self.pasta)
         self.estado = _rotulo("Nenhum modelo carregado.")
@@ -70,6 +85,13 @@ class PainelModelo(QWidget):
         self.detalhe = _rotulo("")
         v.addWidget(self.detalhe)
         v.addStretch()
+        self._ver_pasta()
+
+    def _ver_pasta(self) -> None:
+        arquivos = modelo.na_pasta()
+        self.b_parar.setEnabled(bool(arquivos))
+        ativo = f" Em uso: {arquivos[0].name}." if arquivos else " Nenhum modelo nela."
+        self.pasta.setText(f"Pasta indicada (carregada ao abrir o Bench): {modelo.pasta()}.{ativo}")
 
     def _salvar(self) -> None:
         m = self.coletar()
@@ -95,15 +117,44 @@ class PainelModelo(QWidget):
         caminho, _ = QFileDialog.getOpenFileName(
             self, "Importar modelo", "", f"Modelo do ITC Bench (*{modelo.EXTENSAO})"
         )
-        if caminho:
-            self.carregar(Path(caminho))
+        if not caminho or not self.carregar(Path(caminho)):
+            return
+        if not self.usar_sempre.isChecked():
+            return
+        try:
+            modelo.usar_sempre(Path(caminho))
+        except OSError as erro:
+            log.error("Modelo: cópia para a pasta falhou (%s)", type(erro).__name__)
+            self.estado.setText(
+                self.estado.text()
+                + f" Não deu para guardar na pasta ({type(erro).__name__}): vale só até fechar."
+            )
+        else:
+            self.estado.setText(self.estado.text() + " Vai carregar sozinho ao abrir o Bench.")
+        self._ver_pasta()
 
-    def carregar(self, caminho: Path, m: modelo.Modelo | None = None) -> None:
+    def _parar(self) -> None:
+        if not confirmar(
+            self,
+            "Importar configurações",
+            "Tirar os modelos da pasta indicada? O Bench deixa de carregá-los ao abrir. As telas "
+            "continuam marcadas até fechar, e o arquivo original não é mexido.",
+        ):
+            return
+        try:
+            saiu = modelo.parar_de_usar()
+        except OSError as erro:
+            self.estado.setText(f"Não deu para tirar da pasta ({type(erro).__name__}).")
+        else:
+            self.estado.setText(f"{saiu} modelo(s) tirado(s) da pasta: não carrega mais ao abrir.")
+        self._ver_pasta()
+
+    def carregar(self, caminho: Path, m: modelo.Modelo | None = None) -> bool:
         try:
             m = m or modelo.ler(caminho)
         except ValueError as erro:
             self.estado.setText(f"Modelo recusado: {erro}.")
-            return
+            return False
         self.atual = m
         avisos = self.aplicar(m)
         origem = f" (unidade {m.unidade})" if m.unidade else ""
@@ -112,3 +163,4 @@ class PainelModelo(QWidget):
         )
         linhas = m.resumo() or ["O modelo não tem marcações."]
         self.detalhe.setText("\n".join(linhas + [f"Atenção: {a}" for a in avisos]))
+        return True

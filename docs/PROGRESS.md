@@ -2,6 +2,10 @@
 
 ## ESTADO ATUAL
 
+- **23/11/2026: branch `feat/modelo-usar-sempre`, saindo da `develop` (`d249e98`).** Importar
+  modelo com **Usar sempre nesta máquina** (ADR-078): copia para a pasta indicada e passa a
+  carregar ao abrir; **Parar de usar** tira as cópias. A v0.22.0 ainda não
+  publicada é refeita com isto (rascunho e tag antigos apagados, decisão do responsável).
 - **23/11/2026: branch `chore/bump-0.22.0`, saindo da `develop` (`dacfd44`).** Versão
   **0.22.0** no código e no README, para o release com Diagnóstico › Inicialização (ADR-075),
   Sistema › Importar configurações (ADR-076) e perfil na tela Programas (ADR-077), do
