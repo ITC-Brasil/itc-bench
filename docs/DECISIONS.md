@@ -3943,3 +3943,25 @@ as contas técnicas façam alterações pela Manutenção.
   mesmo administradora, ou conta que não é local, bloqueia Ler situação, Rodar e Encerrar
   sessões, com o aviso para entrar numa delas.
 - Vale só na Manutenção; as outras telas seguem como antes.
+
+## ADR-083 — Organizar os ícones da Área de Trabalho na limpeza de contas
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 (complementa os ADR-042 e ADR-064)
+
+**Context**
+Depois da limpeza, os atalhos que ficam na Área de Trabalho do aluno continuam espalhados. O
+responsável pediu uma opção para organizá-los sozinho.
+
+**Decision**
+1. Caixa **Organizar os ícones da Área de Trabalho**, marcada por padrão, na tela Limpeza
+   (Limpeza de contas) e na Manutenção, etapa 1 (abaixo da lista de contas).
+2. Depois de limpar, `limpeza.organizar_icones` liga, para cada conta limpa, "Organizar ícones
+   automaticamente" (0x1) e "Alinhar ícones à grade" (0x4) em
+   `Software\Microsoft\Windows\Shell\Bags\1\Desktop\FFlags` do registro da conta, como o botão
+   direito › Exibir; sem o valor, grava 0x40200225 (o que o Windows grava com as duas ligadas).
+3. O trecho `recursos/limpeza/icones.ps1` usa o carregamento de hive da Inicialização (contas
+   sem sessão; ADR-075) e devolve só SID e código. Falha vira aviso; não desfaz a limpeza.
+
+**Consequences**
+- Vale na próxima vez que a conta entrar. Roteiro de máquina real 10.36.
