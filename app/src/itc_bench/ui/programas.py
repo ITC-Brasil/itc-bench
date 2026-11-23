@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from itc_bench.servicos import desinstalar as des
-from itc_bench.servicos import instaladores, mcafee
+from itc_bench.servicos import instaladores, mcafee, perfis
 from itc_bench.servicos import programas as pg
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.ui import tarefa
@@ -46,7 +46,10 @@ AJUDA = (
     "projeto. Sem Perfis, vale para todos os perfis; com Perfis, a Configuração só instala nos "
     "perfis listados. A tela abre sempre em Projeto desta máquina (os gerais e os do projeto da "
     "unidade); Todos os projetos mostra o cadastro inteiro. A coluna Para mostra o projeto e os "
-    "perfis de cada programa. Máquina em bancada (sem unidade) vê só os programas sem projeto.\n\n"
+    "perfis de cada programa. Máquina em bancada (sem unidade) vê só os programas sem projeto.\n"
+    "Ao lado, o Perfil: em Projeto desta máquina, mostra só os programas desse perfil (por "
+    "exemplo, jogos só no Aluno), como a etapa 6 da Configuração. Vem marcado o perfil padrão "
+    "da unidade; Todos os perfis tira o filtro. Em Todos os projetos o perfil não filtra.\n\n"
     "Instalar\n"
     "1. Filtre pelas abas ou pela busca e marque os itens.\n"
     "2. Clique em Instalar. A confirmação mostra, item a item, a origem, o modo (silencioso ou "
@@ -71,6 +74,10 @@ AJUDA = (
     "Vale entre itens e no download. Instalador em andamento não é interrompido. Se passar do "
     'tempo, fica "ainda em execução" e os instaladores seguintes não começam.\n\n'
     "Sem administrador (modo de teste), a tela só mostra a situação."
+    "\n\nModelo de configuração\n"
+    "Com um modelo importado (Sistema › Importar configurações), o perfil e os programas do"
+    " modelo vêm escolhidos e marcados; os instalados nesta sessão também vão para o modelo"
+    " salvo."
 )
 
 AJUDA_REMOVER = (
@@ -102,6 +109,9 @@ AJUDA_REMOVER = (
     "saiu. Reinicie a máquina no fim. Sem a linha MCPR ativa em Instaladores, o botão fica "
     "desativado e o aviso diz o que falta.\n\n"
     "Sem administrador (modo de teste), a tela só mostra a lista."
+    "\n\nModelo de configuração\n"
+    "Com um modelo importado (Sistema › Importar configurações), os programas do modelo vêm"
+    " marcados; os removidos nesta sessão também vão para o modelo salvo."
 )
 
 ABAS = ("Todos", "Programas", "Jogos", "Atalhos web", "Instalados")
@@ -313,8 +323,19 @@ class PainelProgramas(_Base):
         self.escopo.addItems(ESCOPOS)
         self.escopo.currentIndexChanged.connect(lambda _i: self.carregar())
         self.topo.insertWidget(1, self.escopo)
+        # Perfil (ADR-077): na máquina, só os programas do perfil (jogos só no aluno, por ex.).
+        self.perfil = QComboBox()
+        self.perfil.setToolTip(
+            "Mostra só os programas deste perfil, como a etapa 6 da Configuração."
+        )
+        self.perfil.currentIndexChanged.connect(lambda _i: self.carregar())
+        self.topo.insertWidget(2, self.perfil)
+        self.modelo_perfil: str | None = None
         self.linhas: list[pg.Linha] = []
         self.origens: dict[int, Path] = {}
+        # Modelo (ADR-076): ids do cadastro a marcar ao ler e os instalados nesta sessão.
+        self.modelo_programas: frozenset[str] = frozenset()
+        self.instalados: set[str] = set()
         self.escolher = QPushButton("Escolher arquivo…")
         self.escolher.setToolTip("Sem internet: aponte o instalador da linha selecionada.")
         self.escolher.clicked.connect(self._escolher)
@@ -336,7 +357,28 @@ class PainelProgramas(_Base):
             self.escopo.setCurrentIndex(0)
             self.escopo.blockSignals(False)
             self.lido = False
+        if not self.ocupado and (not self.lido or not self.perfil.count()):
+            self._carregar_perfis()
         super().showEvent(evento)
+
+    def _carregar_perfis(self) -> None:
+        """Todos os perfis e os da unidade; vem marcado o do modelo ou o padrão da unidade."""
+        cad, unidade = self.obter_cadastros(), self.obter_unidade()
+        self.perfil.blockSignals(True)
+        self.perfil.clear()
+        self.perfil.addItem("Todos os perfis", "")
+        for p in perfis.disponiveis(cad, unidade):
+            self.perfil.addItem(p.nome, p.id)
+        if self.modelo_perfil is not None:
+            escolha = self.modelo_perfil
+        else:
+            padrao, _aviso = perfis.padrao(cad, unidade)
+            escolha = padrao.id if padrao is not None else ""
+        self.perfil.setCurrentIndex(max(self.perfil.findData(escolha), 0))
+        self.perfil.blockSignals(False)
+
+    def perfil_escolhido(self) -> str:
+        return str(self.perfil.currentData() or "") if self.da_maquina() else ""
 
     _unidade_lida: str | None = None
 
@@ -348,7 +390,8 @@ class PainelProgramas(_Base):
         self.estado.setText("Lendo a situação…")
         self._unidade_lida = self.obter_unidade()
         unidade = self._unidade_lida if self.da_maquina() else pg.TODAS
-        itens = pg.listar(self.obter_cadastros(), unidade)
+        self.perfil.setEnabled(self.da_maquina())
+        itens = pg.listar(self.obter_cadastros(), unidade, self.perfil_escolhido() or None)
         tarefa.iniciar(lambda: pg.situacao(itens), self._recebeu, self._falhou)
 
     def _recebeu(self, dados: tuple[list[pg.Linha], str]) -> None:
@@ -370,6 +413,8 @@ class PainelProgramas(_Base):
                 )
             elif projeto:
                 avisos.append(f"Programas gerais e do projeto {projeto}.")
+            if self.perfil_escolhido():
+                avisos.append(f"Só os do perfil {self.perfil.currentText()}.")
         if not self.admin:
             avisos.append("Sem administrador: só leitura.")
         self.estado.setText(" ".join(avisos))
@@ -385,8 +430,44 @@ class PainelProgramas(_Base):
             self.tabela.setItem(r, 4, _celula(SITUACAO[linha.situacao], linha.motivo))
             self.tabela.setItem(r, 5, _celula(_para(item.linha)))
         self.tabela.blockSignals(False)
+        self._marcar_modelo()
         self._filtrar()
         self._ocupar(False)
+
+    def marcacoes(self) -> tuple[str, ...]:
+        """Ids do cadastro marcados agora e os instalados nesta sessão (ADR-076)."""
+        saida = set(self.instalados)
+        for r, linha in enumerate(self.linhas):
+            celula = self.tabela.item(r, 0)
+            if celula is not None and celula.checkState() == Qt.CheckState.Checked:
+                saida.add(str(linha.item.id))
+        if not self.lido:
+            saida |= self.modelo_programas
+        return tuple(sorted(saida, key=lambda i: (len(i), i)))
+
+    def aplicar_modelo(self, ids: tuple[str, ...], perfil: str | None = None) -> None:
+        self.modelo_programas = frozenset(ids)
+        if perfil is not None:
+            self.modelo_perfil = perfil
+            if self.perfil.count() and not self.ocupado:
+                n = self.perfil.findData(perfil)
+                if n >= 0 and n != self.perfil.currentIndex():
+                    self.perfil.setCurrentIndex(n)  # relê e marca pelo modelo
+                    return
+        if self.lido and not self.ocupado:
+            self._marcar_modelo()
+            self._contar()
+
+    def _marcar_modelo(self) -> None:
+        if not self.modelo_programas:
+            return
+        self.tabela.blockSignals(True)
+        for r, linha in enumerate(self.linhas):
+            celula = self.tabela.item(r, 0)
+            pode = linha.situacao != "bloqueado"
+            if celula is not None and pode and str(linha.item.id) in self.modelo_programas:
+                celula.setCheckState(Qt.CheckState.Checked)
+        self.tabela.blockSignals(False)
 
     def _filtrar(self) -> None:
         aba = ABAS[self.abas.currentIndex()] if self.abas is not None else "Todos"
@@ -472,6 +553,7 @@ class PainelProgramas(_Base):
 
     def _feito(self, resultados: Any) -> None:
         self.origens.clear()
+        self.instalados |= {str(r.item.id) for r in resultados if r.estado in ("ok", "reinicio")}
         erro = any(r.estado in ("falha", "em_execucao") for r in resultados)
         resumo = pg.resumo(r.estado for r in resultados)
         self._terminou([r.mensagem for r in resultados], resumo, erro)
@@ -491,6 +573,9 @@ class PainelRemover(_Base):
         super().__init__(admin)
         self.obter_cadastros = obter_cadastros
         self.entradas: list[des.Entrada] = []
+        # Modelo (ADR-076): o que marcar ao ler e o que já foi removido nesta sessão.
+        self.modelo_remover: frozenset[tuple[str, str]] = frozenset()
+        self.removidos: set[tuple[str, str]] = set()
         # ADR-068: McAfee assistido pelo MCPR; só aparece quando há McAfee.
         self.mcafee = _rotulo("")
         self.b_mcafee = QPushButton("Remover McAfee com o MCPR")
@@ -530,9 +615,37 @@ class PainelRemover(_Base):
             self.tabela.setItem(r, 2, _celula(tipo or MODO[e.modo], e.motivo))
             self.tabela.setItem(r, 3, _celula(e.executavel))
         self.tabela.blockSignals(False)
+        self._marcar_modelo()
         self._filtrar()
         self._ocupar(False)
         self._mostrar_mcafee()
+
+    def marcacoes(self) -> tuple[tuple[str, str], ...]:
+        """Marcados agora (mesmo escondidos pela busca) e os já removidos nesta sessão."""
+        saida = set(self.removidos)
+        for r, e in enumerate(self.entradas):
+            item = self.tabela.item(r, 0)
+            if item is not None and item.checkState() == Qt.CheckState.Checked:
+                saida.add((e.nome, e.tipo))
+        if not self.lido:
+            saida |= self.modelo_remover
+        return tuple(sorted(saida, key=lambda p: (p[0].casefold(), p[1])))
+
+    def aplicar_modelo(self, programas: tuple[tuple[str, str], ...]) -> None:
+        self.modelo_remover = frozenset(programas)
+        if self.lido and not self.ocupado:
+            self._marcar_modelo()
+            self._contar()
+
+    def _marcar_modelo(self) -> None:
+        if not self.modelo_remover:
+            return
+        self.tabela.blockSignals(True)
+        for r, e in enumerate(self.entradas):
+            item = self.tabela.item(r, 0)
+            if item is not None and e.selecionavel and (e.nome, e.tipo) in self.modelo_remover:
+                item.setCheckState(Qt.CheckState.Checked)
+        self.tabela.blockSignals(False)
 
     def _mostrar_mcafee(self) -> None:
         nomes = sorted(
@@ -614,6 +727,9 @@ class PainelRemover(_Base):
         )
 
     def _feito(self, feitos: Any) -> None:
+        self.removidos |= {
+            (f.entrada.nome, f.entrada.tipo) for f in feitos if f.estado in ("ok", "reinicio")
+        }
         erro = any(f.estado in ("falha", "em_execucao") for f in feitos)
         resumo = pg.resumo(f.estado for f in feitos)
         self._terminou([f.mensagem for f in feitos], resumo, erro)

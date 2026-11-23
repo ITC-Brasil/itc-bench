@@ -58,6 +58,9 @@ AJUDA = (
     "não é instalada: corrija no cadastro. WPA3 não é usado (os notebooks não suportam).\n"
     "\n"
     "Sem administrador (modo de teste), a tela só mostra as redes, sem conferir a senha."
+    "\n\nModelo de configuração\n"
+    "Com um modelo importado (Sistema › Importar configurações), as redes marcadas são as "
+    "do modelo, no lugar das ausentes ou diferentes."
 )
 
 # ADR-065: a tela abre sempre no projeto desta máquina; as outras redes, só em "Todas".
@@ -103,6 +106,7 @@ class PainelWifi(QWidget):
         super().__init__()
         self.admin, self.obter_cadastros, self.obter_unidade = admin, obter_cadastros, obter_unidade
         self.leitura: Leitura | None = None
+        self.modelo_redes: frozenset[str] | None = None  # ADR-076
         self.ocupado = False
         self.cancelar_evento: threading.Event | None = None
         self.progresso = _Progresso()
@@ -181,6 +185,18 @@ class PainelWifi(QWidget):
         redes, admin = (cadastros.redes if cadastros else ()), self.admin
         tarefa.iniciar(lambda: ler(redes, admin), self._recebeu, self._falhou)
 
+    def marcacoes(self) -> tuple[str, ...]:
+        """Ids do cadastro das redes marcadas, para o modelo (ADR-076). Nunca a senha."""
+        if self.leitura is None:
+            return tuple(sorted(self.modelo_redes or ()))
+        return tuple(str(r.id) for r in self._marcadas())
+
+    def aplicar_modelo(self, redes: tuple[str, ...]) -> None:
+        """Daqui em diante, marca as redes do modelo no lugar das ausentes/diferentes."""
+        self.modelo_redes = frozenset(redes)
+        if self.leitura is not None and not self.ocupado:
+            self._mostrar()
+
     def _recebeu(self, leitura: Leitura) -> None:
         self.leitura = leitura
         self._ocupar(False)
@@ -222,6 +238,8 @@ class PainelWifi(QWidget):
                 if marca is not None and linha.situacao != "invalida":
                     marca.setFlags(marca.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                     padrao = linha.situacao in ("ausente", "diferente")
+                    if self.modelo_redes is not None:
+                        padrao = str(linha.rede.id) in self.modelo_redes  # ADR-076
                     marca.setCheckState(
                         Qt.CheckState.Checked if padrao else Qt.CheckState.Unchecked
                     )

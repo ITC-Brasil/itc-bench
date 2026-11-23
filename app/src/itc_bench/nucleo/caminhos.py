@@ -71,6 +71,11 @@ def logs() -> Path:
     return dados() / "logs"
 
 
+def modelos() -> Path:
+    r"""%ProgramData%\ITC\Bench\modelos: o modelo posto aqui abre sozinho (ADR-076)."""
+    return dados() / "modelos"
+
+
 def preferencias() -> Path:
     r"""%LOCALAPPDATA%\ITC\Bench: preferências de UI do usuário (nunca senha)."""
     return _base("LOCALAPPDATA")
@@ -84,7 +89,7 @@ def inicializar(admin: bool = False) -> None:
     raiz = dados().parent
     if admin:
         acl.verificar_reparse(raiz)
-    for pasta in (dados(), logs(), preferencias()):
+    for pasta in (dados(), logs(), modelos(), preferencias()):
         pasta.mkdir(parents=True, exist_ok=True)
     if admin:
         # Também quando a pasta já existe: reaplica o ACL e confere dono e DACL (ADR-013).

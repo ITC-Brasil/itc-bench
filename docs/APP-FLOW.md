@@ -26,8 +26,8 @@ Barra lateral fixa com 7 grupos, na ordem de trabalho no notebook:
 | Software | Programas · Remover programas |
 | Segurança | Políticas · Proteção do login · USB |
 | Aparência e periféricos | Tela e papel de parede · Mouse e teclado · Energia |
-| Diagnóstico | Coleta e laudo · Histórico · Limpeza |
-| Sistema | Registro · Ajuda · Configurações |
+| Diagnóstico | Coleta e laudo · Histórico · Limpeza · Inicialização |
+| Sistema | Configurações · Registro · Importar configurações · Ajuda |
 
 Selos na barra: progresso da preparação (ex.: `6/9`) e contagem de alertas críticos.
 

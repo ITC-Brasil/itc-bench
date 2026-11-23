@@ -77,6 +77,10 @@ AJUDA = (
     "nome reservado do Windows.\n"
     "\n"
     "Sem administrador (modo de teste), a tela só mostra o nome."
+    "\n\nModelo de configuração\n"
+    "Com um modelo importado (Sistema › Importar configurações), os turnos, o sufixo e "
+    "Criar também o usuário do sufixo vêm marcados; o nome do computador nunca vem do "
+    "modelo."
 )
 
 
@@ -259,6 +263,17 @@ class PainelIdentificacao(QWidget):
         if self.estado is not None and not self.precisa_renomear():
             return None  # já é (ou já vai ser) esse nome: só cria as contas
         return identificacao.validar(nome, self.estado)
+
+    def marcacoes(self) -> tuple[tuple[str, ...], str, bool]:
+        """Turnos, sufixo e "criar também", para o modelo (ADR-076). O nome não: é da máquina."""
+        return self._marcados(), self.sufixo.text().strip(), self.com_sufixo.isChecked()
+
+    def aplicar_modelo(self, turnos: tuple[str, ...], sufixo: str, com_sufixo: bool) -> None:
+        for t, caixa in self.turnos.items():
+            caixa.setChecked(t in turnos)
+        self.sufixo.setText(sufixo)
+        self.com_sufixo.setChecked(com_sufixo)
+        self._atualizar()
 
     def _marcados(self) -> tuple[str, ...]:
         return tuple(t for t, caixa in self.turnos.items() if caixa.isChecked())

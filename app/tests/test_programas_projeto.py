@@ -183,3 +183,54 @@ def test_ao_voltar_a_tela_reabre_no_projeto_e_rele_se_a_unidade_mudou(qtbot, mon
     p.show()
     assert p.escopo.currentIndex() == 0
     assert "Do DEF" in _programas(p) and "Do ABC" not in _programas(p)
+
+
+# ---------------------------------------------------------------- perfil na tela (ADR-077)
+
+
+def _painel_perfis(qtbot, monkeypatch, padrao="aluno"):
+    from itc_bench.servicos.perfis import Perfil
+
+    monkeypatch.setattr(tela.tarefa, "iniciar", lambda f, ok, falha: ok(f()))
+    monkeypatch.setattr(
+        pg, "situacao", lambda itens: ([pg.Linha(i, "nao_instalado") for i in itens], "")
+    )
+    unidades = (Unidade(1, "ABC01", "Unidade Abc", "", "DF", "", padrao, projeto="ABC"),)
+    perfis_ = (Perfil("aluno", "Aluno", "", ()), Perfil("pedagogo", "Pedagogo", "", ()))
+    c = Cadastros(
+        "v" * 64, datetime.now(UTC), "t", None, False, (),
+        (GERAL, DO_ABC, ALUNO, ABC_PEDAGOGO), (), unidades, perfis=perfis_,
+    )  # fmt: skip
+    p = tela.PainelProgramas(True, lambda: c, lambda: "ABC01")
+    qtbot.addWidget(p)
+    p.show()  # monta os perfis e lê
+    return p
+
+
+def test_tela_abre_no_perfil_padrao_da_unidade(qtbot, monkeypatch):
+    p = _painel_perfis(qtbot, monkeypatch)
+    assert p.perfil.currentText() == "Aluno"
+    assert sorted(_programas(p)) == ["Do ABC", "Geral", "Só aluno"]  # sem o do pedagogo
+    assert "Só os do perfil Aluno" in p.estado.text()
+
+
+def test_trocar_perfil_rele(qtbot, monkeypatch):
+    p = _painel_perfis(qtbot, monkeypatch)
+    p.perfil.setCurrentIndex(p.perfil.findData("pedagogo"))
+    assert sorted(_programas(p)) == ["ABC pedagogo", "Do ABC", "Geral"]
+    p.perfil.setCurrentIndex(0)  # Todos os perfis
+    assert len(_programas(p)) == 4
+
+
+def test_todos_os_projetos_ignora_o_perfil(qtbot, monkeypatch):
+    p = _painel_perfis(qtbot, monkeypatch)
+    p.escopo.setCurrentIndex(1)
+    assert not p.perfil.isEnabled() and p.perfil_escolhido() == ""
+    assert len(_programas(p)) == 4
+
+
+def test_modelo_escolhe_o_perfil_e_marca(qtbot, monkeypatch):
+    p = _painel_perfis(qtbot, monkeypatch)
+    p.aplicar_modelo((str(ABC_PEDAGOGO.id),), "pedagogo")
+    assert p.perfil.currentText() == "Pedagogo"
+    assert [p.tabela.item(r, 0).text() for r in p.marcadas()] == ["ABC pedagogo"]
