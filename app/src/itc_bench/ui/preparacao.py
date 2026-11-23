@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from itc_bench.nucleo import sessoes
 from itc_bench.nucleo.log import log
 from itc_bench.servicos import contas, etapas, identificacao, perfis, retomada
 from itc_bench.servicos import preparacao as prep
@@ -129,16 +130,34 @@ AJUDA = (
     "Com um modelo importado (Sistema › Importar configurações), o perfil e as etapas "
     "desmarcadas vêm do modelo; confira e clique em Rodar."
 )
+MSG_ADMIN = (
+    "Por favor, entre no Windows com a conta Suporte, Gestão ou Administrador para usar a "
+    "Manutenção."
+)
+
 AJUDA_MANUTENCAO = (
     "Cuida de uma máquina que já está em uso. Não usa perfil: as etapas vêm marcadas e você "
     "desmarca as que não quer. Números fixos: 1. Limpeza de usuários, 2. Wi-Fi: atualizar "
-    "senhas, 3. Diagnóstico e 4. Remover Steam.\n"
+    "senhas, 3. Diagnóstico, 4. Remover Steam e 5. Desligar inicialização de apps não "
+    "necessários.\n"
+    "\n"
+    "Só nas contas Suporte, Gestão ou Administrador\n"
+    "A Manutenção só funciona com o Windows aberto na conta Suporte, na Gestão ou no "
+    "Administrador nativo. Em qualquer outra conta, mesmo administradora, a tela pede para "
+    "entrar numa delas e não deixa ler nem rodar.\n"
+    "\n"
+    "Antes de tudo: encerra as outras contas\n"
+    "Ao clicar em Rodar, antes de qualquer etapa, o Bench encerra a sessão de todas as outras "
+    "contas que estiverem abertas (a sua fica). O que estiver aberto nelas fecha sem salvar; a "
+    "confirmação avisa. Assim as contas de aluno ficam livres para a limpeza e para desligar a "
+    "inicialização. Se alguma sessão não fechar, nada roda.\n"
     "\n"
     "Limpeza de usuários (1)\n"
     "Nas contas de aluno marcadas, apaga para sempre, sem como recuperar: Área de Trabalho "
     "(os atalhos ficam), Documentos, Downloads, Imagens, Vídeos, Jogos salvos e todos os dados "
     "do Chrome (contas conectadas, senhas, histórico e favoritos: o Chrome abre como novo). "
-    "Políticas, configurações e o resto da conta ficam. A conta tem de estar sem sessão aberta; "
+    "Políticas, configurações e o resto da conta ficam. Conta logada também pode ser marcada: "
+    "a sessão dela é encerrada antes de tudo; "
     "Suporte, Gestão, o Administrador nativo e a sua conta nunca entram. Ler situação mostra "
     "quanto vai liberar; a confirmação mostra por conta.\n"
     "\n"
@@ -155,6 +174,15 @@ AJUDA_MANUTENCAO = (
     "Só aparece com a Steam instalada. Desinstala a Steam com os jogos da biblioteca padrão e os "
     "usuários salvos nela, para todas as contas. Feche a Steam antes. Jogos instalados em outra "
     "biblioteca (outro disco) não são apagados.\n"
+    "\n"
+    "Desligar inicialização de apps não necessários (5)\n"
+    "Desliga, em todas as contas (inclusive Suporte, Gestão e Administrador), o que abre com o "
+    "Windows e não tem função: OneDrive, Teams, Copilot, Edge em segundo plano, jogos e os "
+    "outros da tela Diagnóstico › Inicialização. Antes, encerra a sessão das outras contas que "
+    "estiverem abertas (a sua fica), porque o registro delas precisa estar livre. Roda em "
+    "qualquer conta administradora. O que você desmarcou na tela Inicialização, ou que veio "
+    "desmarcado num modelo importado, continua ligado. Nada é desinstalado; volta pelo "
+    "Gerenciador de Tarefas.\n"
     "\n"
     "Como usar\n"
     "1. Em Contas locais, marque as contas que serão limpas. Suporte, Gestão e o "
@@ -211,6 +239,11 @@ class PainelPreparacao(QWidget):
         self.obter_cadastros = obter_cadastros
         self.obter_unidade = obter_unidade
         self.ctx = etapas.Contexto(admin, None, diagnosticar=diagnosticar)
+        # Manutenção (ADR-080): o que a tela Inicialização ou o modelo mandam manter ligado.
+        self.obter_manter: Callable[[], frozenset[str]] = frozenset
+        # Manutenção (ADR-081): só numa conta de administrador; motivo do bloqueio, ou "".
+        self.bloqueio = ""
+        self._avisou_bloqueio = False
         self.etapas: list[prep.Etapa] = []
         self.andamento: prep.Andamento | None = None
         self.guardado: retomada.Estado | None = None
@@ -446,8 +479,33 @@ class PainelPreparacao(QWidget):
         self.andamento = None
         self._ocupar(self.ocupado)
 
+    def _conferir_admin(self, lista: contas.Lista | None) -> None:
+        """Manutenção (ADR-081, ADR-082): só com o Windows na conta Suporte, Gestão ou no
+        Administrador nativo; em outra conta, pede para entrar numa delas e não deixa rodar."""
+        motivo = "" if self.admin else "o Bench está sem administrador"
+        if not motivo and lista is not None:
+            try:
+                nome = sessoes.usuario_da_sessao().lower()
+            except OSError:
+                nome = ""
+            conta = next((c for c in lista.contas if c.nome.lower() == nome), None)
+            if nome and conta is None:
+                motivo = "a conta desta sessão não é local"
+            elif conta is not None and not contas.tecnica(conta, self.obter_cadastros()):
+                motivo = f"a conta {conta.nome} não é Suporte, Gestão nem Administrador"
+        self.bloqueio = motivo
+        if motivo:
+            texto = f"{MSG_ADMIN} ({motivo}.)"
+            self.aviso.setText(texto)
+            if not self._avisou_bloqueio:
+                self._avisou_bloqueio = True
+                self._aviso(texto)
+        self._ocupar(self.ocupado)
+
     def showEvent(self, evento: QShowEvent) -> None:
         super().showEvent(evento)
+        if self.manutencao and not self.admin:
+            self._conferir_admin(None)
         if self.iniciado:
             # Unidade ou cadastro mudou desde a última vez: os perfis e a etapa 10 mudam
             # (ADR-057, ADR-060).
@@ -503,10 +561,13 @@ class PainelPreparacao(QWidget):
 
         def ler() -> tuple[contas.Lista, list[tuple[contas.Conta, str]]]:
             lista = contas.listar()
-            return lista, etapas.contas_locais(lista, contas.protegidas(cad))
+            locais = etapas.contas_locais(lista, contas.protegidas(cad), logada_ok=self.manutencao)
+            return lista, locais
 
         def recebeu(lido: tuple[contas.Lista, list[tuple[contas.Conta, str]]]) -> None:
             self._lista_contas, locais = lido
+            if self.manutencao:
+                self._conferir_admin(self._lista_contas)
             self.alunos.clear()
             self._elegiveis = set()
             for c, motivo in locais:
@@ -638,6 +699,7 @@ class PainelPreparacao(QWidget):
         self.ctx.nome = ""  # Identificação saiu da Configuração (ADR-062)
         self.ctx.alvos = tuple(self.alvos())
         self.ctx.avisar = self.sinais.texto.emit
+        self.ctx.manter_inicializacao = self.obter_manter()
         self.ctx._lista = None
         if not self.etapas:
             montar = etapas.montar_manutencao if self.manutencao else etapas.montar
@@ -688,6 +750,11 @@ class PainelPreparacao(QWidget):
                 if self.alunos.item(i).data(Qt.ItemDataRole.UserRole) in self.ctx.alvos
             ]
             linhas.append("\nContas marcadas: " + (", ".join(nomes) if nomes else "nenhuma"))
+        if self.manutencao:
+            linhas.append(
+                "\nAntes de tudo, encerra as sessões abertas das outras contas: o que estiver "
+                "aberto nelas fecha sem salvar."
+            )
         return f"Rodar a {self.fluxo.nome.lower()}?\n\n" + "\n".join(linhas)
 
     def _rodar(self) -> None:
@@ -703,11 +770,14 @@ class PainelPreparacao(QWidget):
         lista, pausar = self.etapas, self.pausar
         self._ocupar(True)
         self._linha(f"Preparação ({andamento.nome or andamento.perfil}) iniciada.")
-        tarefa.iniciar(
-            lambda: prep.rodar(lista, andamento, pausar=pausar, avisar=self.sinais.etapa.emit),
-            self._terminou,
-            self._falhou,
-        )
+        manutencao, texto = self.manutencao, self.sinais.texto.emit
+
+        def trabalho() -> prep.Andamento:
+            if manutencao:
+                contas.encerrar_outras_sessoes(texto)  # antes de tudo (ADR-081)
+            return prep.rodar(lista, andamento, pausar=pausar, avisar=self.sinais.etapa.emit)
+
+        tarefa.iniciar(trabalho, self._terminou, self._falhou)
 
     def _pausar(self) -> None:
         self.pausar.set()
@@ -821,6 +891,10 @@ class PainelPreparacao(QWidget):
         self.b_encerrar.setEnabled(self.admin and not ocupado)
         if not self.admin:
             self.b_encerrar.setToolTip("Precisa de administrador.")
+        if self.bloqueio:  # Manutenção fora de conta de administrador (ADR-081)
+            for b in (self.b_rodar, self.b_ler, self.b_encerrar):
+                b.setEnabled(False)
+                b.setToolTip(txt.dica(MSG_ADMIN))
 
     def _linha(self, texto: str) -> None:
         self.log.appendPlainText(f"{datetime.now():%H:%M:%S}  {texto}")

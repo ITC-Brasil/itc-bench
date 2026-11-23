@@ -127,6 +127,13 @@ def protegidas(cadastros: Cadastros | None) -> frozenset[str]:
     return frozenset(n for n in nomes if n)
 
 
+def tecnica(conta: Conta, cadastros: Cadastros | None) -> bool:
+    """Suporte, Gestão ou o Administrador nativo (ADR-082): as contas da Manutenção. A Gestão
+    tem sempre um dos nomes de RESTRITAS (ADR-069)."""
+    nome = conta.nome.lower()
+    return conta.nativo or nome in protegidas(cadastros) or nome in RESTRITAS
+
+
 def validar_nome(
     nome: str,
     lista: Lista | None,
@@ -603,6 +610,24 @@ def encerrar_sessoes(sids: Iterable[str]) -> Feito:
     """Encerra as sessões das contas, uma por vez (tela Contas, Configuração e Manutenção)."""
     feitos = [encerrar_sessao(sid) for sid in sids]
     return Feito(all(f.ok for f in feitos), "\n".join(f.mensagem for f in feitos))
+
+
+def encerrar_outras_sessoes(avisar: Callable[[str], None] = lambda _t: None) -> int:
+    """Manutenção (ADR-081): encerra as sessões abertas de todas as contas, menos a de quem está
+    na frente da tela e a que roda o Bench. Devolve quantas; erro se alguma não fechou."""
+    lista = listar()
+    try:
+        frente = sessoes.usuario_da_sessao().lower()
+    except OSError:
+        frente = ""
+    outras = [c for c in lista.contas if c.logada and not c.bench and c.nome.lower() != frente]
+    if not outras:
+        return 0
+    avisar("Encerrando as sessões de " + ", ".join(c.nome for c in outras) + "…")
+    feito = encerrar_sessoes([c.sid for c in outras])
+    if not feito.ok:
+        raise RuntimeError(f"não deu para encerrar as sessões: {feito.mensagem}")
+    return len(outras)
 
 
 def aplicar_suporte(cadastros: Cadastros | None, *, rodar: Rodar = executor.powershell) -> Feito:

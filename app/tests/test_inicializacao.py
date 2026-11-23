@@ -215,3 +215,26 @@ def test_tailscale_nao_e_essencial():
 )
 def test_lista_do_responsavel_e_sem_funcao(nome, comando):
     assert ini.Item("run", "MAQUINA", "", nome, comando, True).recomendado
+
+
+TESTE_HIVE = r"""
+$script:loads = 0
+function Reg-Exe([string[]]$argumentos) {
+    if ($argumentos[0] -eq 'load') { $script:loads++ }
+    return 0
+}
+$arq = Join-Path $env:ITC_PASTA 'NTUSER.DAT'
+$a = Abrir-Hive 'S-1-5-21-9-9-9-1001' $arq
+$b = Abrir-Hive 'S-1-5-21-9-9-9-1001' $arq
+Write-Output ("{0}|{1}|{2}" -f ($a -ceq $b), $script:loads, ($a -cmatch '^ITCBench_[0-9a-f]{8}$'))
+"""
+
+
+def test_mesma_conta_na_mesma_execucao_carrega_o_hive_uma_vez(tmp_path):
+    # Log de 23/11: o 2º item da mesma conta sem sessão voltava conta_em_uso, porque o trecho
+    # tentava carregar de novo o NTUSER.DAT que ele mesmo já tinha carregado.
+    (tmp_path / "NTUSER.DAT").write_bytes(b"x")
+    script = (ini.RECURSOS / "comum.ps1").read_text("utf-8") + TESTE_HIVE
+    r = executor.powershell(script, pasta=str(tmp_path))
+    assert r.ok, r.erros
+    assert r.saida.strip() == "True|1|True"

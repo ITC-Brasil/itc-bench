@@ -37,6 +37,7 @@ class Modelo:
     sufixo: str = ""
     com_sufixo: bool = False
     redes: tuple[str, ...] = ()
+    perfil_wifi: str = ""  # filtro de perfil da tela Wi-Fi; vazio = todos (ADR-079)
     programas: tuple[str, ...] = ()  # ids do cadastro de Instaladores (tela Programas)
     perfil_programas: str = ""  # filtro de perfil da tela Programas; vazio = todos (ADR-077)
     remover: tuple[tuple[str, str], ...] = ()  # (nome, tipo) como aparecem em Remover programas
@@ -57,8 +58,9 @@ class Modelo:
             if self.sufixo:
                 partes.append(f"sufixo {self.sufixo}" + (" (também)" if self.com_sufixo else ""))
             linhas.append("Identificação: " + "; ".join(partes))
-        if self.redes:
-            linhas.append(f"Wi-Fi: {len(self.redes)} rede(s)")
+        if self.redes or self.perfil_wifi:
+            filtro = f", perfil {self.perfil_wifi}" if self.perfil_wifi else ""
+            linhas.append(f"Wi-Fi: {len(self.redes)} rede(s){filtro}")
         if self.programas or self.perfil_programas:
             filtro = f", perfil {self.perfil_programas}" if self.perfil_programas else ""
             linhas.append(f"Programas: {len(self.programas)} para instalar{filtro}")
@@ -131,6 +133,7 @@ def de_dados(d: Any) -> Modelo:
         sufixo=sufixo,
         com_sufixo=ide.get("com_sufixo") is True,
         redes=_textos(d.get("wifi"), padrao=_ID),
+        perfil_wifi=pw if isinstance(pw := d.get("perfil_wifi"), str) and _ID.match(pw) else "",
         programas=_textos(d.get("programas"), padrao=_ID),
         perfil_programas=pp
         if isinstance(pp := d.get("perfil_programas"), str) and _ID.match(pp)
@@ -155,6 +158,7 @@ def para_dados(m: Modelo) -> dict[str, Any]:
         "configuracao": {"perfil": m.perfil, "etapas_desmarcadas": list(m.etapas_desmarcadas)},
         "identificacao": {"turnos": list(m.turnos), "sufixo": m.sufixo, "com_sufixo": m.com_sufixo},
         "wifi": list(m.redes),
+        "perfil_wifi": m.perfil_wifi,
         "programas": list(m.programas),
         "perfil_programas": m.perfil_programas,
         "remover": [list(p) for p in m.remover],
