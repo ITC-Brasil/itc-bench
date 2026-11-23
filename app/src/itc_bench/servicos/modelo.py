@@ -8,7 +8,9 @@ Ao ler, tudo é conferido (tipo, tamanho, formato) e o que não casa é descarta
 """
 
 import json
+import os
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -184,17 +186,43 @@ def ler(origem: Path) -> Modelo:
     return m
 
 
-def da_pasta() -> tuple[Path, Modelo] | None:
-    """O modelo mais novo da pasta indicada, se houver. Arquivo ruim é ignorado (e logado)."""
+def na_pasta() -> list[Path]:
+    """Modelos da pasta indicada, do mais novo para o mais velho."""
     try:
-        arquivos = sorted(
+        return sorted(
             (p for p in pasta().glob(f"*{EXTENSAO}") if p.is_file() and not p.is_symlink()),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
     except OSError:
-        return None
-    for arquivo in arquivos:
+        return []
+
+
+def usar_sempre(origem: Path) -> Path:
+    """Copia o modelo para a pasta indicada (ADR-078): passa a abrir sozinho nesta máquina. A
+    cópia fica com a data de agora, então vence os que já estavam lá."""
+    destino = pasta() / origem.name
+    pasta().mkdir(parents=True, exist_ok=True)
+    if origem.resolve() != destino.resolve():
+        shutil.copyfile(origem, destino)
+    os.utime(destino)
+    log.info("Modelo: copiado para a pasta indicada")
+    return destino
+
+
+def parar_de_usar() -> int:
+    """Tira os modelos da pasta indicada (são cópias). Devolve quantos saíram."""
+    saiu = 0
+    for p in na_pasta():
+        p.unlink()
+        saiu += 1
+    log.info("Modelo: %s arquivo(s) tirado(s) da pasta indicada", saiu)
+    return saiu
+
+
+def da_pasta() -> tuple[Path, Modelo] | None:
+    """O modelo mais novo da pasta indicada, se houver. Arquivo ruim é ignorado (e logado)."""
+    for arquivo in na_pasta():
         try:
             return arquivo, ler(arquivo)
         except ValueError as erro:

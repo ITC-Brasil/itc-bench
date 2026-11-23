@@ -3846,3 +3846,20 @@ exemplo, jogos só no aluno) e levar essa escolha no modelo de configuração (A
 
 **Consequences**
 - Quem quiser ver os programas de todos os perfis escolhe "Todos os perfis".
+
+## ADR-078 — Importar modelo pode valer sempre na máquina
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 (complementa o ADR-076)
+
+**Context**
+O modelo importado pelo arquivo valia só até fechar o Bench; para valer sempre era preciso
+copiar o arquivo à mão para `%ProgramData%\ITC\Bench\modelos`.
+
+**Decision**
+1. Caixa **Usar sempre nesta máquina** (vem marcada) ao lado de Importar modelo…: depois de
+   carregar, o Bench copia o arquivo para a pasta indicada, com a data de agora (vence os que já
+   estavam lá). Desmarcada, vale só até fechar, como antes.
+2. Botão **Parar de usar nesta máquina**, com confirmação: tira os `.itcbench` da pasta (são
+   cópias; o original não é mexido). A tela mostra qual modelo da pasta está em uso.
+3. Sem permissão para gravar na pasta, o modelo vale só até fechar e a tela diz isso.
