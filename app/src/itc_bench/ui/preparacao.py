@@ -9,6 +9,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor, QShowEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -159,7 +160,9 @@ AJUDA_MANUTENCAO = (
     "Políticas, configurações e o resto da conta ficam. Conta logada também pode ser marcada: "
     "a sessão dela é encerrada antes de tudo; "
     "Suporte, Gestão, o Administrador nativo e a sua conta nunca entram. Ler situação mostra "
-    "quanto vai liberar; a confirmação mostra por conta.\n"
+    "quanto vai liberar; a confirmação mostra por conta. Com Organizar os ícones da Área de "
+    "Trabalho marcado (vem marcado, abaixo das contas), liga também Organizar ícones "
+    "automaticamente e Alinhar à grade em cada conta limpa.\n"
     "\n"
     "Wi-Fi: atualizar senhas (2)\n"
     "Confere as redes do cadastro que já estão instaladas nesta máquina e regrava as que estão "
@@ -332,6 +335,14 @@ class PainelPreparacao(QWidget):
         acoes_contas.addWidget(self.b_atualizar)
         acoes_contas.addWidget(self.b_encerrar)
         alunos.addLayout(acoes_contas)
+        # Manutenção, etapa 1 (ADR-083): organizar os ícones das contas limpas.
+        self.organizar = QCheckBox("Organizar os ícones da Área de Trabalho")
+        self.organizar.setChecked(True)
+        self.organizar.setToolTip(
+            "Na limpeza de usuários: liga Organizar ícones automaticamente e Alinhar à grade."
+        )
+        self.organizar.setVisible(manutencao)
+        alunos.addWidget(self.organizar)
         meio.addLayout(coluna_etapas, 3)
         meio.addWidget(self.painel_alunos, 1)
         v.addLayout(meio, 3)
@@ -700,6 +711,7 @@ class PainelPreparacao(QWidget):
         self.ctx.alvos = tuple(self.alvos())
         self.ctx.avisar = self.sinais.texto.emit
         self.ctx.manter_inicializacao = self.obter_manter()
+        self.ctx.organizar_icones = self.manutencao and self.organizar.isChecked()
         self.ctx._lista = None
         if not self.etapas:
             montar = etapas.montar_manutencao if self.manutencao else etapas.montar

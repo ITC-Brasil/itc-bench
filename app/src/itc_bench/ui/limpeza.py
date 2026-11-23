@@ -5,6 +5,7 @@ from collections.abc import Callable, Iterable
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QMessageBox,
     QPushButton,
@@ -47,7 +48,10 @@ AJUDA = (
     "são apagados de vez, sem lixeira.\n"
     "3. A conta precisa estar sem sessão aberta: saia dela ou use Contas › Encerrar sessões….\n"
     "Nunca são limpos: o Administrador nativo, a conta Suporte, a conta Gestão e a conta que está "
-    "rodando o Bench.\n\n"
+    "rodando o Bench.\n"
+    "4. Organizar os ícones da Área de Trabalho (vem marcado): depois de limpar, liga Organizar "
+    "ícones automaticamente e Alinhar ícones à grade em cada conta limpa, como o botão direito "
+    "› Exibir. Vale na próxima vez que a conta entrar.\n\n"
     "Sem administrador (modo de teste), só a prévia do que dá para ler."
 )
 
@@ -245,6 +249,11 @@ class PainelLimpezaContas(QWidget):
         self.arvore.setRootIsDecorated(False)
         self.arvore.itemChanged.connect(lambda *_: self._ocupar(self.ocupado))
         v.addWidget(self.arvore, 1)
+        self.organizar = QCheckBox(
+            "Organizar os ícones da Área de Trabalho (organizar automaticamente e alinhar à grade)"
+        )  # ADR-083
+        self.organizar.setChecked(True)
+        v.addWidget(self.organizar)
         acoes = QHBoxLayout()
         self.b_calcular = QPushButton("Calcular contas")
         self.b_calcular.clicked.connect(self.calcular)
@@ -335,6 +344,19 @@ class PainelLimpezaContas(QWidget):
             self.b_limpar.setToolTip("Precisa de administrador.")
         self.b_calcular.setEnabled(not ocupado)
 
+    def _texto_icones(self) -> str:
+        icones = getattr(self, "icones", {})
+        if not icones:
+            return ""
+        ruins = [
+            f"{self.por_sid[s].nome if s in self.por_sid else s}: {m}"
+            for s, m in icones.items()
+            if m
+        ]
+        if not ruins:
+            return f" Ícones organizados em {len(icones)} conta(s)."
+        return " Ícones não organizados em " + "; ".join(ruins) + "."
+
     def confirmacao(self, sids: list[str]) -> tuple[str, str]:
         linhas = [f"• {self.por_sid[s].nome}: {limpeza.tamanho(self._bytes([s]))}" for s in sids]
         detalhes = "\n".join(f"• {limpeza.DETALHE_CATEGORIA[k]}" for k, _ in limpeza.CATEGORIAS)
@@ -349,6 +371,8 @@ class PainelLimpezaContas(QWidget):
             f"Confirma de novo: os arquivos de {len(sids)} conta(s) serão apagados de vez, sem "
             "lixeira. Não dá para desfazer."
         )
+        if self.organizar.isChecked():
+            primeira += "\n\nDepois, organiza os ícones da Área de Trabalho dessas contas."
         return primeira, segunda
 
     def _limpar(self) -> None:
@@ -363,11 +387,16 @@ class PainelLimpezaContas(QWidget):
         alvo = [self.por_sid[s] for s in sids]
         prot = self._protegidas()
         lista = list(self.por_sid.values())
+        organizar = self.organizar.isChecked()
+        self.icones: dict[str, str] = {}
         self._ocupar(True)
         self.estado.setText("Limpando as contas…")
 
         def rodar() -> Leitura:
-            return lista, limpeza.limpar_contas(alvo, prot)
+            itens = limpeza.limpar_contas(alvo, prot)
+            if organizar:
+                self.icones = limpeza.organizar_icones([c.sid for c in alvo])
+            return lista, itens
 
         tarefa.iniciar(rodar, self._limpou, self._falhou)
 
@@ -382,6 +411,7 @@ class PainelLimpezaContas(QWidget):
         self.estado.setText(
             f"Limpeza de contas feita: {limpeza.tamanho(apagado)} examinados."
             + (f" {len(avisos)} item(ns) com aviso." if avisos else "")
+            + self._texto_icones()
             + " Clique em Calcular contas para ver o que sobrou."
         )
         self._ocupar(False)

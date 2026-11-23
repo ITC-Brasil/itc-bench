@@ -5,6 +5,7 @@ números por id (nenhum caminho chega ao Python nem ao log). Prévia antes, conf
 """
 
 import json
+import re
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from importlib import resources
@@ -284,3 +285,41 @@ def limpar_contas(
     categorias: Iterable[str] = (),
 ) -> list[ItemConta]:
     return _rodar_contas("limpar", contas_, protegidas_, rodar, categorias)
+
+
+# ---------------------------------------------------------------- organizar ícones (ADR-083)
+
+CODIGOS_ICONES = {
+    "sem_conta": "a conta não existe mais",
+    "conta_em_uso": "não deu para abrir o registro da conta",
+    "falhou": "o Windows recusou",
+}
+
+
+def organizar_icones(sids: Iterable[str], *, rodar: Rodar = executor.powershell) -> dict[str, str]:
+    """Liga "Organizar ícones automaticamente" e "Alinhar à grade" na Área de Trabalho de cada
+    conta (ADR-083). Devolve SID → "" (ok) ou o motivo. A conta tem de estar sem sessão."""
+    lista = [s for s in dict.fromkeys(sids) if re.fullmatch(r"S-1-5-21-[0-9-]+", s)]
+    if not lista:
+        return {}
+    base = resources.files("itc_bench.recursos")
+    script = (base / "inicializacao" / "comum.ps1").read_text("utf-8") + (
+        RECURSOS / "icones.ps1"
+    ).read_text("utf-8")
+    r = rodar(script, timeout=TIMEOUT_PREVIA, sids=",".join(lista))
+    if not r.ok:
+        motivo = "tempo esgotado" if r.esgotado else f"código {r.codigo}"
+        log.error("Limpeza: organizar ícones falhou (%s)", motivo)
+        return {s: motivo for s in lista}
+    saida = {s: "o Bench não recebeu resposta" for s in lista}
+    for linha in r.saida.splitlines():
+        partes = linha.strip().split("|")
+        if len(partes) >= 2 and partes[1] in saida:
+            saida[partes[1]] = (
+                ""
+                if partes[0] == "OK"
+                else CODIGOS_ICONES.get(partes[2] if len(partes) > 2 else "", "falhou")
+            )
+    ok = sum(1 for m in saida.values() if not m)
+    log.info("Limpeza: organizar ícones em %s conta(s), %s ok", len(saida), ok)
+    return saida
