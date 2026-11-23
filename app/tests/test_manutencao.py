@@ -4,9 +4,10 @@ import threading
 from datetime import UTC, datetime
 from pathlib import PureWindowsPath
 
+import pytest
 from test_wifi import Falso, rede
 
-from itc_bench.servicos import energia, etapas, limpeza, perfis, steam, wifi
+from itc_bench.servicos import contas, energia, etapas, limpeza, perfis, steam, wifi
 from itc_bench.servicos.cadastros import Cadastros
 from itc_bench.servicos.contas import Conta, Lista
 from itc_bench.servicos.executor import Resultado
@@ -40,8 +41,9 @@ def test_configuracao_e_manutencao_montam_na_ordem_dos_numeros():
         "wifi_senhas",
         "diagnostico",
         "steam",
+        "inicializacao",
     )
-    assert [n for n, _, _ in perfis.MANUTENCAO.etapas] == [1, 2, 3, 4]
+    assert [n for n, _, _ in perfis.MANUTENCAO.etapas] == [1, 2, 3, 4, 5]
     assert [n for n, _, _ in perfis.CONFIGURACAO.etapas] == list(range(1, 13))
 
 
@@ -97,7 +99,12 @@ def test_tela_de_manutencao_sem_perfil_e_steam_so_se_instalada(qtbot, monkeypatc
     qtbot.addWidget(p)
     p.show()
     textos = [p.lista.topLevelItem(i).text(0) for i in range(p.lista.topLevelItemCount())]
-    assert textos == ["1. Limpeza de usuários", "2. Wi-Fi: atualizar senhas", "3. Diagnóstico"]
+    assert textos == [
+        "1. Limpeza de usuários",
+        "2. Wi-Fi: atualizar senhas",
+        "3. Diagnóstico",
+        "5. Desligar inicialização de apps não necessários",
+    ]
     assert "steam" in p.desmarcadas()  # escondida não roda
     assert p.perfil.isHidden() and not p.painel_alunos.isHidden()
     assert p.b_ler.isEnabled()
@@ -107,8 +114,8 @@ def test_tela_de_manutencao_sem_perfil_e_steam_so_se_instalada(qtbot, monkeypatc
     p2 = ui_prep.PainelPreparacao(True, lambda: None, lambda: None, manutencao=True)
     qtbot.addWidget(p2)
     p2.show()
-    ultimo = p2.lista.topLevelItem(p2.lista.topLevelItemCount() - 1).text(0)
-    assert ultimo == "4. Remover Steam"
+    textos2 = [p2.lista.topLevelItem(i).text(0) for i in range(p2.lista.topLevelItemCount())]
+    assert textos2[-2:] == ["4. Remover Steam", "5. Desligar inicialização de apps não necessários"]
 
 
 # ---------------------------------------------------------------- limpeza de usuários (ADR-064)
@@ -337,3 +344,167 @@ def test_cache_offline_guarda_as_redes_do_projeto(tmp_path):
         api.saude, api.cadastros = original
     filtrado = armazem.filtrar("ABC01")
     assert filtrado is not None and [r.id for r in filtrado.redes] == [1]
+
+
+# ---------------------------------------------------------------- etapa Inicialização (ADR-080)
+
+
+def _itens_ini():
+    from itc_bench.servicos import inicializacao as ini
+
+    one = ini.Item("runuser", "S-1-5-21-1-1", "Tarde", "OneDrive", "OneDrive.exe", True)
+    tail = ini.Item("pasta", "MAQUINA", "", "Tailscale.lnk", "Tailscale.lnk", True)
+    adobe = ini.Item("tarefa", "MAQUINA", "", r"\Adobe", "AdobeARM.exe", True)
+    desl = ini.Item("run", "MAQUINA", "", "Riot Vanguard", "vgtray.exe", False)
+    return ini, (one, tail, adobe, desl)
+
+
+def test_etapa_inicializacao_le_so_sem_funcao_ligados_e_respeita_manter(monkeypatch):
+    ini, itens = _itens_ini()
+    monkeypatch.setattr(ini, "ler", lambda: ini.Leitura(itens, (), (), ()))
+    ctx = etapas.Contexto(admin=True, cadastros=None, manter_inicializacao=frozenset({"Tailscale"}))
+    e = etapas.Inicializacao(ctx)
+    leitura = e.ler()
+    assert leitura.situacao == "pendente" and leitura.detalhe.startswith("1 item(ns)")
+    assert "OneDrive" in e.mudancas() and "encerrar as sessões" in e.mudancas()
+    assert etapas.Inicializacao(etapas.Contexto(admin=False, cadastros=None)).ler().situacao == (
+        "bloqueada"
+    )
+
+
+def test_etapa_inicializacao_encerra_outras_sessoes_antes_de_desligar(monkeypatch):
+
+    ini, itens = _itens_ini()
+    monkeypatch.setattr(ini, "ler", lambda: ini.Leitura(itens, (), (), ()))
+    ordem = []
+
+    def conta(sid, nome, bench=False):
+        return contas.Conta(
+            sid, nome, True, False, "Local", True, datetime.now(), "C:/x", True, bench
+        )
+
+    lista = contas.Lista((conta("S1", "Tarde"), conta("S2", "Suporte", bench=True)), (), "PC")
+    monkeypatch.setattr(contas, "listar", lambda **_k: lista)
+    monkeypatch.setattr(
+        contas,
+        "encerrar_sessoes",
+        lambda sids: ordem.append(("encerrar", list(sids))) or contas.Feito(True, ""),
+    )
+    monkeypatch.setattr(
+        ini,
+        "desligar",
+        lambda alvo: (
+            ordem.append(("desligar", [i.titulo for i in alvo]))
+            or [ini.Resultado(i, "") for i in alvo]
+        ),
+    )
+    e = etapas.Inicializacao(etapas.Contexto(admin=True, cadastros=None))
+    assert e.aplicar(threading.Event()).estado == "ok"
+    assert ordem == [
+        ("encerrar", ["S1"]),
+        ("desligar", ["OneDrive", "Tailscale"]),
+    ]  # não a do Bench
+
+
+# ---------------------------------------------------------------- conta de administrador (ADR-081)
+
+
+def _lista_sessoes(frente_admin=True):
+    def conta(sid, nome, admin=False, logada=True, bench=False):
+        return Conta(sid, nome, True, admin, "Local", logada, None, "C:/x", logada, bench)
+
+    return Lista(
+        (
+            conta("S1", "Tarde"),
+            conta("S2", "Manha", logada=False),
+            conta("S3", "Suporte" if frente_admin else "Frente", admin=frente_admin),
+            conta("S4", "Bench", admin=True, logada=False, bench=True),
+        ),
+        (),
+        "PC",
+    )
+
+
+def test_encerrar_outras_sessoes_poupa_a_da_tela_e_a_do_bench(monkeypatch):
+    from itc_bench.nucleo import sessoes
+
+    monkeypatch.setattr(contas, "listar", lambda **_k: _lista_sessoes())
+    monkeypatch.setattr(sessoes, "usuario_da_sessao", lambda sessao=None: "suporte")
+    pedidos = []
+    monkeypatch.setattr(
+        contas,
+        "encerrar_sessoes",
+        lambda sids: pedidos.append(list(sids)) or contas.Feito(True, ""),
+    )
+    assert contas.encerrar_outras_sessoes() == 1 and pedidos == [["S1"]]
+    monkeypatch.setattr(contas, "encerrar_sessoes", lambda sids: contas.Feito(False, "sessão 3"))
+    with pytest.raises(RuntimeError, match="não deu para encerrar"):
+        contas.encerrar_outras_sessoes()
+
+
+def _manutencao(qtbot, monkeypatch, admin=True, frente_admin=True):
+    from itc_bench.nucleo import sessoes
+    from itc_bench.ui import tarefa
+
+    monkeypatch.setattr(tarefa, "iniciar", lambda f, ok, falha: ok(f()))
+    monkeypatch.setattr(contas, "listar", lambda **_k: _lista_sessoes(frente_admin))
+    frente = "Suporte" if frente_admin else "Frente"
+    monkeypatch.setattr(sessoes, "usuario_da_sessao", lambda sessao=None: frente)
+    avisos = []
+    monkeypatch.setattr(ui_prep.PainelPreparacao, "_aviso", lambda self, t: avisos.append(t))
+    p = ui_prep.PainelPreparacao(admin, lambda: None, lambda: None, manutencao=True)
+    qtbot.addWidget(p)
+    CARREGAR(p)
+    return p, avisos
+
+
+CARREGAR = ui_prep.PainelPreparacao._carregar_alunos
+
+
+def test_manutencao_em_conta_comum_pede_administrador(qtbot, monkeypatch):
+    p, avisos = _manutencao(qtbot, monkeypatch, frente_admin=False)
+    assert p.bloqueio == "a conta Frente não é Suporte, Gestão nem Administrador"
+    assert avisos and avisos[0].startswith(ui_prep.MSG_ADMIN)
+    assert not p.b_rodar.isEnabled() and not p.b_ler.isEnabled() and not p.b_encerrar.isEnabled()
+
+
+def test_manutencao_em_conta_administradora_libera(qtbot, monkeypatch):
+    p, avisos = _manutencao(qtbot, monkeypatch)
+    assert p.bloqueio == "" and not avisos and p.b_encerrar.isEnabled()
+    assert "Tarde" in [p.alunos.item(i).text() for i in range(p.alunos.count())]  # logada entra
+
+
+def test_confirmacao_da_manutencao_avisa_das_sessoes(qtbot, monkeypatch):
+    p, _ = _manutencao(qtbot, monkeypatch)
+    assert "encerra as sessões abertas das outras contas" in p.confirmacao(p._andamento_atual())
+
+
+@pytest.mark.parametrize(
+    ("nome", "sid", "ok"),
+    [
+        ("Suporte", "S-1-5-21-1-1001", True),
+        ("Gestão", "S-1-5-21-1-1002", True),
+        ("Administrador", "S-1-5-21-1-500", True),
+        ("Professor", "S-1-5-21-1-1003", False),  # administradora, mas não é conta técnica
+    ],
+)
+def test_so_suporte_gestao_e_administrador_sao_tecnicas(nome, sid, ok):
+    c = Conta(sid, nome, True, True, "Local", True, None, "C:/x", True)
+    assert contas.tecnica(c, None) is ok
+
+
+def test_manutencao_em_outra_administradora_tambem_bloqueia(qtbot, monkeypatch):
+    from itc_bench.nucleo import sessoes
+    from itc_bench.ui import tarefa
+
+    lista = Lista(
+        (Conta("S9", "Professor", True, True, "Local", True, None, "C:/x", True),), (), "PC"
+    )
+    monkeypatch.setattr(tarefa, "iniciar", lambda f, ok, falha: ok(f()))
+    monkeypatch.setattr(contas, "listar", lambda **_k: lista)
+    monkeypatch.setattr(sessoes, "usuario_da_sessao", lambda sessao=None: "Professor")
+    monkeypatch.setattr(ui_prep.PainelPreparacao, "_aviso", lambda self, t: None)
+    p = ui_prep.PainelPreparacao(True, lambda: None, lambda: None, manutencao=True)
+    qtbot.addWidget(p)
+    CARREGAR(p)
+    assert "Professor" in p.bloqueio and not p.b_rodar.isEnabled()

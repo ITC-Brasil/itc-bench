@@ -19,5 +19,6 @@ Arquivos: `servicos/modelo.py`, `ui/modelo.py`, `nucleo/caminhos.modelos()`, gan
 | Janela: aplicar e coletar devolvem o mesmo; perfil fora do cadastro vira aviso | ok (teste) |
 | Remover: marca só o removível do modelo; removido na sessão entra no modelo | ok (teste) |
 | Programas: marca pelo id do cadastro, pula o bloqueado; instalado na sessão entra no modelo; perfil da tela vai junto (ADR-077) | ok (teste) |
+| Wi-Fi: perfil da tela vai junto e é reaplicado (ADR-079) | ok (teste) |
 | Usar sempre: cópia na pasta vence as antigas; Parar de usar tira só as cópias; desmarcado não copia (ADR-078) | ok (teste) |
 | Duas máquinas reais da mesma unidade | pendente: roteiro 10.31 |

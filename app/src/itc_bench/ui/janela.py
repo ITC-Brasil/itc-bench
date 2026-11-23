@@ -843,6 +843,8 @@ class Janela(QMainWindow):
         self.inicio.criticos.connect(self._selo_alertas)
         self.limpeza = PainelLimpeza(self.admin, lambda: self.cadastros)
         self.inicializacao = PainelInicializacao(self.admin)
+        # Etapa Inicialização da Manutenção (ADR-080): mantém o que a tela ou o modelo mantêm.
+        self.manutencao.obter_manter = lambda: frozenset(self.inicializacao.marcacoes())
         self.modelo = PainelModelo(self._coletar_modelo, self._aplicar_modelo)
         self.ajuda_geral = PainelAjuda()
         self.ajuda_geral.abrir_tela.connect(self.abrir)
@@ -878,6 +880,7 @@ class Janela(QMainWindow):
             sufixo=sufixo,
             com_sufixo=com_sufixo,
             redes=self.wifi.marcacoes(),
+            perfil_wifi=self.wifi.perfil_escolhido(),
             programas=self.programas.marcacoes(),
             perfil_programas=self.programas.perfil_escolhido(),
             remover=self.remover.marcacoes(),
@@ -894,7 +897,7 @@ class Janela(QMainWindow):
         if "identificacao" in m.secoes:
             self.identificacao.aplicar_modelo(m.turnos, m.sufixo, m.com_sufixo)
         if "wifi" in m.secoes:
-            self.wifi.aplicar_modelo(m.redes)
+            self.wifi.aplicar_modelo(m.redes, m.perfil_wifi)
         if "programas" in m.secoes:
             self.programas.aplicar_modelo(m.programas, m.perfil_programas)
         if "remover" in m.secoes:

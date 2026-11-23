@@ -67,6 +67,7 @@ MANUTENCAO = Fluxo(
         (2, "wifi_senhas", "Wi-Fi: atualizar senhas"),
         (3, "diagnostico", "Diagnóstico"),
         (4, "steam", "Remover Steam"),
+        (5, "inicializacao", "Desligar inicialização de apps não necessários"),  # ADR-080
     ),
 )
 

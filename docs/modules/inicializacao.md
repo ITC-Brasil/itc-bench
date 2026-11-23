@@ -18,6 +18,8 @@ Arquivos: `servicos/inicializacao.py`, `ui/inicializacao.py`,
 | Tela: só os sem função e ligados, todos marcados; essenciais, neutros e desligados escondidos | ok (teste) |
 | Sem administrador: Desligar desligado | ok (teste) |
 | Confirmar, desligar e ler de novo; cancelar não roda | ok (teste) |
+| Vários itens da mesma conta sem sessão num Desligar (log de 23/11 no BSBIA04: `conta_em_uso` a partir do 2º) | corrigido: hive carregado uma vez por execução; teste no PowerShell falha sem a correção |
+| Etapa 5 da Manutenção: lê só os sem função ligados, respeita os mantidos, encerra outras sessões antes (nunca a do Bench) (ADR-080) | ok (teste) |
 | Desligar de verdade como administrador, todas as contas | pendente: roteiro 10.30 |
 
 Achado no caminho: no PowerShell `$apps` e `$APPS` são a mesma variável; a raiz dos apps

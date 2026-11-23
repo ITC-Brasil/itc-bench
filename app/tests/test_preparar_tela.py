@@ -121,3 +121,59 @@ def test_wifi_sem_adaptador(qtbot, monkeypatch):
     p = painel(qtbot, monkeypatch, cadastros(r))
     p._recebeu(tela_wifi.Leitura((), (), "Sem adaptador Wi-Fi ou com o serviço de Wi-Fi parado."))
     assert "Sem adaptador" in p.estado.text() and not p.b_instalar.isEnabled()
+
+
+# ---------------------------------------------------------------- perfil no Wi-Fi (ADR-079)
+
+
+def _wifi_perfis(qtbot, monkeypatch):
+    from dataclasses import replace
+
+    from itc_bench.servicos.cadastros import Unidade
+    from itc_bench.servicos.perfis import Perfil
+
+    geral = replace(rede(1, "Geral-ABC"), projeto="ABC")
+    alunos = replace(rede(2, "Alunos-ABC"), projeto="ABC", perfis=("aluno",))
+    profs = replace(rede(3, "Profs-ABC"), projeto="ABC", perfis=("pedagogo",))
+    cad = Cadastros(
+        "v", datetime.now(UTC), "t", None, False, (), (), (geral, alunos, profs),
+        (Unidade(1, "ABC01", "Abc", "", "DF", "", "aluno", projeto="ABC"),),
+        perfis=(Perfil("aluno", "Aluno", "", ()), Perfil("pedagogo", "Pedagogo", "", ())),
+    )  # fmt: skip
+    p = painel(qtbot, monkeypatch, cad)
+    p.show()  # monta os perfis
+    linhas = tuple(wifi.Linha(r, "ausente") for r in (geral, alunos, profs))
+    p._recebeu(tela_wifi.Leitura(linhas, ()))
+    return p
+
+
+def _ssids(p):
+    return sorted(p.tabela.item(i, 0).text() for i in range(p.tabela.rowCount()))
+
+
+def test_wifi_abre_no_perfil_padrao_e_filtra(qtbot, monkeypatch):
+    p = _wifi_perfis(qtbot, monkeypatch)
+    assert p.perfil.currentText() == "Aluno"
+    assert _ssids(p) == ["Alunos-ABC", "Geral-ABC"]
+    assert "perfil Aluno" in p.estado.text()
+    para = {p.tabela.item(i, 0).text(): p.tabela.item(i, 1).text() for i in range(2)}
+    assert para["Alunos-ABC"] == "ABC · aluno" and para["Geral-ABC"] == "ABC"
+    p.perfil.setCurrentIndex(p.perfil.findData("pedagogo"))
+    assert _ssids(p) == ["Geral-ABC", "Profs-ABC"]
+    p.perfil.setCurrentIndex(0)
+    assert len(_ssids(p)) == 3
+
+
+def test_wifi_todas_ignora_o_perfil(qtbot, monkeypatch):
+    p = _wifi_perfis(qtbot, monkeypatch)
+    p.filtro.setCurrentIndex(1)
+    assert not p.perfil.isEnabled() and p.perfil_escolhido() == "" and len(_ssids(p)) == 3
+
+
+def test_wifi_modelo_escolhe_o_perfil(qtbot, monkeypatch):
+    p = _wifi_perfis(qtbot, monkeypatch)
+    p.aplicar_modelo(("3",), "pedagogo")
+    assert p.perfil.currentText() == "Pedagogo" and _ssids(p) == ["Geral-ABC", "Profs-ABC"]
+    marcadas = [p.tabela.item(i, 0).text() for i in range(p.tabela.rowCount())
+                if p.tabela.item(i, 0).checkState() == Qt.CheckState.Checked]  # fmt: skip
+    assert marcadas == ["Profs-ABC"]

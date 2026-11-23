@@ -108,6 +108,9 @@ def _telas13_sem_leitura_real(request, monkeypatch):
 
     monkeypatch.setattr(modelo, "da_pasta", lambda: None)  # nunca a pasta real (ADR-076)
     monkeypatch.setattr(modelo, "na_pasta", lambda: [])
+    from itc_bench.nucleo import sessoes
+
+    monkeypatch.setattr(sessoes, "usuario_da_sessao", lambda sessao=None: "")  # ADR-081
     monkeypatch.setattr(registro.PainelRegistro, "carregar", lambda self: None)
     monkeypatch.setattr(
         preparacao.PainelPreparacao, "_carregar_alunos", lambda self, marcar=None: None

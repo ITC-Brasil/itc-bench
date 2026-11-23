@@ -38,6 +38,35 @@ def sessao_atual() -> int:
     return int(sessao.value)
 
 
+WTS_USUARIO = 5  # WTSUserName
+
+
+def usuario_da_sessao(sessao: int | None = None) -> str:
+    """Conta do Windows logada na sessão (por padrão, a do Bench). Com o Bench elevado por outra
+    conta (UAC), é quem está na frente da tela, não quem roda o processo (ADR-081)."""
+    w = ctypes.WinDLL("wtsapi32", use_last_error=True)
+    w.WTSQuerySessionInformationW.restype = wintypes.BOOL
+    w.WTSQuerySessionInformationW.argtypes = (
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    w.WTSFreeMemory.restype = None
+    w.WTSFreeMemory.argtypes = (ctypes.c_void_p,)
+    numero = sessao_atual() if sessao is None else sessao
+    buf, tamanho = ctypes.c_void_p(), wintypes.DWORD()
+    if not w.WTSQuerySessionInformationW(
+        WTS_SERVIDOR_LOCAL, numero, WTS_USUARIO, ctypes.byref(buf), ctypes.byref(tamanho)
+    ):
+        raise OSError(ctypes.get_last_error(), "WTSQuerySessionInformationW")
+    try:
+        return ctypes.wstring_at(buf.value) if buf.value else ""
+    finally:
+        w.WTSFreeMemory(buf)
+
+
 def encerrar(sessao: int) -> int:
     """Encerra a sessão e espera o logoff terminar; devolve 0 ou o erro Win32."""
     if sessao <= 0 or sessao == sessao_atual():

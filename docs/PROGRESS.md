@@ -2,6 +2,16 @@
 
 ## ESTADO ATUAL
 
+- **23/11/2026: branch `fix/inicializacao-hive-repetido`, saindo da `develop`; entra na v0.22.0 refeita (rascunho e tag anteriores apagados, decisão do responsável).** No notebook
+  BSBIA04, o Desligar da Inicialização (0.22.0) desligava só um item por conta sem sessão a cada
+  clique (`conta_em_uso` no resto): o trecho carregava de novo o `NTUSER.DAT` que já tinha
+  carregado. Agora reaproveita o hive na mesma execução. Teste no PowerShell cobre o caso.
+  Na mesma branch: tela **Wi-Fi com seletor de Perfil** (ADR-079), coluna Para e perfil no
+  modelo; roteiro 10.33.
+  E a **etapa 5. Desligar inicialização de apps não necessários da Manutenção** (ADR-080): encerra as outras sessões e desliga
+  os sem função em todas as contas, respeitando os mantidos; roteiro 10.34.
+  Manutenção **só nas contas Suporte, Gestão e Administrador** (ADR-082) e **encerra as outras contas antes de tudo**
+  (ADR-081); conta logada pode ser marcada na limpeza; roteiro 10.35.
 - **23/11/2026: branch `feat/modelo-usar-sempre`, saindo da `develop` (`d249e98`).** Importar
   modelo com **Usar sempre nesta máquina** (ADR-078): copia para a pasta indicada e passa a
   carregar ao abrir; **Parar de usar** tira as cópias. A v0.22.0 ainda não
