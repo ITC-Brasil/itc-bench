@@ -52,6 +52,8 @@ class Contexto:
     diagnosticar: Callable[[threading.Event], Resultado] | None = None
     # Sem função que ficam ligados: os desmarcados na tela Inicialização ou no modelo (ADR-080).
     manter_inicializacao: frozenset[str] = frozenset()
+    # Manutenção, etapa 1 (ADR-083): organizar os ícones da Área de Trabalho das contas limpas.
+    organizar_icones: bool = False  # a tela da Manutenção liga pela caixa (vem marcada)
     _lista: contas.Lista | None = field(default=None, repr=False)
 
     def lista(self, nova: bool = False) -> contas.Lista:
@@ -773,10 +775,15 @@ class LimpezaUsuarios:
         )
         recusadas = [i for i in itens if i.codigo]
         em_uso = sum(i.em_uso for i in itens)
+        icones: dict[str, str] = {}
+        if self.ctx.organizar_icones:
+            icones = limpeza.organizar_icones([c.sid for c in self._alvos()])
         if recusadas:
             return Resultado("falha", "; ".join(i.motivo for i in recusadas[:3]), "parcial")
         if em_uso:
             return Resultado("falha", f"{em_uso} arquivo(s) em uso ficaram", "parcial")
+        if ruins := [m for m in icones.values() if m]:
+            return Resultado("falha", f"ícones não organizados: {ruins[0]}", "parcial")
         return Resultado("ok")
 
     def mudancas(self) -> str:
@@ -785,7 +792,10 @@ class LimpezaUsuarios:
         for i in self._previa:
             por_conta[i.sid] = por_conta.get(i.sid, 0) + i.bytes
         partes = [f"{nomes.get(s, '?')} {limpeza.tamanho(b)}" for s, b in por_conta.items() if b]
-        return "apagar para sempre (sem lixeira): " + (", ".join(partes) or "nada")
+        texto = "apagar para sempre (sem lixeira): " + (", ".join(partes) or "nada")
+        if self.ctx.organizar_icones:
+            texto += "; organizar os ícones da Área de Trabalho"
+        return texto
 
 
 CATEGORIAS_LIMPEZA = tuple(c for c, _ in limpeza.CATEGORIAS_MANUTENCAO)

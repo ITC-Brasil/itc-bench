@@ -2,6 +2,9 @@
 
 ## ESTADO ATUAL
 
+- **23/11/2026: branch `feat/organizar-icones`, saindo da `develop`; entra na v0.22.0 refeita.** Caixa **Organizar os
+  ícones da Área de Trabalho** (marcada) na Limpeza de contas e na Manutenção, etapa 1
+  (ADR-083): liga Organizar automaticamente e Alinhar à grade nas contas limpas. Roteiro 10.36.
 - **23/11/2026: branch `fix/inicializacao-hive-repetido`, saindo da `develop`; entra na v0.22.0 refeita (rascunho e tag anteriores apagados, decisão do responsável).** No notebook
   BSBIA04, o Desligar da Inicialização (0.22.0) desligava só um item por conta sem sessão a cada
   clique (`conta_em_uso` no resto): o trecho carregava de novo o `NTUSER.DAT` que já tinha
