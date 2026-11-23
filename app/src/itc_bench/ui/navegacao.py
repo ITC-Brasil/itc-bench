@@ -60,14 +60,16 @@ GRUPOS: list[tuple[str, list[Item]]] = [
             Item("diag", "Coleta e laudo", M05),
             Item("hist", "Histórico", M05),
             Item("limpeza", "Limpeza", M12),
+            Item("inicializacao", "Inicialização", M12),
         ],
     ),
     (
         "Sistema",
         [
-            Item("registro", "Registro", M12),
-            Item("ajuda", "Ajuda", M12),
             Item("config", "Configurações", M04),
+            Item("registro", "Registro", M12),
+            Item("modelo", "Importar configurações", M12),
+            Item("ajuda", "Ajuda", M12),
         ],
     ),
 ]

@@ -38,6 +38,7 @@ from itc_bench.servicos import (
     perfis,
     preferencias,
 )
+from itc_bench.servicos import modelo as modelo_svc
 from itc_bench.servicos import preparacao as prep
 from itc_bench.servicos.cadastros import Armazem, Cadastros, Sincronizacao
 from itc_bench.servicos.executor import Sensivel
@@ -64,9 +65,11 @@ from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO, PainelColeta
 from itc_bench.ui.entrar import Ocioso, TelaEntrar
 from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
 from itc_bench.ui.identificacao import PainelIdentificacao
+from itc_bench.ui.inicializacao import PainelInicializacao
 from itc_bench.ui.inicio import PainelInicio
 from itc_bench.ui.limpeza import PainelLimpeza
 from itc_bench.ui.log_qt import HandlerTela
+from itc_bench.ui.modelo import PainelModelo
 from itc_bench.ui.monitores import AJUDA_MONITORES, PainelMonitores
 from itc_bench.ui.navegacao import GRUPOS, Item
 from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
@@ -839,6 +842,8 @@ class Janela(QMainWindow):
         self.inicio.abrir.connect(self._abrir_do_inicio)
         self.inicio.criticos.connect(self._selo_alertas)
         self.limpeza = PainelLimpeza(self.admin, lambda: self.cadastros)
+        self.inicializacao = PainelInicializacao(self.admin)
+        self.modelo = PainelModelo(self._coletar_modelo, self._aplicar_modelo)
         self.ajuda_geral = PainelAjuda()
         self.ajuda_geral.abrir_tela.connect(self.abrir)
         for chave, painel in (
@@ -846,6 +851,8 @@ class Janela(QMainWindow):
             ("prep", self.preparacao),
             ("manut", self.manutencao),
             ("limpeza", self.limpeza),
+            ("inicializacao", self.inicializacao),
+            ("modelo", self.modelo),
             ("ajuda", self.ajuda_geral),
         ):
             self._trocar(chave, painel)
@@ -854,6 +861,50 @@ class Janela(QMainWindow):
         for chave, tela in self.telas.items():
             tela.ajuda.texto.setText(TEXTOS.get(chave, TEXTO_AJUDA))
             tela.ajuda.ver_tudo.clicked.connect(lambda _c=False, k=chave: self._ver_ajuda(k))
+
+        achado = modelo_svc.da_pasta()  # pasta indicada (ADR-076)
+        if achado is not None:
+            self.modelo.carregar(*achado)
+
+    def _coletar_modelo(self) -> modelo_svc.Modelo:
+        """Marcações atuais das telas (ADR-076); só o que vale em outra máquina."""
+        perfil, desmarcadas = self.preparacao.marcacoes()
+        turnos, sufixo, com_sufixo = self.identificacao.marcacoes()
+        unidade = self.codigo_unidade()
+        return modelo_svc.Modelo(
+            perfil=perfil,
+            etapas_desmarcadas=desmarcadas,
+            turnos=turnos,
+            sufixo=sufixo,
+            com_sufixo=com_sufixo,
+            redes=self.wifi.marcacoes(),
+            programas=self.programas.marcacoes(),
+            perfil_programas=self.programas.perfil_escolhido(),
+            remover=self.remover.marcacoes(),
+            politicas=self.politicas.marcacoes(),
+            manter_inicializacao=self.inicializacao.marcacoes(),
+            unidade="" if unidade == "—" else unidade,
+        )
+
+    def _aplicar_modelo(self, m: modelo_svc.Modelo) -> list[str]:
+        """Marca as telas como no modelo; devolve o que não deu para marcar."""
+        avisos = []
+        if m.perfil and not self.preparacao.aplicar_modelo(m.perfil, m.etapas_desmarcadas):
+            avisos.append(f"perfil {m.perfil} não está no cadastro desta unidade")
+        if "identificacao" in m.secoes:
+            self.identificacao.aplicar_modelo(m.turnos, m.sufixo, m.com_sufixo)
+        if "wifi" in m.secoes:
+            self.wifi.aplicar_modelo(m.redes)
+        if "programas" in m.secoes:
+            self.programas.aplicar_modelo(m.programas, m.perfil_programas)
+        if "remover" in m.secoes:
+            self.remover.aplicar_modelo(m.remover)
+        if "politicas" in m.secoes:
+            self.politicas.aplicar_modelo(m.politicas)
+        if "inicializacao" in m.secoes:
+            self.inicializacao.aplicar_modelo(m.manter_inicializacao)
+        log.info("Modelo: aplicado nas telas (%s aviso(s))", len(avisos))
+        return avisos
 
     def _ver_ajuda(self, chave: str) -> None:
         self.telas[chave].ajuda.hide()

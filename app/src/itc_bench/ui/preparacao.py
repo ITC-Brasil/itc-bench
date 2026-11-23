@@ -125,6 +125,9 @@ AJUDA = (
     "guardada.\n"
     "\n"
     "Sem administrador (modo de teste), só a leitura."
+    "\n\nModelo de configuração\n"
+    "Com um modelo importado (Sistema › Importar configurações), o perfil e as etapas "
+    "desmarcadas vêm do modelo; confira e clique em Rodar."
 )
 AJUDA_MANUTENCAO = (
     "Cuida de uma máquina que já está em uso. Não usa perfil: as etapas vêm marcadas e você "
@@ -347,6 +350,31 @@ class PainelPreparacao(QWidget):
         if escolhido is not None and (n := self.perfil.findData(escolhido)) >= 0:
             self.perfil.setCurrentIndex(n)
         self.perfil.blockSignals(False)
+        return True
+
+    def marcacoes(self) -> tuple[str, tuple[str, ...]]:
+        """Perfil e etapas desmarcadas pelo técnico, para o modelo (ADR-076)."""
+        if self.manutencao or not self.iniciado:
+            return "", ()
+        ocultas = self.ocultas()
+        fora = tuple(e for e in self.desmarcadas() if e not in ocultas)
+        return str(self.perfil.currentData() or ""), fora
+
+    def aplicar_modelo(self, perfil: str, desmarcadas: tuple[str, ...]) -> bool:
+        """Escolhe o perfil e desmarca as etapas do modelo. False se o perfil não está no
+        cadastro desta máquina (fica o da unidade)."""
+        if self.manutencao or self.ocupado:
+            return False
+        if not self.iniciado:
+            self._iniciar()
+        n = self.perfil.findData(perfil) if perfil else -1
+        if perfil and n < 0:
+            return False
+        if n >= 0:
+            self.perfil.blockSignals(True)
+            self.perfil.setCurrentIndex(n)
+            self.perfil.blockSignals(False)
+        self._montar_lista(desmarcadas)
         return True
 
     def perfil_atual(self) -> perfis.Perfil | None:
