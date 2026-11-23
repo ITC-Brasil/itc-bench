@@ -66,7 +66,11 @@ AJUDA = (
     "cópia renomeada abre. Programas e Recursos esconde só o painel antigo.\n\n"
     "Script do Configurador\n"
     "Se a tela mostrar o script de logon antigo do Configurador (itc_security_check), remova: o "
-    "Bench grava a política na conta certa e não precisa reaplicar no logon.\n\n" + _COMUM
+    "Bench grava a política na conta certa e não precisa reaplicar no logon.\n\n"
+    + _COMUM
+    + "\n\nModelo de configuração\n"
+    "Com um modelo importado (Sistema › Importar configurações), as políticas do modelo vêm"
+    " marcadas; as contas alvo não vêm, porque são de cada máquina."
 )
 
 AJUDA_USB = (
@@ -115,6 +119,7 @@ class PainelPoliticas(QWidget):
         self.todos: list[politicas.Alvo] = []
         self.itens: dict[str, QTreeWidgetItem] = {}
         self.ocupado = self.lido = False
+        self.modelo_politicas: frozenset[str] | None = None  # ADR-076
         self.cancelar_evento: threading.Event | None = None
         self.sinais = _Sinais()
         self.sinais.texto.connect(self._registrar)
@@ -253,8 +258,25 @@ class PainelPoliticas(QWidget):
             if p.id in self.itens and self.itens[p.id].checkState(0) == Qt.CheckState.Checked
         ]
 
+    def marcacoes(self) -> tuple[str, ...]:
+        """Ids das políticas marcadas, para o modelo (ADR-076)."""
+        if self.usb:
+            return ()
+        if not self.itens and self.modelo_politicas is not None:
+            return tuple(sorted(self.modelo_politicas))
+        return tuple(p.id for p in self._politicas_marcadas())
+
+    def aplicar_modelo(self, ids: tuple[str, ...]) -> None:
+        if self.usb:
+            return
+        self.modelo_politicas = frozenset(ids)
+        if self.lido and not self.ocupado:
+            self._mostrar()
+
     def _mostrar(self) -> None:
         marcadas = {p.id for p in self._politicas_marcadas()} if not self.usb else set()
+        if self.modelo_politicas is not None and not self.usb:
+            marcadas, self.modelo_politicas = set(self.modelo_politicas), None  # uma vez só
         self.arvore.blockSignals(True)
         try:
             self._montar_arvore(marcadas)

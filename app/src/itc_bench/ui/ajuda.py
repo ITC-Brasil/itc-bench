@@ -33,8 +33,10 @@ from itc_bench.ui.contas import AJUDA as AJUDA_CONTAS
 from itc_bench.ui.contas import _rotulo
 from itc_bench.ui.diagnostico import AJUDA_COLETA, AJUDA_HISTORICO
 from itc_bench.ui.identificacao import AJUDA as AJUDA_IDENTIFICACAO
+from itc_bench.ui.inicializacao import AJUDA as AJUDA_INICIALIZACAO
 from itc_bench.ui.inicio import AJUDA as AJUDA_INICIO
 from itc_bench.ui.limpeza import AJUDA as AJUDA_LIMPEZA
+from itc_bench.ui.modelo import AJUDA as AJUDA_MODELO
 from itc_bench.ui.monitores import AJUDA_MONITORES
 from itc_bench.ui.navegacao import GRUPOS
 from itc_bench.ui.politicas import AJUDA as AJUDA_POLITICAS
@@ -81,7 +83,9 @@ TEXTOS: dict[str, str] = {
     "diag": AJUDA_COLETA,
     "hist": AJUDA_HISTORICO,
     "limpeza": AJUDA_LIMPEZA,
+    "inicializacao": AJUDA_INICIALIZACAO,
     "registro": AJUDA_REGISTRO,
+    "modelo": AJUDA_MODELO,
     "ajuda": AJUDA,
     # A faixa de atualização não tem item no menu: a ajuda dela fica junto de Configurações.
     "config": AJUDA_CONFIGURACOES + "\n\n" + AJUDA_ATUALIZACAO,

@@ -2,6 +2,20 @@
 
 ## ESTADO ATUAL
 
+- **23/11/2026: branch `feat/inicializacao`, saindo da `develop` (`a32c904`), em PR para `develop`.**
+  Tela nova **Diagnóstico › Inicialização** (ADR-075): vê o que abre com o Windows em todas as
+  contas (Run, pasta Inicializar, apps da Loja, tarefas de logon), serviços de terceiros e o
+  tempo de boot; desliga os marcados do jeito do Gerenciador de Tarefas, com recomendados já
+  marcados e essenciais (acesso remoto, GLPI, antivírus, áudio, Bench) travados. Próximo passo:
+  conferir na tela, roteiro 10.30 como administrador, PR para `develop`.
+  Na mesma branch, **Sistema › Importar configurações** (ADR-076): salva as marcações das telas
+  (perfil e etapas, turnos, redes, programas para remover e já removidos, políticas,
+  inicialização) num `.itcbench` e carrega em outra máquina pelo arquivo ou pela pasta
+  `%ProgramData%\ITC\Bench\modelos`; só marca, não aplica. Roteiro 10.31.
+  Tela Programas com seletor de **Perfil** (ADR-077: no projeto da máquina, só os programas do
+  perfil, a mesma regra da etapa 6), e Programas também no modelo. Grupo Sistema na ordem
+  Configurações, Registro, Importar configurações, Ajuda. Desligar em contas sem sessão
+  corrigido (chaves fechadas antes do unload; sobras `ITCBench_*` descarregadas ao começar).
 - **19/11/2026 (noite): branch `chore/bump-0.21.0`, saindo da `develop` (`28155e5`).** Versão
   **0.21.0** no código e no README, para o release com a nova tela Início (#107) e os programas
   por projeto (#108); os instaladores de teste dos PRs saíram como 0.20.0, por isso número novo.

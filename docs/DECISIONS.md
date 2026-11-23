@@ -3744,3 +3744,105 @@ máquina; o responsável quer instalá-los também pelo projeto da unidade e pel
 - No NocoDB: criar a coluna `Perfis` (SingleLineText) em Instaladores; `Projeto` já existe.
 - O Bench 0.20.0 ignora `projeto` e `perfis` nos programas (mostra todos), até a versão nova.
 - Roteiro de máquina real 8.8f e 10.29.
+
+## ADR-075 — Tela Inicialização: ver e desligar o que abre com o Windows
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 — Configuração, Manutenção, Início e Limpeza
+
+**Context**
+Notebooks de aluno chegam com boot de mais de 2 minutos: OneDrive em cada conta, Copilot, Teams,
+Xbox, jogos (Riot Vanguard, Roblox) e apps da Loja em segundo plano. O técnico rodava um script
+avulso para ver e outro para desligar. O responsável pediu uma tela no Bench, no grupo
+Diagnóstico, que veja e desligue (sem religar pela tela).
+
+**Decision**
+1. Tela **Inicialização** no grupo Diagnóstico, depois de Limpeza, com três abas:
+   - **Programas**: Run e Run32 da máquina, Run de cada conta, pasta Inicializar (comum e de
+     cada conta), apps da Loja com tarefa de inicialização (`SystemAppData\…\State`) e tarefas
+     agendadas de logon ou boot fora de `\Microsoft\`. Contas sem sessão: `NTUSER.DAT` e
+     `UsrClass.dat` carregados em `HKU\ITCBench_<hex>` e descarregados no fim (a sobra cai na
+     limpeza do ADR-021).
+   - **Serviços**: automáticos fora de `System32`/`SysWOW64`, só leitura.
+   - **Tempo de inicialização**: eventos 100 (últimos 5 boots) e 101–110 (últimos 30 dias, os
+     15 maiores, ordenados pelo número).
+2. **Desligar** como o próprio Windows desliga, sem apagar nada: `StartupApproved` com o
+   primeiro byte 03 (o que o Gerenciador de Tarefas grava), `State=1` no app da Loja,
+   `Disable-ScheduledTask` na tarefa. Volta pelo Gerenciador de Tarefas ou pelo Agendador.
+3. **Essenciais nunca desligam** (conferido no Python e de novo no trecho): AnyDesk, RustDesk,
+   GLPI Agent, central de segurança e Defender, áudio Realtek e o ITC Bench.
+4. **A aba Programas mostra só os sem função e ligados** (lista em
+   `servicos/inicializacao.RECOMENDADO`): OneDrive, Teams, Copilot, Phone Link, Widgets, Bing,
+   Xbox, jogos (Riot, Steam, Epic, Roblox), Discord, Spotify, Tailscale, Edge em segundo plano, Enviar para o OneNote, Dispositivos móveis, Lenovo Now, McAfee e semelhantes.
+   Todos vêm marcados; o técnico desmarca o que a escola usa. Essenciais, neutros (drivers,
+   Office, atualizadores) e o que já está desligado não aparecem (pedido do responsável).
+5. O trecho recebe só `{tipo, sid, nome}` vindos da leitura, por `ITC_ITENS`, e confere de novo
+   que o item existe antes de mexer. O log leva só contagens e códigos, nunca o comando.
+
+**Alternatives considered**
+- Desligar tudo com um botão só (como o script avulso): sem escolha, e erra quem usa OneDrive.
+- Religar pela tela: o responsável escolheu não ter; o Gerenciador de Tarefas já faz.
+- Desligar serviços: risco alto de quebrar driver ou antivírus; fica só a leitura.
+
+**Consequences**
+- Menu com 22 telas. Roteiro de máquina real 10.30.
+- Políticas de máquina (apps em segundo plano, Widgets) não entram aqui: seguem em Políticas.
+
+## ADR-076 — Modelo de configuração: salvar as marcações e importar em outras máquinas
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 — Configuração, Manutenção, Início e Limpeza
+
+**Context**
+Na instalação em massa, o técnico refaz em cada notebook da mesma unidade ou projeto as mesmas
+marcações: perfil e etapas, turnos, redes, programas para remover, políticas. O responsável pediu
+um "save state" que vá de uma máquina para as outras, por arquivo escolhido ou por uma pasta
+indicada.
+
+**Decision**
+1. Tela **Sistema › Importar configurações** com Salvar modelo… e Importar modelo…. Arquivo
+   JSON `.itcbench` (`servicos/modelo.py`, formato `itc-bench-modelo`, versão 1).
+2. Conteúdo: Configuração (perfil e etapas desmarcadas), Identificação (turnos, sufixo e
+   "Criar também"), Wi-Fi (ids do cadastro das redes marcadas), Programas (ids do cadastro dos
+   marcados e dos instalados na sessão), Remover programas (nome e tipo
+   dos marcados **e dos já removidos na sessão**), Políticas (ids) e Inicialização (sem função
+   que o técnico desmarcou). **Nunca**: senha, nome do computador, SID, conta, unidade da
+   máquina (a unidade de origem vai só como informação).
+3. **Pasta indicada** `%ProgramData%\ITC\Bench\modelos` (criada ao abrir): o `.itcbench` mais
+   novo é carregado ao abrir o Bench; arquivo ruim é pulado e logado.
+4. **Importar só marca as telas**; nada é aplicado sozinho. O técnico confere e roda cada tela.
+   Perfil, rede, política ou programa que não existe na máquina é ignorado; o resumo avisa o
+   perfil fora do cadastro. Telas que ainda não leram guardam o modelo e marcam ao ler.
+5. Na leitura, tudo é conferido: formato e versão, tamanho (256 KB), até 500 itens, ids com
+   `[A-Za-z0-9_.:-]`, turno da lista fixa, sufixo pela regra da Identificação.
+
+**Alternatives considered**
+- Modelo na API, por unidade ou projeto: exige rota, tabela e deploy; pode vir depois sobre o
+  mesmo formato.
+- Aplicar tudo ao importar: rodaria remoção de programa e políticas sem conferência.
+
+**Consequences**
+- Menu com 23 telas. Roteiro de máquina real 10.31.
+- Grupo Sistema reordenado a pedido do responsável: Configurações, Registro, Importar
+  configurações e Ajuda por último (a ajuda geral segue a ordem do menu).
+
+## ADR-077 — Tela Programas filtra também pelo perfil
+
+**Status:** Accepted — 23/11/2026
+**Module:** 10 — Programas e Remover programas (revisa o item 4 do ADR-074)
+
+**Context**
+Pelo ADR-074, a tela Programas filtrava só pelo projeto; o perfil filtrava apenas a etapa 6 da
+Configuração. O responsável quer ver na tela só o que vai para aquele tipo de máquina (por
+exemplo, jogos só no aluno) e levar essa escolha no modelo de configuração (ADR-076).
+
+**Decision**
+1. Seletor **Perfil** ao lado do escopo: "Todos os perfis" e os perfis disponíveis para a
+   unidade (`perfis.disponiveis`). Abre no perfil padrão da unidade (`perfis.padrao`).
+2. Em "Projeto desta máquina", a lista é `instaladores_para(unidade, perfil)`, a mesma regra da
+   etapa 6. Em "Todos os projetos", o perfil fica desligado e não filtra.
+3. O modelo guarda o perfil escolhido (`perfil_programas`); ao importar, a tela troca para ele,
+   relê e marca os programas do modelo.
+
+**Consequences**
+- Quem quiser ver os programas de todos os perfis escolhe "Todos os perfis".
