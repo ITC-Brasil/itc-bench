@@ -3863,3 +3863,83 @@ copiar o arquivo à mão para `%ProgramData%\ITC\Bench\modelos`.
 2. Botão **Parar de usar nesta máquina**, com confirmação: tira os `.itcbench` da pasta (são
    cópias; o original não é mexido). A tela mostra qual modelo da pasta está em uso.
 3. Sem permissão para gravar na pasta, o modelo vale só até fechar e a tela diz isso.
+
+## ADR-079 — Tela Wi-Fi filtra também pelo perfil
+
+**Status:** Accepted — 23/11/2026
+**Module:** 08 — Identificação e Wi-Fi (como o ADR-077 fez em Programas)
+
+**Context**
+A etapa 3 da Configuração já instala só as redes do perfil (ADR-065), mas a tela Wi-Fi mostrava
+todas as do projeto. O responsável pediu o mesmo filtro de Programas.
+
+**Decision**
+1. Seletor **Perfil** ao lado do filtro: "Todos os perfis" e os perfis da unidade; abre no
+   perfil padrão da unidade e mantém a escolha ao voltar à tela.
+2. Em "Projeto desta máquina", a lista é `redes_para(unidade, perfil)`, a mesma regra da etapa
+   3; em "Todas" e "Instaladas no Windows" o perfil fica desligado. Em bancada, como antes.
+3. A coluna Projeto vira **Para** ("ABC · aluno"), como em Programas.
+4. O modelo de configuração guarda o perfil escolhido (`perfil_wifi`) e o reaplica.
+
+## ADR-080 — Manutenção, etapa 5: Inicialização
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 (complementa os ADR-064 e ADR-075)
+
+**Context**
+Na Manutenção, o técnico abria a tela Inicialização à parte e clicava várias vezes em Desligar
+marcados porque contas com sessão aberta prendiam o registro (log do BSBIA04, 23/11). O
+responsável pediu a Inicialização como etapa da Manutenção.
+
+**Decision**
+1. Etapa **5. Desligar inicialização de apps não necessários**, marcada por padrão, em **todas as contas**
+   (inclusive Suporte, Gestão e Administrador), como a tela.
+2. Roda em qualquer conta administradora. Ao aplicar, **encerra antes a sessão das outras
+   contas** abertas (`contas.encerrar_sessoes`, nunca a do Bench) e relê, para que o registro de
+   todas esteja livre; depois desliga pelo mesmo `inicializacao.desligar`.
+3. Fica ligado o que o técnico desmarcou na tela Inicialização ou veio desmarcado no modelo
+   (`Contexto.manter_inicializacao`, lido da tela na hora de rodar).
+4. A confirmação diz que as sessões serão encerradas e lista o que será desligado.
+
+**Consequences**
+- Números da Manutenção: 1 a 5. Roteiro de máquina real 10.34.
+- "Aplicar conta Gestão" na tela Contas já existia (ADR-069), igual ao "Aplicar conta Suporte".
+
+## ADR-081 — Manutenção só em conta de administrador e encerra as outras contas antes de tudo
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 (complementa os ADR-064 e ADR-080)
+
+**Context**
+As etapas da Manutenção falhavam ou ficavam pela metade com contas de aluno logadas (limpeza
+recusada por sessão, registro preso na inicialização). O responsável pediu que a Manutenção
+só funcione numa conta de administrador e que encerre todas as contas em uso antes de tudo.
+
+**Decision**
+1. Ao abrir a Manutenção, o Bench confere a conta **na frente da tela**
+   (`nucleo/sessoes.usuario_da_sessao`, `WTSQuerySessionInformationW`; com UAC, o processo pode
+   ser de outra conta). Se o Bench estiver sem administrador ou essa conta não for
+   administradora, a tela avisa "Por favor, entre com uma conta de administrador…" e desliga
+   Ler situação, Rodar e Encerrar sessões.
+2. Ao clicar em Rodar, **antes de qualquer etapa**, `contas.encerrar_outras_sessoes` encerra as
+   sessões abertas de todas as outras contas (nunca a da tela nem a do Bench). Se alguma não
+   fechar, nada roda. A confirmação avisa que o que estiver aberto fecha sem salvar.
+3. Na lista de contas da Manutenção, conta logada pode ser marcada (`logada_ok`), porque será
+   encerrada antes. A Configuração continua recusando conta logada.
+4. Etapa 5 renomeada para **Desligar inicialização de apps não necessários**.
+
+## ADR-082 — Manutenção só nas contas Suporte, Gestão e Administrador
+
+**Status:** Accepted — 23/11/2026
+**Module:** 13 (restringe o item 1 do ADR-081)
+
+**Context**
+O ADR-081 liberava a Manutenção para qualquer conta administradora. O responsável quer que só
+as contas técnicas façam alterações pela Manutenção.
+
+**Decision**
+- A conta na frente da tela tem de ser **Suporte** (nomes de `contas.protegidas`), **Gestão**
+  (`contas.RESTRITAS`) ou o **Administrador nativo** (RID 500): `contas.tecnica`. Qualquer outra,
+  mesmo administradora, ou conta que não é local, bloqueia Ler situação, Rodar e Encerrar
+  sessões, com o aviso para entrar numa delas.
+- Vale só na Manutenção; as outras telas seguem como antes.

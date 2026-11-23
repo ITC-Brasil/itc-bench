@@ -13,6 +13,7 @@ $PASTA_USUARIO = 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup'
 # Nunca desligados: acesso remoto, inventário, antivírus, áudio e o próprio Bench.
 $ESSENCIAL = '(?i)anydesk|rustdesk|glpi|securityhealth|windows ?defender|rtkaud|itc.?bench'
 $script:carregados = @()
+$script:mapa = @{}  # nome do hive -> HKU\ITCBench_<hex> já carregado nesta execução
 # Toda chave aberta fica aqui e é fechada antes do unload: chave aberta prende o hive.
 $script:abertas = New-Object System.Collections.ArrayList
 
@@ -55,11 +56,15 @@ function Abrir-Hive([string]$nome, [string]$arquivo) {
     # Hive já carregado (conta com sessão) ou carregado agora; $null se não deu.
     $ja = $HKU.OpenSubKey($nome)
     if ($ja) { $ja.Close(); return $nome }
+    # Já carregado por esta execução (outro item da mesma conta): reaproveita. Carregar de novo
+    # falharia, porque o próprio Bench está com o arquivo aberto.
+    if ($script:mapa.ContainsKey($nome)) { return $script:mapa[$nome] }
     if (-not (Test-Path -LiteralPath $arquivo -PathType Leaf -ErrorAction SilentlyContinue)) { return $null }
     try { ([IO.File]::Open($arquivo, 'Open', 'Read', 'None')).Close() } catch { return $null }
     $tmp = 'ITCBench_' + ('{0:x8}' -f (Get-Random -Minimum 0 -Maximum ([int]::MaxValue)))
     if (Reg-Exe @('load', ('HKU\' + $tmp), $arquivo)) { return $null }
     $script:carregados += $tmp
+    $script:mapa[$nome] = $tmp
     return $tmp
 }
 

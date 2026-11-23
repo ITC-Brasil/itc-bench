@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from itc_bench.nucleo import wlan
 from itc_bench.nucleo.log import log
-from itc_bench.servicos import executor, wifi
+from itc_bench.servicos import executor, perfis, wifi
 from itc_bench.servicos.cadastros import Cadastros, Rede
 from itc_bench.ui import tarefa
 from itc_bench.ui.contas import _rotulo, confirmar
@@ -38,7 +38,10 @@ AJUDA = (
     "1. A tela abre sempre em Projeto desta máquina: as redes do projeto da unidade escolhida "
     "em Configurações ou identificada pelo nome do computador (rede antiga, sem projeto, só "
     "na unidade dela). Para ver as outras, escolha Todas; Instaladas no Windows só consulta. "
-    "Em bancada (sem unidade), escolha a unidade ou use Todas.\n"
+    "Em bancada (sem unidade), escolha a unidade ou use Todas. Ao lado, o Perfil: em "
+    "Projeto desta máquina, mostra só as redes desse perfil (por exemplo, a rede dos alunos "
+    "só no Aluno), como a etapa 3 da Configuração; vem o perfil padrão da unidade e Todos os "
+    "perfis tira o filtro. A coluna Para mostra o projeto e os perfis de cada rede.\n"
     "2. Confira a situação: Não instalada, Senha ou segurança diferente (a senha da rede "
     "mudou no cadastro), Instalada (igual), Instalada (senha não conferida) ou Cadastro "
     "inválido (não pode ser marcada).\n"
@@ -107,6 +110,7 @@ class PainelWifi(QWidget):
         self.admin, self.obter_cadastros, self.obter_unidade = admin, obter_cadastros, obter_unidade
         self.leitura: Leitura | None = None
         self.modelo_redes: frozenset[str] | None = None  # ADR-076
+        self.modelo_perfil: str | None = None  # ADR-079
         self.ocupado = False
         self.cancelar_evento: threading.Event | None = None
         self.progresso = _Progresso()
@@ -117,11 +121,16 @@ class PainelWifi(QWidget):
         self.filtro = QComboBox()
         self.filtro.addItems(FILTROS)
         self.filtro.currentIndexChanged.connect(self._mostrar)
+        # Perfil (ADR-079): no projeto da máquina, só as redes desse perfil, como a etapa 3.
+        self.perfil = QComboBox()
+        self.perfil.setToolTip("Mostra só as redes deste perfil, como a etapa 3 da Configuração.")
+        self.perfil.currentIndexChanged.connect(self._mostrar)
         self.atualizar = QPushButton("Atualizar")
         self.atualizar.clicked.connect(self.carregar)
         self.b_windows = QPushButton("Abrir redes do Windows")
         self.b_windows.clicked.connect(abrir_redes_windows)
         topo.addWidget(self.filtro)
+        topo.addWidget(self.perfil)
         topo.addStretch()
         topo.addWidget(self.b_windows)
         topo.addWidget(self.atualizar)
@@ -132,7 +141,7 @@ class PainelWifi(QWidget):
             v.addWidget(_rotulo("Sem administrador: só leitura, sem conferir a senha."))
 
         self.tabela = QTableWidget(0, 4)
-        self.tabela.setHorizontalHeaderLabels(["Rede", "Projeto", "Categoria", "Situação"])
+        self.tabela.setHorizontalHeaderLabels(["Rede", "Para", "Categoria", "Situação"])
         self.tabela.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabela.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabela.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -159,6 +168,7 @@ class PainelWifi(QWidget):
         super().showEvent(evento)
         if not self.ocupado:
             self.filtro.setCurrentIndex(0)  # sempre volta para o projeto (ADR-065)
+            self._carregar_perfis()
         if self.leitura is None and not self.ocupado:
             self.carregar()
 
@@ -170,12 +180,37 @@ class PainelWifi(QWidget):
         u = cadastros.unidade_por_codigo(unidade) if cadastros is not None else None
         return (u.projeto if u is not None else "") or (unidade or "")
 
+    def _carregar_perfis(self) -> None:
+        """Todos os perfis e os da unidade; fica o escolhido, senão o do modelo ou o padrão."""
+        cad, unidade = self.obter_cadastros(), self.obter_unidade()
+        atual = self.perfil.currentData() if self.perfil.count() else None
+        self.perfil.blockSignals(True)
+        self.perfil.clear()
+        self.perfil.addItem("Todos os perfis", "")
+        for p in perfis.disponiveis(cad, unidade):
+            self.perfil.addItem(p.nome, p.id)
+        if atual is not None and self.perfil.findData(atual) >= 0:
+            escolha = atual
+        elif self.modelo_perfil is not None:
+            escolha = self.modelo_perfil
+        else:
+            padrao, _aviso = perfis.padrao(cad, unidade)
+            escolha = padrao.id if padrao is not None else ""
+        self.perfil.setCurrentIndex(max(self.perfil.findData(escolha), 0))
+        self.perfil.blockSignals(False)
+
+    def perfil_escolhido(self) -> str:
+        return str(self.perfil.currentData() or "") if self.filtro.currentIndex() == 0 else ""
+
     def _redes(self) -> tuple[Rede, ...]:
         cadastros = self.obter_cadastros()
         if cadastros is None:
             return ()
         if self.filtro.currentIndex() == 0:
-            return cadastros.redes_da_unidade(self.obter_unidade())
+            unidade = self.obter_unidade()
+            if unidade is None:
+                return cadastros.redes_da_unidade(None)
+            return cadastros.redes_para(unidade, self.perfil_escolhido() or None)
         return cadastros.redes
 
     def carregar(self) -> None:
@@ -191,9 +226,15 @@ class PainelWifi(QWidget):
             return tuple(sorted(self.modelo_redes or ()))
         return tuple(str(r.id) for r in self._marcadas())
 
-    def aplicar_modelo(self, redes: tuple[str, ...]) -> None:
+    def aplicar_modelo(self, redes: tuple[str, ...], perfil: str | None = None) -> None:
         """Daqui em diante, marca as redes do modelo no lugar das ausentes/diferentes."""
         self.modelo_redes = frozenset(redes)
+        if perfil is not None:
+            self.modelo_perfil = perfil
+            if self.perfil.count() and (n := self.perfil.findData(perfil)) >= 0:
+                self.perfil.blockSignals(True)
+                self.perfil.setCurrentIndex(n)
+                self.perfil.blockSignals(False)
         if self.leitura is not None and not self.ocupado:
             self._mostrar()
 
@@ -207,6 +248,7 @@ class PainelWifi(QWidget):
         self._ocupar(False)
 
     def _mostrar(self) -> None:
+        self.perfil.setEnabled(self.filtro.currentIndex() == 0)
         self.tabela.blockSignals(True)
         self.tabela.setRowCount(0)
         leitura = self.leitura
@@ -229,6 +271,8 @@ class PainelWifi(QWidget):
                     situacao += f": {linha.motivo}"
                 # rede antiga, sem projeto: mostra a unidade dela (ADR-065)
                 dono = linha.rede.projeto or linha.rede.unidade
+                if linha.rede.perfis:  # ADR-079: a quem vale, como a coluna Para de Programas
+                    dono = f"{dono} · {', '.join(linha.rede.perfis)}"
                 valores = (linha.rede.ssid, dono, linha.rede.categoria, situacao)
                 for j, valor in enumerate(valores):
                     item = QTableWidgetItem(valor)
@@ -262,7 +306,10 @@ class PainelWifi(QWidget):
                 "projeto, ou escolha Todas."
             )
         elif self.filtro.currentIndex() == 0:
-            self.estado.setText(f"{self.tabela.rowCount()} rede(s) do projeto {self._projeto()}.")
+            filtro = f", perfil {self.perfil.currentText()}" if self.perfil_escolhido() else ""
+            self.estado.setText(
+                f"{self.tabela.rowCount()} rede(s) do projeto {self._projeto()}{filtro}."
+            )
         else:
             self.estado.setText(f"{self.tabela.rowCount()} rede(s).")
 

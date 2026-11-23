@@ -15,6 +15,7 @@ from itc_bench.servicos import (
     energia,
     hive,
     identificacao,
+    inicializacao,
     instaladores,
     limpeza,
     mcafee,
@@ -49,6 +50,8 @@ class Contexto:
     perfil: str = ""  # código do perfil da Configuração (Wi-Fi por perfil, ADR-065)
     avisar: Callable[[str], None] = lambda _t: None
     diagnosticar: Callable[[threading.Event], Resultado] | None = None
+    # Sem função que ficam ligados: os desmarcados na tela Inicialização ou no modelo (ADR-080).
+    manter_inicializacao: frozenset[str] = frozenset()
     _lista: contas.Lista | None = field(default=None, repr=False)
 
     def lista(self, nova: bool = False) -> contas.Lista:
@@ -108,16 +111,20 @@ def escondida(c: contas.Conta, protegidas_: frozenset[str]) -> bool:
 
 
 def contas_locais(
-    lista: contas.Lista, protegidas_: frozenset[str], dono: str = ""
+    lista: contas.Lista, protegidas_: frozenset[str], dono: str = "", *, logada_ok: bool = False
 ) -> list[tuple[contas.Conta, str]]:
     """Contas locais, com o motivo (texto da tela) de não poderem ser alvo; "" = pode. Contas
     de domínio ou Microsoft ficam de fora (ADR-071); Suporte, Gestão e o Administrador nativo
-    também (ADR-072)."""
-    return [
-        (c, MOTIVO_CONTA[m] if (m := _motivo_conta(c, lista, protegidas_, dono)) else "")
-        for c in lista.contas
-        if c.local and not escondida(c, protegidas_)
-    ]
+    também (ADR-072). `logada_ok`: na Manutenção a sessão é encerrada antes (ADR-081)."""
+    saida = []
+    for c in lista.contas:
+        if not c.local or escondida(c, protegidas_):
+            continue
+        m = _motivo_conta(c, lista, protegidas_, dono)
+        if m == "logada" and logada_ok:
+            m = ""
+        saida.append((c, MOTIVO_CONTA[m] if m else ""))
+    return saida
 
 
 def contas_de_aluno(
@@ -806,6 +813,56 @@ class Steam:
         return "desinstalar a Steam, com todos os jogos e usuários dela"
 
 
+@dataclass
+class Inicializacao:
+    """Manutenção, etapa 5 (ADR-080): encerra as sessões das outras contas (o registro delas
+    precisa estar livre) e desliga, em todas as contas, o que abre com o Windows sem função
+    (ADR-075). Os desmarcados na tela Inicialização ou no modelo ficam ligados."""
+
+    ctx: Contexto
+    id: str = "inicializacao"
+    _alvo: list[inicializacao.Item] = field(default_factory=list, repr=False)
+
+    def _pendentes(self) -> list[inicializacao.Item]:
+        leitura = inicializacao.ler()
+        manter = self.ctx.manter_inicializacao
+        return [i for i in leitura.itens if i.ativo and i.recomendado and i.titulo not in manter]
+
+    def ler(self) -> Leitura:
+        if motivo := _sem(self.ctx):
+            return _bloq(motivo)
+        self._alvo = self._pendentes()
+        if not self._alvo:
+            return Leitura("feito")
+        contas_ = {i.onde for i in self._alvo}
+        return Leitura(
+            "pendente", f"{len(self._alvo)} item(ns) sem função em {len(contas_)} lugar(es)"
+        )
+
+    def aplicar(self, cancelar: threading.Event) -> Resultado:
+        try:  # a Manutenção já encerrou antes de tudo (ADR-081); aqui só o que abriu depois
+            contas.encerrar_outras_sessoes(self.ctx.avisar)
+        except RuntimeError as erro:
+            return Resultado("falha", str(erro), "sessao")
+        alvo = self._pendentes()  # relê: com as sessões fechadas, aparecem as contas todas
+        if not alvo:
+            return Resultado("ok")
+        resultados = inicializacao.desligar(alvo)
+        return _falhas(
+            resultados,
+            lambda r: r.ok,
+            lambda r: f"{r.item.titulo} ({r.item.onde}): {r.motivo}",
+        )
+
+    def mudancas(self) -> str:
+        nomes = sorted({i.titulo for i in self._alvo}, key=str.casefold)
+        texto = ", ".join(nomes[:8]) + (f" e mais {len(nomes) - 8}" if len(nomes) > 8 else "")
+        return (
+            "encerrar as sessões abertas das outras contas e desligar na inicialização de todas "
+            f"as contas: {texto or 'nada'}"
+        )
+
+
 def montar(ctx: Contexto) -> list[Etapa]:
     """Configuração (ADR-062): todas as etapas, na ordem de `perfis.CONFIGURACAO`; o andamento
     diz quais rodam. Identificação, Mouse e teclado e Limpeza ficam só nas telas delas."""
@@ -830,7 +887,13 @@ def montar(ctx: Contexto) -> list[Etapa]:
 
 def montar_manutencao(ctx: Contexto) -> list[Etapa]:
     """Manutenção (ADR-062, ADR-064), na ordem de `perfis.MANUTENCAO`; sem perfil."""
-    lista: list[Etapa] = [LimpezaUsuarios(ctx), WifiSenhas(ctx), Diagnostico(ctx), Steam(ctx)]
+    lista: list[Etapa] = [
+        LimpezaUsuarios(ctx),
+        WifiSenhas(ctx),
+        Diagnostico(ctx),
+        Steam(ctx),
+        Inicializacao(ctx),
+    ]
     if tuple(e.id for e in lista) != perfis.MANUTENCAO.ordem:
         raise RuntimeError("Etapas fora da ordem de perfis.MANUTENCAO.")
     return lista

@@ -344,7 +344,8 @@ def test_manutencao_tem_os_mesmos_botoes(qtbot, monkeypatch):
     for b in (p.b_etapas_todas, p.b_etapas_nenhuma, p.b_contas_todas, p.b_contas_nenhuma):
         assert b.isVisible() or not p.isVisible()
     assert p.b_atualizar.isEnabled() and p.b_encerrar.isEnabled()
-    assert p.alvos() == [f"{BASE}1002", f"{BASE}1007"]
+    # ADR-081: a conta logada (1003) entra na Manutenção, que encerra a sessão antes de tudo.
+    assert p.alvos() == [f"{BASE}1002", f"{BASE}1003", f"{BASE}1007"]
 
 
 # ---------------------------------------------------------------- leitura automática (ADR-073)

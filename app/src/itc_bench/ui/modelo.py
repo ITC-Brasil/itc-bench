@@ -23,7 +23,7 @@ AJUDA = (
     "O que vai no modelo\n"
     "• Configuração: o perfil e as etapas desmarcadas.\n"
     "• Identificação: os turnos marcados, o sufixo e Criar também o usuário do sufixo.\n"
-    "• Wi-Fi: as redes marcadas.\n"
+    "• Wi-Fi: o perfil escolhido e as redes marcadas.\n"
     "• Programas: o perfil escolhido, os marcados para instalar e os já instalados nesta "
     "sessão.\n"
     "• Remover programas: os marcados e os que já foram removidos nesta sessão.\n"
